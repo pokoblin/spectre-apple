@@ -21,8 +21,14 @@ struct ContentView: View {
 struct SessionView: View {
     let model: PlaybackModel
     @State private var diagnostics = DiagnosticsModel()
-    @State private var showStats = true
+    @State private var showStats: Bool
     @State private var confirmLogOut = false
+
+    init(model: PlaybackModel) {
+        self.model = model
+        // Over a real desktop the statistics would cover its top-left corner.
+        _showStats = State(initialValue: model.showsStatisticsByDefault)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {

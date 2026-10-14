@@ -141,6 +141,10 @@ final class PlaybackModel {
 
     var isRemoteSession: Bool { source == .remote }
 
+    /// Statistics start shown for the test sources and the demo, where they
+    /// are the point, and hidden over a real host's desktop.
+    var showsStatisticsByDefault: Bool { !isRemoteSession || testHost != nil }
+
     private func reportEnded(_ message: String) {
         guard let onEnded, !endReported else { return }
         endReported = true
