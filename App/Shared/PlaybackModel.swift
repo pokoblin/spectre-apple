@@ -52,6 +52,8 @@ final class PlaybackModel {
     }
 
     let presenter: VideoPresenter?
+    /// The session's input, while there is a session to send it to.
+    private(set) var input: SessionInput?
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
@@ -67,8 +69,11 @@ final class PlaybackModel {
     private var ticker: Task<Void, Never>?
     private let bench: BenchOptions?
     private var benchScreen: Int?
+    private var hostInputPrinted = 0
 
     init(arguments: [String] = CommandLine.arguments) {
+        // The per-second report reaches a log file (or a pipe) as it is printed.
+        setvbuf(stdout, nil, _IOLBF, 0)
         stats = PlaybackStats(mailbox: mailbox)
         var presenter: VideoPresenter?
         var failure: String?
@@ -124,11 +129,13 @@ final class PlaybackModel {
     /// Detach: the desktop session keeps running (gdp-spec.md §7.10).
     func disconnect() {
         guard let remote else { return reportEnded("Disconnected.") }
+        input?.end() // §8.2: release what is held before detaching
         remote.close()
     }
 
     /// End the desktop session itself; the host closes with SESSION_ENDED.
     func logOut() {
+        input?.end()
         remote?.session?.sendLogout()
     }
 
@@ -168,12 +175,15 @@ final class PlaybackModel {
     }
 
     private func stopAll() {
+        input?.end()
+        input = nil
         player?.stop()
         player = nil
         loopback?.stop()
         remote?.close()
         remote = nil
         loopback = nil
+        hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
         sessionText = ""
     }
 
@@ -258,6 +268,7 @@ final class PlaybackModel {
         self.remote = remote
         do {
             try remote.connect(config)
+            input = remote.session.map { SessionInput(sink: $0) }
         } catch {
             phase = .failed("connect: \(error)")
         }
@@ -277,6 +288,8 @@ final class PlaybackModel {
             startTicker()
         case let .ended(ending):
             print("session: ended: \(ending)")
+            input?.end()
+            input = nil
             if onEnded != nil {
                 reportEnded(Self.explain(ending))
             } else if !(phase == .idle) {
@@ -315,6 +328,7 @@ final class PlaybackModel {
                     summary.gpu.mean, summary.presentedFPS, summary.replacedFrames, summary.zeroCopyFrames,
                     summary.presentedFrames + summary.unpresentedFrames, summary.cpuPercent))
                 if !sessionText.isEmpty { print(sessionText.replacingOccurrences(of: "\n", with: " | ")) }
+                printHostInput()
             }
         }
     }
@@ -327,12 +341,46 @@ final class PlaybackModel {
                           link.recentLosses, link.windowSpan)
         text += String(format: "\nfirst-slice delay min %d / avg %d µs (offset unknown), %u reports sent",
                        link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
-        if let host = loopback?.host.observed {
+        if let host = testHost?.observed {
             text += String(format: "\nhost saw: %u reports, frame %u acked, decode %u µs, present %u µs, %u lost",
                            host.statsReports, host.lastHighestFrameID, host.lastDecodeMicroseconds,
-                           host.lastPresentMicroseconds, host.lostFrameIDs.count)
+                           host.lastPresentMicroseconds,
+                           host.lostFrameIDs.count)
+            text += "\n" + Self.inputOverlay(host)
         }
         return text
+    }
+
+    /// The in-process test host behind this session, if any (loopback or the demo).
+    private var testHost: GDPTestHost? {
+        loopback?.host ?? keepAlive.lazy.compactMap { ($0 as? DemoServer)?.host.host }.first
+    }
+
+    /// Prints each input event the in-process test host received since the last call.
+    private func printHostInput() {
+        guard let host = testHost else { return }
+        let events = host.inputEvents(from: hostInputPrinted)
+        hostInputPrinted += events.count
+        for e in events { print("host input: \(e)") }
+    }
+
+    /// What the test host received on the input stream (gdp-spec.md §8.2).
+    private static func inputOverlay(_ o: GDPTestHost.Observed) -> String {
+        func state(_ pressed: Bool) -> String { pressed ? "down" : "up" }
+        var parts = [String(format: "keys %u", o.keyEvents)]
+        if o.keyEvents > 0 { parts[0] += String(format: " (0x%02X %@)", o.lastKeyUsage, state(o.lastKeyPressed)) }
+        var motion = String(format: "motion %u", o.pointerMotions)
+        if o.pointerMotions > 0 {
+            motion += o.lastMotion.absolute
+                ? String(format: " (%.3f, %.3f)", o.lastMotion.x, o.lastMotion.y)
+                : String(format: " (%+.1f, %+.1f px)", o.lastMotion.x, o.lastMotion.y)
+        }
+        parts.append(motion)
+        var buttons = String(format: "buttons %u", o.buttonEvents)
+        if o.buttonEvents > 0 { buttons += String(format: " (0x%X %@)", o.lastButton, state(o.lastButtonPressed)) }
+        parts.append(buttons)
+        parts.append(String(format: "scroll %+.2f, %+.2f", o.axisHorizontalSum, o.axisVerticalSum))
+        return "host input: " + parts.joined(separator: ", ")
     }
 
     private func benchProgress(_ second: Int) {

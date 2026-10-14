@@ -28,7 +28,7 @@ struct SessionView: View {
         ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
             if let presenter = model.presenter {
-                VideoView(presenter: presenter)
+                VideoView(presenter: presenter, input: model.input)
                     .ignoresSafeArea()
             }
             VStack(alignment: .leading, spacing: 8) {

@@ -5,7 +5,7 @@
 - 协议层：上游的 C++ libgdp（ngtcp2 + OpenSSL + protobuf + zstd），编译成静态库打包为 xcframework，通过一层 C ABI 暴露给 Swift。
 - 平台层：Swift、SwiftUI、Metal、VideoToolbox。
 
-原型的验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)；会话层（SessionClient）见 [docs/session-client.md](docs/session-client.md)；登录见 [docs/login.md](docs/login.md)。
+原型的验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)；会话层（SessionClient）见 [docs/session-client.md](docs/session-client.md)；登录见 [docs/login.md](docs/login.md)；键盘、鼠标和触摸输入见 [docs/input.md](docs/input.md)。
 
 ## 目录
 
