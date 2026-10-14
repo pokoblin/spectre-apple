@@ -28,7 +28,13 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
             guard oldValue !== input else { return }
             oldValue?.focusLost()
             oldValue?.captureHandler = nil
+            oldValue?.onDisplayChange = nil
+            oldValue?.onTouchModeChange = nil
+            endTouches()
+            touchMapper = nil
             input?.captureHandler = { [weak self] on in self?.capture(on) ?? false }
+            input?.onDisplayChange = { [weak self] in self?.layoutChanged() }
+            input?.onTouchModeChange = { [weak self] in self?.touchModeChanged() }
             if input != nil, window != nil { becomeFirstResponder() }
         }
     }
@@ -38,6 +44,8 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
     private var lastScrollTranslation: CGPoint = .zero
     private var observers: [NSObjectProtocol] = []
     private var mouse: GCMouse?
+    private var touchMapper: TouchPointerMapper?
+    private var touchDeadline: DispatchWorkItem?
 
     public override init(frame: CGRect, device: (any MTLDevice)?) {
         super.init(frame: frame, device: device)
@@ -64,8 +72,14 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
     public override var canBecomeFirstResponder: Bool { input != nil }
 
     public override func resignFirstResponder() -> Bool {
+        endTouches()
         input?.focusLost()
         return super.resignFirstResponder()
+    }
+
+    public override func layoutSubviews() {
+        super.layoutSubviews()
+        layoutChanged()
     }
 
     public override func didMoveToWindow() {
@@ -77,7 +91,10 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
             return
         }
         let lost: @Sendable (Notification) -> Void = { [weak self] _ in
-            MainActor.assumeIsolated { self?.input?.focusLost() }
+            MainActor.assumeIsolated {
+                self?.endTouches()
+                self?.input?.focusLost()
+            }
         }
         let center = NotificationCenter.default
         observers = [
@@ -168,18 +185,22 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if input != nil, !isFirstResponder { becomeFirstResponder() }
         pointerTouches(touches, event: event, ending: false)
+        fingers(touches, event: event) { $0.began($1, at: $2) }
     }
 
     public override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         pointerTouches(touches, event: event, ending: false)
+        fingers(touches, event: event) { $0.moved($1, at: $2) }
     }
 
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         pointerTouches(touches, event: event, ending: true)
+        fingers(touches, event: event) { $0.ended($1, at: $2) }
     }
 
     public override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         pointerTouches(touches, event: event, ending: true)
+        fingers(touches, event: event) { $0.cancelled($1, at: $2) }
     }
 
     /// A trackpad or mouse click is one `.indirectPointer` touch whose
@@ -198,6 +219,76 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
         for code in heldPointerButtons.subtracting(buttons).sorted() { input.button(code, pressed: false) }
         for code in buttons.subtracting(heldPointerButtons).sorted() { input.button(code, pressed: true) }
         heldPointerButtons = buttons
+    }
+
+    // MARK: - Fingers
+
+    /// Fingers (and the Pencil) become pointer input through the gesture
+    /// mapper: the host ignores TouchEvent (gdp-spec.md §8.3).
+    private func fingers(_ touches: Set<UITouch>, event: UIEvent?,
+                         _ step: (inout TouchPointerMapper, [TouchPointerMapper.Touch], TimeInterval) -> [TouchPointerAction]) {
+        guard let input else { return }
+        let direct = touches.filter { $0.type == .direct || $0.type == .pencil }
+        guard !direct.isEmpty else { return }
+        var mapper = touchMapper ?? TouchPointerMapper(mode: input.touchMode, mapping: mapping)
+        let list = direct.map { TouchPointerMapper.Touch(id: ObjectIdentifier($0).hashValue, location: $0.location(in: self)) }
+        let actions = step(&mapper, list, event?.timestamp ?? ProcessInfo.processInfo.systemUptime)
+        touchMapper = mapper
+        perform(actions)
+        scheduleTouchDeadline()
+    }
+
+    private func perform(_ actions: [TouchPointerAction]) {
+        guard let input else { return }
+        for action in actions {
+            switch action {
+            case let .move(p): input.move(to: p)
+            case let .button(code, pressed): input.button(code, pressed: pressed)
+            case let .scroll(h, v): input.scroll(horizontal: h, vertical: v)
+            case .longPress: UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            }
+        }
+    }
+
+    /// The mapper's timers (a long press firing while the finger rests).
+    private func scheduleTouchDeadline() {
+        touchDeadline?.cancel()
+        touchDeadline = nil
+        guard let deadline = touchMapper?.nextDeadline else { return }
+        let item = DispatchWorkItem { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, var mapper = self.touchMapper else { return }
+                let actions = mapper.update(at: ProcessInfo.processInfo.systemUptime)
+                self.touchMapper = mapper
+                self.perform(actions)
+                self.scheduleTouchDeadline()
+            }
+        }
+        touchDeadline = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(deadline - ProcessInfo.processInfo.systemUptime, 0),
+                                      execute: item)
+    }
+
+    /// Lets go of whatever the fingers hold (focus lost, mode change).
+    private func endTouches() {
+        touchDeadline?.cancel()
+        touchDeadline = nil
+        guard var mapper = touchMapper else { return }
+        let actions = mapper.reset()
+        touchMapper = mapper
+        perform(actions)
+    }
+
+    private func touchModeChanged() {
+        endTouches()
+        guard let input else { return }
+        touchMapper?.mode = input.touchMode
+        // The trackpad's cursor is the client's to show: put it where the pointer is.
+        if input.touchMode == .trackpad, let mapper = touchMapper { input.move(to: mapper.cursor) }
+    }
+
+    private func layoutChanged() {
+        touchMapper?.mapping = mapping
     }
 
     // MARK: - Capture

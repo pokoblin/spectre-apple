@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import GDPKit
 import Observation
 
@@ -22,6 +23,19 @@ public final class SessionInput {
     /// Whether the mouse is captured: the local pointer locked and hidden,
     /// relative motion sent, the host's cursor drawn where it reports it.
     public private(set) var isCaptured = false
+
+    /// How fingers drive the pointer on a touch screen (``TouchPointerMapper``);
+    /// remembered across sessions.
+    public var touchMode: TouchPointerMapper.Mode = SessionInput.savedTouchMode {
+        didSet {
+            UserDefaults.standard.set(touchMode.rawValue, forKey: "touchMode")
+            if touchMode != oldValue { onTouchModeChange?() }
+        }
+    }
+    @ObservationIgnored public var onTouchModeChange: (() -> Void)?
+    private static var savedTouchMode: TouchPointerMapper.Mode {
+        UserDefaults.standard.string(forKey: "touchMode").flatMap(TouchPointerMapper.Mode.init) ?? .direct
+    }
 
     /// Scroll units (gdp-spec.md §8.2).
     @ObservationIgnored public var scrollConverter = ScrollConverter()
@@ -105,6 +119,11 @@ public final class SessionInput {
     public func scroll(deltaX: Double, deltaY: Double, precise: Bool) {
         let n = scrollConverter.notches(deltaX: deltaX, deltaY: deltaY, precise: precise)
         sender.scroll(horizontal: n.horizontal, vertical: n.vertical)
+    }
+
+    /// Scrolls by notches, positive right and down (§8.2).
+    public func scroll(horizontal: Double, vertical: Double) {
+        sender.scroll(horizontal: horizontal, vertical: vertical)
     }
 
     /// Captures or releases the mouse (gdp-spec.md §8.2: relative motion

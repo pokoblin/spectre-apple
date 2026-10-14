@@ -80,6 +80,20 @@ struct SessionView: View {
             .toggleStyle(.button)
             #endif
         }
+        #if os(iOS)
+        if let input = model.input {
+            Button {
+                input.touchMode = input.touchMode == .direct ? .trackpad : .direct
+            } label: {
+                if input.touchMode == .direct {
+                    Label("Touch", systemImage: "hand.point.up.left")
+                } else {
+                    Label("Trackpad", systemImage: "rectangle.and.hand.point.up.left")
+                }
+            }
+            .help("Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad.")
+        }
+        #endif
         Toggle(isOn: $showStats) {
             Label("Statistics", systemImage: "chart.bar.xaxis")
         }
