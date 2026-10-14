@@ -22,12 +22,6 @@ final class PlaybackModel {
         var id: String { rawValue }
     }
 
-    struct RemoteTarget {
-        var host: String
-        var port: UInt16
-        var token: String
-        var fingerprint: CertificateFingerprint
-    }
 
     enum Phase: Equatable {
         case idle
@@ -63,7 +57,12 @@ final class PlaybackModel {
     private var player: StreamPlayer?
     private var loopback: LoopbackHost?
     private var remote: RemoteSession?
-    private var remoteTarget: RemoteTarget?
+    private var remoteConfig: GDPSession.Configuration?
+    /// Objects the session depends on (the demo's in-process servers).
+    private var keepAlive: [AnyObject] = []
+    /// Set for a session opened from the login screen: called once when it ends.
+    private var onEnded: ((String) -> Void)?
+    private var endReported = false
     private var streams: [VideoCodec: TestStream] = [:]
     private var ticker: Task<Void, Never>?
     private let bench: BenchOptions?
@@ -98,13 +97,49 @@ final class PlaybackModel {
             let parts = target.split(separator: ":")
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
                let fp = value("--fingerprint").flatMap({ CertificateFingerprint(hex: $0.lowercased()) }) {
-                remoteTarget = RemoteTarget(host: String(parts[0]), port: port, token: token, fingerprint: fp)
+                var config = GDPSession.Configuration(host: String(parts[0]), port: port, token: token, certificate: fp,
+                                                      codecs: ["h265", "h264"])
+                config.decoders = ["videotoolbox"]
+                remoteConfig = config
+                streamInfo = target
                 source = .remote
             } else {
                 failure = "--connect HOST:PORT needs --token and --fingerprint (64 hex digits)"
             }
         }
         if let failure { phase = .failed(failure) }
+    }
+
+    /// A session opened from the login screen.
+    convenience init(session config: GDPSession.Configuration, title: String, keepAlive: [AnyObject] = [],
+         onEnded: @escaping (String) -> Void) {
+        self.init(arguments: [])
+        remoteConfig = config
+        source = .remote
+        streamInfo = title
+        self.keepAlive = keepAlive
+        self.onEnded = onEnded
+    }
+
+    /// Detach: the desktop session keeps running (gdp-spec.md §7.10).
+    func disconnect() {
+        guard let remote else { return reportEnded("Disconnected.") }
+        remote.close()
+    }
+
+    /// End the desktop session itself; the host closes with SESSION_ENDED.
+    func logOut() {
+        remote?.session?.sendLogout()
+    }
+
+    var isRemoteSession: Bool { source == .remote }
+
+    private func reportEnded(_ message: String) {
+        guard let onEnded, !endReported else { return }
+        endReported = true
+        ticker?.cancel()
+        stopAll()
+        onEnded(message)
     }
 
     func start() async {
@@ -147,14 +182,10 @@ final class PlaybackModel {
         guard presenter != nil else { return }
         switch source {
         case .remote:
-            guard let target = remoteTarget else {
-                phase = .failed("no remote host: start with --connect HOST:PORT --token TOKEN --fingerprint SHA256")
+            guard let config = remoteConfig else {
+                phase = .failed("no remote host: sign in, or start with --connect HOST:PORT --token TOKEN --fingerprint SHA256")
                 return
             }
-            var config = GDPSession.Configuration(host: target.host, port: target.port, token: target.token,
-                                                  certificate: target.fingerprint, codecs: ["h265", "h264"])
-            config.decoders = ["videotoolbox"]
-            streamInfo = "\(target.host):\(target.port)"
             connect(config)
         case .loopback, .direct:
             guard let stream = await testStream(codec) else { return }
@@ -246,7 +277,11 @@ final class PlaybackModel {
             startTicker()
         case let .ended(ending):
             print("session: ended: \(ending)")
-            if !(phase == .idle) { phase = .failed("session ended: \(ending)") }
+            if onEnded != nil {
+                reportEnded(Self.explain(ending))
+            } else if !(phase == .idle) {
+                phase = .failed("session ended: \(ending)")
+            }
         }
     }
 
@@ -323,6 +358,21 @@ final class PlaybackModel {
         if !session.isEmpty { print("  " + session.replacingOccurrences(of: "\n", with: "\n  ")) }
         fflush(stdout)
         exit(0)
+    }
+
+    /// Words for how a session ended (gdp-spec.md §12).
+    static func explain(_ e: GDPSession.Ending) -> String {
+        if e.certificateRejected { return "The session host presented a different certificate than the login promised." }
+        switch e.code {
+        case 0: return e.reason == "closed" || e.reason.isEmpty ? "Disconnected." : "Disconnected: \(e.reason)."
+        case 13: return "The host can't send any video format this device decodes."
+        case 20: return "The session refused the login token. Sign in again."
+        case 24: return "Someone else is viewing this session. Sign in again and choose to take it over."
+        case 40: return "The session ended."
+        case 41: return "You logged in at the host itself, which ended this session."
+        case 42: return "Another client took this session over."
+        default: return "The session ended: \(e.reason) (code \(e.code))."
+        }
     }
 
     private static func overlay(_ s: PlaybackStats.Summary, mode: VideoPresenter.Mode) -> String {

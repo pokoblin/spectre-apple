@@ -7,7 +7,7 @@ struct SpectreApp: App {
             ContentView()
         }
         #if os(macOS)
-        .defaultSize(width: 1280, height: 760)
+        .defaultSize(width: 1280, height: 800)
         #endif
     }
 }

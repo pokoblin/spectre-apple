@@ -1,9 +1,28 @@
 import SpectreKit
 import SwiftUI
 
+/// The login screen or a session.
 struct ContentView: View {
-    @State private var model = PlaybackModel()
+    @State private var app = AppModel()
+
+    var body: some View {
+        switch app.screen {
+        case .login:
+            LoginView(app: app)
+        case let .session(model):
+            SessionView(model: model)
+                .id(ObjectIdentifier(model))
+        }
+    }
+}
+
+/// A session (or, from the command line, the prototype's test sources): the
+/// video, its statistics, and the session controls.
+struct SessionView: View {
+    let model: PlaybackModel
     @State private var diagnostics = DiagnosticsModel()
+    @State private var showStats = true
+    @State private var confirmLogOut = false
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -12,19 +31,54 @@ struct ContentView: View {
                 VideoView(presenter: presenter)
                     .ignoresSafeArea()
             }
-            overlay
-                .padding(10)
+            VStack(alignment: .leading, spacing: 8) {
+                #if os(iOS)
+                HStack { sessionButtons }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                #endif
+                if showStats { overlay }
+            }
+            .padding(10)
         }
         #if os(macOS)
         .toolbar {
-            ToolbarItemGroup { controls }
+            ToolbarItemGroup { sessionButtons }
+            if !model.isRemoteSession {
+                ToolbarItemGroup { sourceControls }
+            }
         }
         #endif
+        .confirmationDialog("Log out of the remote desktop?", isPresented: $confirmLogOut, titleVisibility: .visible) {
+            Button("Log Out", role: .destructive) { model.logOut() }
+        } message: {
+            Text("This ends the desktop session itself, not just this connection.")
+        }
         .task { await model.start() }
-        .task { await diagnostics.run() }
+        .task { if !model.isRemoteSession { await diagnostics.run() } }
     }
 
-    @ViewBuilder private var controls: some View {
+    @ViewBuilder private var sessionButtons: some View {
+        if model.isRemoteSession {
+            Button { model.disconnect() } label: {
+                Label("Disconnect", systemImage: "xmark.circle")
+            }
+            .help("Leave the session running and disconnect")
+            Button { confirmLogOut = true } label: {
+                Label("Log Out", systemImage: "power")
+            }
+            .help("End the desktop session")
+        }
+        Toggle(isOn: $showStats) {
+            Label("Statistics", systemImage: "chart.bar.xaxis")
+        }
+        #if os(iOS)
+        .toggleStyle(.button)
+        #endif
+    }
+
+    @ViewBuilder private var sourceControls: some View {
+        @Bindable var model = model
         Picker("Source", selection: $model.source) {
             Text("Loopback").tag(PlaybackModel.Source.loopback)
             Text("Direct").tag(PlaybackModel.Source.direct)
@@ -41,11 +95,6 @@ struct ContentView: View {
 
     @ViewBuilder private var overlay: some View {
         VStack(alignment: .leading, spacing: 4) {
-            #if os(iOS)
-            HStack { controls }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 640)
-            #endif
             switch model.phase {
             case .idle:
                 EmptyView()

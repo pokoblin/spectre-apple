@@ -5,7 +5,7 @@
 - 协议层：上游的 C++ libgdp（ngtcp2 + OpenSSL + protobuf + zstd），编译成静态库打包为 xcframework，通过一层 C ABI 暴露给 Swift。
 - 平台层：Swift、SwiftUI、Metal、VideoToolbox。
 
-原型的验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)；会话层（SessionClient）见 [docs/session-client.md](docs/session-client.md)。
+原型的验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)；会话层（SessionClient）见 [docs/session-client.md](docs/session-client.md)；登录见 [docs/login.md](docs/login.md)。
 
 ## 目录
 
@@ -90,7 +90,9 @@ xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=mac
 
 ### 5. 运行
 
-App 启动后先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放，左上角每秒更新一次解码、显示和会话的统计。工具栏可以切换来源、H.264/HEVC 和呈现节奏。来源有三种：
+App 启动后是登录页：输入服务器（`host[:port]`，默认端口 4442）和用户名，按服务器的提示登录，选择桌面后进入会话。首次连接会先让你确认服务器的证书指纹。没有服务器时点 **Try the demo host**（用户 demo，密码 demo），App 内会起一个测试 lobby 和测试 host。见 [docs/login.md](docs/login.md)。
+
+带下面任意命令行参数启动时，会跳过登录、直接播放（开发和测量用）。App 先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放，左上角每秒更新一次解码、显示和会话的统计。工具栏可以切换来源、H.264/HEVC 和呈现节奏。来源有三种：
 
 - **Loopback**（默认）：App 内的测试 host 通过真实的 GDP 会话（QUIC，127.0.0.1）发送测试码流，经 SessionClient 收下后解码显示，StatsReport 再回到 host。见 [docs/session-client.md](docs/session-client.md)。
 - **Direct**：测试码流直接交给解码器，不经过网络。

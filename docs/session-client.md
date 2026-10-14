@@ -71,7 +71,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 - capability：`clipboard`、`refine`、`gamepad`、`hid`、`microphone`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。
 - 额外的流（§2.2 的 `StreamOpen`）：客户端不授予额外流的额度，收到也不会处理。
 - AV1、PyroWave（VideoToolbox 解不了 PyroWave；AV1 要看硬件，以后再评估）。
-- lobby 阶段（`LobbyClient`、§4）和由此拿到的 Redirect。现在只能用静态 token 直连（§6.11）。
+- ~~lobby 阶段（`LobbyClient`、§4）~~：已完成，见 [login.md](login.md)。
 
 ## 测试 host
 
