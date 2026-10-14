@@ -104,6 +104,10 @@ Core Audio 实时线程：AVAudioSourceNode 只做拷贝，不够的部分填静
 - **模拟器**：缓冲更深，是因为模拟器的渲染请求更大（预读量至少是最大一次渲染请求加一包）。模拟器的数字不能和真机比较。
 - 这一轮验证时窗口大多被其它窗口挡住，视频帧没有上屏，所以 macOS 的音画偏差只在窗口露出来的那段时间里有数。
 
+## 真实 host 实测（ghost，GNOME，内网）
+
+2026-10-15 在内网的真实 ghost host（ghostd + wraith，Ubuntu 26.04，GNOME）上验证：用 macOS 的 Release 版登录，远端桌面的声音能正常播放。这一次没有记录统计浮层的数字（缓冲、补偿、欠载、音画偏差），长时间连续播放时的时钟漂移也还没有测。
+
 ## 测试
 
 `swift test --package-path Packages/SpectreKit --filter 'Audio|Opus'`，33 个（参数化的测试按一个算）：
