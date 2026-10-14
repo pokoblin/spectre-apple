@@ -54,6 +54,24 @@ public final class AudioRing: @unchecked Sendable {
         return frames
     }
 
+    /// Producer: append `frames` frames from non-interleaved buffers (one
+    /// per channel; missing ones read as silence); returns frames taken.
+    /// No allocation: fit for the real-time thread.
+    @discardableResult
+    public func write(from buffers: UnsafeMutableAudioBufferListPointer, frames: Int) -> Int {
+        let w = written.load(ordering: .relaxed)
+        let free = capacity - (w - read.load(ordering: .acquiring))
+        let n = min(frames, free)
+        for c in 0..<channels {
+            let source = c < buffers.count ? buffers[c].mData?.assumingMemoryBound(to: Float.self) : nil
+            for i in 0..<n {
+                samples[((w + i) & (capacity - 1)) * channels + c] = source?[i] ?? 0
+            }
+        }
+        written.store(w + n, ordering: .releasing)
+        return n
+    }
+
     /// Consumer: up to `frames` frames, de-interleaved into `channels`
     /// buffers starting at `offset`. Returns frames read.
     public func read(into buffers: UnsafeMutableAudioBufferListPointer, frames: Int, offset: Int = 0) -> Int {

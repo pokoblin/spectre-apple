@@ -7,6 +7,9 @@
 	<!-- QUIC to the lobby and session hosts. -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- The microphone, sent to the host while the user has it on (sandbox and hardened runtime). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
 	<!-- The prototype's loopback QUIC self-test listens on 127.0.0.1. -->
 	<key>com.apple.security.network.server</key>
 	<true/>

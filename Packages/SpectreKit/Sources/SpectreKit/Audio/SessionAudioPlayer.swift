@@ -18,9 +18,10 @@ import UIKit
 /// `AVAudioEngineConfigurationChange`) or on an interruption (iOS: a call);
 /// the player restarts it and re-buffers. On iOS it also stops in the
 /// background (the app is suspended there; there is no background audio
-/// mode) and restarts in the foreground. iOS's audio session is
-/// `.playback` with `.mixWithOthers`: heard with the ring/silent switch on,
-/// and other apps' audio keeps playing.
+/// mode) and restarts in the foreground. iOS's audio session is set by
+/// ``AudioSessionCoordinator``: `.playback` with `.mixWithOthers` (heard with
+/// the ring/silent switch on, other apps' audio keeps playing), or
+/// `.playAndRecord` while the microphone is on.
 public final class SessionAudioPlayer: @unchecked Sendable {
     public enum Output: Sendable {
         /// The system's default output device.
@@ -37,6 +38,7 @@ public final class SessionAudioPlayer: @unchecked Sendable {
     private let control = DispatchQueue(label: "spectre.audio.control", qos: .userInitiated)
     private var engine: AVAudioEngine?
     private var observers: [NSObjectProtocol] = []
+    private var claimedAudioSession = false
     private var pumpStop: StopFlag?
     private let wake = DispatchSemaphore(value: 0)
     private let muted = Atomic<Bool>(false)
@@ -92,9 +94,10 @@ public final class SessionAudioPlayer: @unchecked Sendable {
             observers.removeAll()
             engine?.stop()
             engine = nil
-            #if os(iOS)
-            if output == .device { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
-            #endif
+            if claimedAudioSession {
+                try? AudioSessionCoordinator.shared.playback(false)
+                claimedAudioSession = false
+            }
         }
     }
 
@@ -154,13 +157,10 @@ public final class SessionAudioPlayer: @unchecked Sendable {
             case .manual:
                 try engine.enableManualRenderingMode(.offline, format: renderFormat, maximumFrameCount: 1024)
             case .device:
-                #if os(iOS)
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
-                try? session.setPreferredSampleRate(Double(format.sampleRate))
-                try? session.setPreferredIOBufferDuration(0.005)
-                try session.setActive(true)
-                #endif
+                if !claimedAudioSession {
+                    try AudioSessionCoordinator.shared.playback(true)
+                    claimedAudioSession = true
+                }
             }
             engine.prepare()
             try engine.start()
@@ -217,7 +217,7 @@ public final class SessionAudioPlayer: @unchecked Sendable {
             guard let self, let raw = n.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
                   AVAudioSession.InterruptionType(rawValue: raw) == .ended else { return }
             control.async {
-                try? AVAudioSession.sharedInstance().setActive(true)
+                try? AudioSessionCoordinator.shared.reactivate()
                 self.restart("interruption")
             }
         }
@@ -239,7 +239,7 @@ public final class SessionAudioPlayer: @unchecked Sendable {
         on(UIApplication.willEnterForegroundNotification) { [weak self] _ in
             guard let self else { return }
             control.async {
-                try? AVAudioSession.sharedInstance().setActive(true)
+                try? AudioSessionCoordinator.shared.reactivate()
                 self.restart("foreground")
             }
         }

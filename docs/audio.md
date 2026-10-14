@@ -149,3 +149,20 @@ Core Audio 实时线程：AVAudioSourceNode 只做拷贝，不够的部分填静
 - **测试 host**：把 `microphone` 放进它支持的 capability 就会启用；协商成功后在 Accept 里带上 `microphoneFormat`（默认 `{48000, 1, 10, "opus"}`，可以改成别的格式来测试）。它接收通道 0x03 的包，只收已认证的当前 viewer、而且协商了这个 capability 的，其余的计入 `microphoneDropped`（§3.2）。收到的包记下前一分钟（6000 包）的 `seq`、`pts` 和内容，通过 `microphonePackets(from:)` 读取。
 - 测试（GDPKit）：`seq` 是 0、1、2，`pts` 从 Accept 开始计时并递增，内容一致，Accept 里的格式正确；客户端没提供或者 host 不支持这个 capability 时，Accept 里没有格式，发出的包在客户端就被丢弃，host 什么也收不到。
 
+## 采集和编码（SpectreKit）
+
+```
+AVAudioEngine.inputNode（设备格式）→ AVAudioSinkNode（实时线程，只拷进 AudioRing）
+  → 编码线程（信号量唤醒）→ MicrophoneEncoder：AVAudioConverter（重采样、混成单声道）→ 每 480 帧一包 → OpusEncoder（32 kb/s）
+  → onPacket
+```
+
+- **不用 input tap**：`installTap` 的 `bufferSize` 只是建议值，实际一次交出约 100 ms 的音频，这些全是额外的延迟。`AVAudioSinkNode` 在每个 IO 周期（几毫秒）都会被调用。它运行在实时线程上，所以只做拷贝：`AudioRing.write(from:frames:)` 把非交错的各声道写成交错的帧，不分配内存、不加锁。容量是一秒的设备音频。
+- **编码线程**：每次实时回调后被唤醒一次（最多等 20 ms），把环形缓冲区里的音频取出来交给 `MicrophoneEncoder`。转换器按设备格式建立，格式变了就重建；每凑满 480 帧（10 ms）编一包。顺带算出这一包的 RMS 电平（dBFS），给界面上的电平显示用。
+- **打开和关闭**：`MicrophoneCapture.start()` 才建引擎、打开设备；`stop()` 停掉引擎、释放设备，系统的麦克风指示灯跟着熄灭。每次打开都是新的引擎，所以换了设备也没关系。macOS 上换了输入设备（`AVAudioEngineConfigurationChange`）就按新设备的格式重开；iOS 上中断结束后、回到前台时也重开。
+- **权限**：`AVAudioApplication.requestRecordPermission()`，第一次打开时由系统弹窗询问。Info.plist 里有 `NSMicrophoneUsageDescription`。macOS 开了沙盒和 hardened runtime，所以要加 `com.apple.security.device.audio-input` entitlement。
+- **iOS 的音频会话**（`AudioSessionCoordinator`）：播放器和麦克风各自登记自己在用，由协调器决定类别：只有播放时是 `.playback`；麦克风开着时是 `.playAndRecord`，选项是 `.mixWithOthers`、`.defaultToSpeaker`（从扬声器而不是听筒出声）、`.allowBluetoothA2DP`（蓝牙耳机只用来听，录音用设备自己的麦克风；用 HFP 的话可以用耳机上的麦克风，但播放会降到通话音质）。两边都不用时停用音频会话。切换类别会让播放引擎收到配置变更，播放器会重启引擎、重新缓冲。
+- **没有做回声消除**：用扬声器播放远端声音时，麦克风会把它录回去，远端的程序会听到自己的声音，所以建议戴耳机。系统的 voice processing 能消除回声，但它要参考同一个引擎的输出，播放也得搬到这个引擎上，播放就会变成偏语音的音质，还会压低其它 App 的声音。以后需要再单独做。
+
+测试（`MicrophoneTests`）：48 kHz 单声道的设备音频按 512、333、1024、97、480 帧这样不均匀地分块送进去，一秒正好得到 100 包，约 32 kb/s，用 `OpusDecoder` 解回来是 440 Hz，电平是 −9.03 dBFS（幅度 0.5 的正弦）；44.1 kHz 立体声的设备音频经过重采样、混成单声道后得到 98–100 包（重采样器会扣下几帧），频率和幅度不变；中途从 48 kHz 换成 16 kHz 也能继续；静音的电平是 −160。环形缓冲区的非交错写入：交错、回绕、写满时只写进能放下的部分。采集设备本身要麦克风权限，不在单元测试里，在 App 里实测。
+
