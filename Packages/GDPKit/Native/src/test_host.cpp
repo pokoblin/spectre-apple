@@ -1,6 +1,6 @@
 #include "test_host.hpp"
 
-#include "cert_util.hpp"
+#include "server_loop.hpp"
 
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
@@ -10,9 +10,6 @@
 #include "gdp/transport.hpp"
 #include "gdp/version.hpp"
 #include "session.pb.h"
-
-#include <openssl/rand.h>
-#include <poll.h>
 
 #include <algorithm>
 #include <list>
@@ -43,48 +40,32 @@ struct TestHost::Impl {
 	};
 
 	Config cfg;
-	SelfSignedCert cert;
-	gdp::Transport transport;
-	// Destroyed before `transport` (declared after it).
+	// Declared before `peers`, so the transport outlives the connections;
+	// ~Impl stops the thread before anything is destroyed.
+	ServerLoop loop;
 	std::list<std::unique_ptr<Peer>> peers;
 	Peer *viewer = nullptr;
 
-	std::thread thread;
-	std::atomic<bool> stop{false};
-
-	mutable std::mutex mu; // guards `commands`, `obs` and `keyframe_wanted`
-	std::vector<std::function<void()>> commands;
+	mutable std::mutex mu; // guards `obs` and `keyframe_wanted`
 	Observed obs;
 	bool keyframe_wanted = false;
 
-	// Host thread only.
+	// Loop thread only.
 	uint64_t epoch_us = 0;
 	uint32_t next_frame_id = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
 
-	void post(std::function<void()> fn) {
-		std::lock_guard lock(mu);
-		commands.push_back(std::move(fn));
-	}
+	~Impl() { loop.stop(); }
 
-	void run() {
-		while (!stop.load()) {
-			pollfd fd{transport.notify_fd(), POLLIN, 0};
-			poll(&fd, 1, 5);
-			transport.dispatch();
-			std::vector<std::function<void()>> todo;
-			{
-				std::lock_guard lock(mu);
-				todo.swap(commands);
-			}
-			for (auto &fn : todo) fn();
-			uint64_t now = gdp::monotonic_us();
-			for (auto &p : peers) {
-				if (p->close_at_us && now >= p->close_at_us) {
-					p->close_at_us = 0;
-					close_peer(*p, p->close_code);
-				}
+	void post(std::function<void()> fn) { loop.post(std::move(fn)); }
+
+	void tick() {
+		uint64_t now = gdp::monotonic_us();
+		for (auto &p : peers) {
+			if (p->close_at_us && now >= p->close_at_us) {
+				p->close_at_us = 0;
+				close_peer(*p, p->close_code);
 			}
 		}
 	}
@@ -410,37 +391,18 @@ struct TestHost::Impl {
 
 TestHost::TestHost() : impl_(std::make_unique<Impl>()) {}
 
-TestHost::~TestHost() {
-	impl_->stop.store(true);
-	if (impl_->thread.joinable()) impl_->thread.join();
-}
+TestHost::~TestHost() = default;
 
 bool TestHost::start(const Config &config, std::string *error) {
 	Impl &m = *impl_;
 	m.cfg = config;
-	if (std::string err = m.cert.generate(config.scratch_dir.empty() ? "/tmp" : config.scratch_dir); !err.empty()) {
-		if (error) *error = "certificate: " + err;
+	if (!m.loop.start(
+			config.scratch_dir, [&m](std::unique_ptr<gdp::Connection> conn) { m.on_new_connection(std::move(conn)); },
+			[&m] { m.tick(); }, error)) {
 		return false;
 	}
-	cert_sha256_ = m.cert.sha256;
-	auto handler = [&m](std::unique_ptr<gdp::Connection> conn) { m.on_new_connection(std::move(conn)); };
-	for (int attempt = 0; attempt < 16 && port_ == 0; attempt++) {
-		uint16_t candidate = 0;
-		RAND_bytes(reinterpret_cast<unsigned char *>(&candidate), sizeof(candidate));
-		candidate = static_cast<uint16_t>(49152 + candidate % 16000);
-		bool in_use = false;
-		if (m.transport.listen(candidate, gdp::kAlpn, m.cert.cert_path, m.cert.key_path, handler, &in_use)) {
-			port_ = candidate;
-		} else if (!in_use) {
-			if (error) *error = "Transport::listen failed";
-			return false;
-		}
-	}
-	if (port_ == 0) {
-		if (error) *error = "no free UDP port";
-		return false;
-	}
-	m.thread = std::thread([&m] { m.run(); });
+	port_ = m.loop.port();
+	cert_sha256_ = m.loop.cert_sha256();
 	return true;
 }
 

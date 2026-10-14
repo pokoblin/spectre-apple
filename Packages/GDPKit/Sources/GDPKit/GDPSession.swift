@@ -157,18 +157,19 @@ public final class GDPSession: @unchecked Sendable {
     }
 
     /// Everything the session reports, all called on ``queue``.
-    public struct Handlers {
-        public var accepted: ((Accept) -> Void)?
-        public var closed: ((Ending) -> Void)?
-        public var displaysChanged: (([Output]) -> Void)?
+    /// Called on the queue, never the main thread: hop to the main actor yourself.
+    public struct Handlers: Sendable {
+        public var accepted: (@Sendable (Accept) -> Void)?
+        public var closed: (@Sendable (Ending) -> Void)?
+        public var displaysChanged: (@Sendable ([Output]) -> Void)?
         /// Return false if the frame can't be used now: it counts as lost (§7.5).
-        public var videoFrame: ((VideoFrame) -> Bool)?
-        public var audioPacket: ((_ sequence: UInt16, _ pts: UInt32, _ opus: UnsafeRawBufferPointer) -> Void)?
-        public var cursorShape: ((CursorShape) -> Void)?
-        public var cursorPosition: ((_ x: Double, _ y: Double) -> Void)?
-        public var networkProfileChanged: ((NetworkProfile) -> Void)?
+        public var videoFrame: (@Sendable (VideoFrame) -> Bool)?
+        public var audioPacket: (@Sendable (_ sequence: UInt16, _ pts: UInt32, _ opus: UnsafeRawBufferPointer) -> Void)?
+        public var cursorShape: (@Sendable (CursorShape) -> Void)?
+        public var cursorPosition: (@Sendable (_ x: Double, _ y: Double) -> Void)?
+        public var networkProfileChanged: (@Sendable (NetworkProfile) -> Void)?
         /// Answer with ``GDPSession/sendDiagnosticsReport(_:)``.
-        public var diagnosticsRequested: (() -> Void)?
+        public var diagnosticsRequested: (@Sendable () -> Void)?
 
         public init() {}
     }

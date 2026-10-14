@@ -29,6 +29,9 @@ add_library(gdpcore STATIC
   src/session_client.cpp
   src/session_api.cpp
   src/test_host.cpp
+  src/server_loop.cpp
+  src/lobby_api.cpp
+  src/test_lobby.cpp
 )
 target_include_directories(gdpcore PUBLIC include)
 target_link_libraries(gdpcore PRIVATE gdp OpenSSL::Crypto)

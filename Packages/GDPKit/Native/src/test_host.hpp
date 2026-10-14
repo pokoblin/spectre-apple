@@ -8,13 +8,11 @@
 // is thread-safe: commands are queued to that thread.
 #pragma once
 
-#include <atomic>
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <vector>
 
 namespace gdpcore {

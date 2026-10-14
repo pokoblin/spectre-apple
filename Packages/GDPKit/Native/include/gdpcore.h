@@ -431,6 +431,151 @@ void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 bool gdpc_test_host_take_keyframe_wanted(gdpc_test_host *host);
 void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_observed *out);
 
+// ---------------------------------------------------------------------------
+// Lobby (§4, §5): logging in to a host agent or a broker, ending in a
+// Redirect to a session (libgdp's gdp::LobbyClient).
+//
+// Threading as for gdpc_session: one serial queue, gdpc_lobby_dispatch()
+// whenever gdpc_lobby_notify_fd() is readable, every callback from it.
+
+typedef struct gdpc_lobby gdpc_lobby;
+
+typedef struct {
+    const char *id;
+    const char *name;
+} gdpc_session_type;
+
+typedef struct {
+    const char *session_id;
+    const char *session_type;
+    int64_t started_at_unix;
+    int64_t last_active_unix;
+    bool viewer_attached;  // connecting needs take_over (§6.4)
+} gdpc_running_session;
+
+typedef struct {
+    const gdpc_session_type *types;
+    size_t type_count;
+    const char *default_type;
+    const gdpc_running_session *running;
+    size_t running_count;
+} gdpc_session_list;
+
+typedef struct {
+    const char *id;
+    const char *name;
+    bool online;
+    bool has_session;
+    const char *session_type;
+    const gdpc_session_type *types;
+    size_t type_count;
+    const char *default_type;
+} gdpc_device;
+
+typedef struct {
+    const char *host;        // never empty: the lobby's own host substituted (§4.7)
+    uint16_t port;
+    const char *token;
+    int64_t expiry_unix;
+    const char *cert_sha256; // what the session connection must present (§2.3)
+} gdpc_redirect;
+
+typedef struct {
+    void *ctx;
+    // §2.3: whether to trust the server's certificate, decided right after
+    // the handshake and before anything (the username) is sent.
+    // `ca_verified`: it chains to the configured CAs and is valid for the
+    // name dialed. Returning false ends the login with error().
+    bool (*certificate)(void *ctx, const char *cert_sha256, bool ca_verified);
+    // Answer each with gdpc_lobby_respond(), in order (§4.5).
+    void (*auth_prompt)(void *ctx, const char *prompt, bool echo);
+    // A broker's hosts (§5): answer with gdpc_lobby_select_device().
+    void (*device_list)(void *ctx, const gdpc_device *devices, size_t count);
+    // Answer with gdpc_lobby_open_session().
+    void (*session_list)(void *ctx, const gdpc_session_list *list);
+    // Success, and the end of the exchange.
+    void (*redirect)(void *ctx, const gdpc_redirect *redirect);
+    // Failure, and the end: `code` is the LobbyError's or the close's §12
+    // code, 0 for a local failure or a refused certificate.
+    void (*error)(void *ctx, uint64_t code, const char *message, bool certificate_rejected);
+} gdpc_lobby_callbacks;
+
+gdpc_lobby *gdpc_lobby_create(const gdpc_lobby_callbacks *callbacks);
+void gdpc_lobby_destroy(gdpc_lobby *lobby);
+// `ca_system`: also check the certificate against the platform's CAs;
+// `ca_file`: a PEM file of further CAs, or NULL (§2.3).
+bool gdpc_lobby_connect(gdpc_lobby *lobby, const char *host, uint16_t port, const char *username, bool ca_system,
+    const char *ca_file, char *error, size_t error_cap);
+int gdpc_lobby_notify_fd(const gdpc_lobby *lobby);
+void gdpc_lobby_dispatch(gdpc_lobby *lobby);
+void gdpc_lobby_respond(gdpc_lobby *lobby, const char *answer);
+void gdpc_lobby_select_device(gdpc_lobby *lobby, const char *device_id);
+// `type_id`: one of the offered ids, or "" for the default (§4.6).
+void gdpc_lobby_open_session(gdpc_lobby *lobby, const char *type_id);
+
+// Test lobby: a minimal lobby server on 127.0.0.1 (§4, §5), for tests and
+// the demo login. Thread-safe.
+
+typedef struct gdpc_test_lobby gdpc_test_lobby;
+
+typedef struct {
+    const char *text;
+    bool echo;
+    const char *expected;
+} gdpc_test_prompt;
+
+typedef struct {
+    const char *id;
+    const char *name;
+    bool online;
+    bool has_session;
+    const char *session_type;
+} gdpc_test_device;
+
+typedef struct {
+    const char *scratch_dir;
+    const char *username;
+    const gdpc_test_prompt *prompts;
+    size_t prompt_count;
+    const gdpc_session_type *session_types;  // NULL: GNOME and KDE Plasma
+    size_t session_type_count;
+    const char *default_type;
+    bool running_session;
+    const char *running_type;
+    bool viewer_attached;
+    uint64_t refuse_after_auth;
+    bool broker;
+    const gdpc_test_device *devices;
+    size_t device_count;
+    const gdpc_test_prompt *device_prompts;
+    size_t device_prompt_count;
+    const char *redirect_host;   // NULL/empty: the lobby's own host
+    uint16_t redirect_port;
+    const char *redirect_token;
+    const char *redirect_cert_sha256;
+} gdpc_test_lobby_config;
+
+typedef struct {
+    uint32_t connections;
+    bool hello_received;
+    uint32_t protocol_version;
+    char client_id[128];
+    char username[128];
+    uint32_t response_count;
+    char last_response[128];
+    char selected_device[64];
+    bool session_open_received;
+    char opened_type[64];
+    bool redirected;
+    uint64_t error_code;
+} gdpc_test_lobby_observed;
+
+gdpc_test_lobby *gdpc_test_lobby_create(const gdpc_test_lobby_config *config, char *error, size_t error_cap);
+void gdpc_test_lobby_destroy(gdpc_test_lobby *lobby);
+uint16_t gdpc_test_lobby_port(const gdpc_test_lobby *lobby);
+void gdpc_test_lobby_cert_sha256(const gdpc_test_lobby *lobby, char out[GDPC_SHA256_HEX_LEN + 1]);
+void gdpc_test_lobby_get_observed(const gdpc_test_lobby *lobby, gdpc_test_lobby_observed *out);
+
 #ifdef __cplusplus
 }
 #endif
