@@ -123,6 +123,12 @@ macOS 上 GDPKit 的 37 个测试每次约 0.3 秒，连跑 5 遍全部通过；
 
 默认值定为 2。上限设为 1 会让帧率减半：drawable 的 presented 回调要等它真正上屏后才触发，这时再画下一帧已经赶不上下一次合成。在 macOS 的窗口模式下，WindowServer 合成要占约 1 帧，所以 60 Hz 上 2 帧左右的延迟大概就是下限。全屏时能不能绕过合成，以后再测。原始数据在 `build/logs/bench-inflight.txt`；bench 时可以用 `--screen N` 选屏幕，用 `--in-flight N` 设上限。
 
+### 修正：会话运行约两分钟后崩溃
+
+会话（loopback、demo 或 remote）在 60 fps 下运行大约两分钟后，会在 Core Animation 的 presented 回调线程上栈溢出（`EXC_BAD_ACCESS`，栈保护页）。原因是 `PlaybackStats` 把回调闭包（解码和呈现耗时，送进 StatsReport）直接存在 `Mutex<(@Sendable (UInt32, UInt32) -> Void)?>` 里，每帧用 `withLock({ $0 })` 读一次：`withLock` 以 `inout` 访问，闭包存在泛型的存储里，写回时会被再包一层重抽象 thunk。所以每呈现一帧调用链就深一层，60 fps × 120 秒 ≈ 7000 层，用完了这个线程 512 KB 的栈（崩溃报告里是 6654 层递归）。
+
+修法是把闭包装进一个 `final class` 再存进 Mutex，类引用不会被重抽象。回归测试 `PlaybackStatsTests` 在 512 KB 栈的线程上连续调用 2 万次：旧代码会在这里 SIGBUS。**规则：不要把闭包直接存进 `Mutex`（或其他泛型容器）再反复经 `inout` 读取，要先装箱。**
+
 ## 连接真实的 wraith
 
 wraith 可以用静态 token 直接监听（§6.11），不需要 ghostd：

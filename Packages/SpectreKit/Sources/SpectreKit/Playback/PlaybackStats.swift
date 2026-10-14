@@ -94,12 +94,20 @@ public final class PlaybackStats: Sendable {
 
     private let state = Mutex(State())
     private let mailbox: FrameMailbox?
-    private let timingSink = Mutex<(@Sendable (_ decodeMicroseconds: UInt32, _ presentMicroseconds: UInt32) -> Void)?>(nil)
+    /// Boxed: a closure stored directly in a Mutex is re-wrapped in a
+    /// reabstraction thunk by every `withLock` (its inout writes it back),
+    /// one level per frame, until the presented handler's stack overflows.
+    private final class TimingSink: Sendable {
+        let call: @Sendable (_ decodeMicroseconds: UInt32, _ presentMicroseconds: UInt32) -> Void
+        init(_ call: @escaping @Sendable (UInt32, UInt32) -> Void) { self.call = call }
+    }
+    private let timingSink = Mutex<TimingSink?>(nil)
 
     /// Called with each on-screen frame's decode and decode→present times:
     /// what a session's StatsReport carries (gdp-spec.md §7.5).
     public func setTimingSink(_ sink: (@Sendable (_ decodeMicroseconds: UInt32, _ presentMicroseconds: UInt32) -> Void)?) {
-        timingSink.withLock { $0 = sink }
+        let box = sink.map(TimingSink.init)
+        timingSink.withLock { $0 = box }
     }
 
     public init(mailbox: FrameMailbox? = nil) {
@@ -142,7 +150,7 @@ public final class PlaybackStats: Sendable {
         }
         guard presentedTime > 0, let sink = timingSink.withLock({ $0 }) else { return }
         func us(_ seconds: CFTimeInterval) -> UInt32 { UInt32(clamping: Int64((max(seconds, 0) * 1_000_000).rounded())) }
-        sink(us(frame.decodeDuration), us(presentedTime - frame.decodedTime))
+        sink.call(us(frame.decodeDuration), us(presentedTime - frame.decodedTime))
     }
 
     public func summary() -> Summary {
