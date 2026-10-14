@@ -147,6 +147,25 @@ struct SessionInputStateTests {
     }
 }
 
+@Suite("Scrolling (gdp-spec.md §8.2)")
+struct ScrollTests {
+    let converter = ScrollConverter(pointsPerNotch: 25)
+
+    @Test func wheelLinesAreNotches() {
+        // AppKit: positive Y moves the content down, i.e. scrolls up; §8.2 wants down positive.
+        #expect(converter.notches(deltaX: 0, deltaY: 1, precise: false) == (0, -1))
+        #expect(converter.notches(deltaX: 0, deltaY: -3, precise: false) == (0, 3))
+        #expect(converter.notches(deltaX: 1, deltaY: 0, precise: false) == (-1, 0)) // content right: scroll left
+    }
+
+    @Test func smoothScrollingIsFractional() {
+        let n = converter.notches(deltaX: -5, deltaY: -12.5, precise: true)
+        #expect(n.horizontal == 0.2 && n.vertical == 0.5)
+        let zero = converter.notches(deltaX: 0, deltaY: 0, precise: true)
+        #expect(zero.horizontal.sign == .plus && zero.vertical.sign == .plus)
+    }
+}
+
 @Suite("Local shortcuts")
 struct LocalShortcutTests {
     @Test func onlyTheReservedCombinationsStayLocal() {
@@ -192,4 +211,54 @@ struct InputEndToEndTests {
         ])
         session.close()
     }
+
+    @Test func pointerAndCaptureEndToEnd() async throws {
+        var config = GDPTestHost.Configuration()
+        config.width = 1000
+        config.height = 500
+        config.simulatePointer = true
+        let host = try GDPTestHost(config)
+        let accepted = Mutex(false)
+        let box = WeakInput()
+        var handlers = GDPSession.Handlers()
+        handlers.accepted = { _ in accepted.withLock { $0 = true } }
+        handlers.cursorPosition = { x, y in
+            Task { @MainActor in box.input?.hostCursorPosition(CGPoint(x: x, y: y)) }
+        }
+        let session = GDPSession(handlers: handlers)
+        try session.connect(host.sessionConfiguration())
+        try #require(await eventually { accepted.withLock { $0 } })
+        let input = SessionInput(sink: session)
+        box.input = input
+        var locked = false
+        input.captureHandler = { locked = $0; return true }
+
+        input.move(to: CGPoint(x: 0.25, y: 0.5))
+        input.move(to: CGPoint(x: 0.25, y: 0.5)) // unchanged: not sent
+        input.button(PointerButton.left, pressed: true)
+        input.button(PointerButton.left, pressed: false)
+        input.scroll(deltaX: 0, deltaY: -1, precise: false) // one notch down
+        input.scroll(deltaX: 12.5, deltaY: 0, precise: true) // half a notch left
+        input.setCaptured(true)
+        #expect(locked && input.isCaptured)
+        input.move(by: 100, -50)
+        #expect(await eventually { input.hostPosition != nil })
+        #expect(abs(input.hostPosition!.x - 0.35) < 1e-9 && abs(input.hostPosition!.y - 0.4) < 1e-9)
+        input.focusLost() // releases the capture
+        #expect(!locked && !input.isCaptured)
+        input.move(to: CGPoint(x: 0.25, y: 0.5)) // sent again: relative motion moved the host's pointer
+        #expect(await eventually { host.observed.inputEventCount == 7 })
+        #expect(host.inputEvents() == [
+            .motion(x: 0.25, y: 0.5, absolute: true), .button(PointerButton.left, pressed: true),
+            .button(PointerButton.left, pressed: false), .axis(horizontal: 0, vertical: 1),
+            .axis(horizontal: -0.5, vertical: 0), .motion(x: 100, y: -50, absolute: false),
+            .motion(x: 0.25, y: 0.5, absolute: true),
+        ])
+        session.close()
+    }
+}
+
+/// Lets a session handler reach the input it feeds (used on the main actor only).
+final class WeakInput: @unchecked Sendable {
+    weak var input: SessionInput?
 }

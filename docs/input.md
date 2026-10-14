@@ -7,8 +7,9 @@
 ```
 App/Shared/PlaybackModel           会话建立后创建 SessionInput，结束时先释放按键再断开
   └ SpectreKit/Input
-      ├ MacSessionView (macOS)     MTKView 子类：本地事件监听（键盘）、cursor rect（光标）
-      ├ SessionInput               一个会话的输入状态：host 光标、画面尺寸
+      ├ MacSessionView (macOS)     MTKView 子类：本地事件监听（键盘）、鼠标事件、cursor rect、捕获
+      ├ SessionInput               一个会话的输入状态：host 光标、画面尺寸、捕获模式
+      ├ ScrollConverter            滚动量 → notch
       ├ PointerMapping             视图坐标 ↔ 画面 0..1（含黑边）
       ├ InputSender                记录已按下的键和鼠标键，releaseAll()；丢掉自动重复
       ├ MacKeyCodes / HIDUsage     kVK → HID usage
@@ -45,6 +46,40 @@ Cmd+Tab、Cmd+Space、Mission Control 等系统快捷键由系统先拦截，到
 - 窗口失去 key 状态、App 失活、view 失去第一响应者；
 - 切换全屏、Cmd+Q 之前；
 - 断开、登出之前（在关闭连接之前发出），会话结束、view 离开窗口时。
+
+## 鼠标（macOS）
+
+**绝对模式**（默认）：`mouseMoved`/`*Dragged` 的位置经 `PointerMapping` 换成画面上的 0..1，作为绝对移动发出（§8.2）。落在黑边上的点夹到画面边缘，所以指针能顶到远端屏幕的边。和上一次相同的位置不重复发送。只在 key window 里跟踪移动（tracking area 的 `.activeInKeyWindow`）；`acceptsFirstMouse` 为真，点击非活动窗口时这次点击也会转发。按键之前先把指针移到点击位置。
+
+**按键**：AppKit 的 `buttonNumber` 映射成 Linux `BTN_*`：0 → `BTN_LEFT` 0x110，1 → `BTN_RIGHT` 0x111，2 → `BTN_MIDDLE` 0x112，3 → `BTN_SIDE` 0x113（后退），4 → `BTN_EXTRA` 0x114（前进），5–7 → `BTN_FORWARD`/`BTN_BACK`/`BTN_TASK`。Ctrl+点击不会变成右键：Ctrl 已经作为按键转发，远端收到的就是 Ctrl+左键。
+
+**滚轮**：§8.2 的单位是 notch，向右、向下为正，平滑设备发小数；客户端负责自己的“自然滚动”设置。AppKit 的 `scrollingDeltaX/Y` 表示内容的移动方向（Y 为正表示内容下移，也就是向上滚），并且已经按系统的“自然滚动”设置处理过，所以 `ScrollConverter` 只需要取反、换单位：
+
+- 带刻度的滚轮（`hasPreciseScrollingDeltas == false`）：delta 的单位是行，1 行 = 1 notch。快速转动时系统加速给出的多行照样转发。
+- 触控板、Magic Mouse（精确 delta，单位是点）：25 点 = 1 notch，发小数。Linux 桌面上 1 notch 大约滚 3 行（约 50 像素），25 点在 Retina 屏上正好也是 50 像素。
+- 惯性阶段（`momentumPhase`）照样转发，因为 host 不会自己做惯性。
+
+**捕获模式**：给游戏和 3D 视图用，相对移动（§8.2）。Ctrl+Cmd+G 或工具栏的 Capture Mouse 按钮切换。
+
+- 进入：把本地指针移到远端指针所在的位置，`CGAssociateMouseAndMouseCursorPosition(false)` 断开指针和鼠标的关联，然后隐藏指针。此后鼠标只产生 delta，点击也留在这个窗口里。
+- 相对移动：`deltaX/deltaY`（AppKit 鼠标事件的 delta 向右、向下为正，与 §8.2 相同）除以 `pointsPerVideoPixel`，换成 host 像素。效果是远端光标在屏幕上移动的距离，和本地指针本来会移动的距离一样。
+- 光标：只有 host 知道指针在哪里，它用 `CursorPosition` 报告（§7.4），Metal 叠加层把 host 的光标形状画在那里。host 报告之前，先画在最后一次绝对移动的位置。
+- 退出：Ctrl+Cmd+G，或者窗口失去 key 状态、App 失活、会话结束。退出时恢复关联，把本地指针移到 host 指针所在的位置，再显示指针；下一次绝对移动一定会发出（相对移动已经改变了 host 指针的位置）。
+- 沙盒里可以用 `CGAssociateMouseAndMouseCursorPosition` 和 `CGWarpMouseCursorPosition`，不需要辅助功能权限。
+
+**测试 host 的指针**：`GDPTestHost` 打开 `simulatePointer` 后，会像 wraith 一样维护一个指针：绝对移动放置它，相对移动按输出像素移动它（夹在画面内），每批相对移动之后回报一次 `CursorPosition`（§7.4）。loopback 和 demo 默认打开，所以在 demo 里也能看到捕获模式下的光标移动。
+
+### macOS 实测（loopback）
+
+用 computer-use 驱动 App，看 host 收到的事件（每秒打印到 stdout）：
+
+- 左、右、中键分别收到 0x110、0x111、0x112 的按下和松开，按键之前先收到点击位置的绝对移动；
+- 滚轮向下 3 格 → `vertical +3`，向右 2 格 → `horizontal +2`；
+- Ctrl+Cmd+G 之后收到相对移动，host 回报的位置上画出了 Metal 光标；再按一次，回到绝对移动。
+
+统计浮层原先会挡住它下面的点击（SwiftUI 的 Text 截获了 mouseDown），已经设为不参与命中测试。
+
+computer-use 合成的鼠标移动是按绝对位置模拟的。指针锁住以后，由它算出的 delta 和真实鼠标不同（方向也可能是反的），所以捕获模式下相对移动的方向和手感，要用真实的鼠标和触控板确认。
 
 ## 光标（§7.4）
 

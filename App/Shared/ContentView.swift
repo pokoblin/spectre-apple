@@ -37,7 +37,9 @@ struct SessionView: View {
                     .buttonStyle(.bordered)
                     .tint(.white)
                 #endif
-                if showStats { overlay }
+                if showStats {
+                    overlay.allowsHitTesting(false) // clicks on it go to the remote desktop
+                }
             }
             .padding(10)
         }
@@ -68,6 +70,15 @@ struct SessionView: View {
                 Label("Log Out", systemImage: "power")
             }
             .help("End the desktop session")
+        }
+        if let input = model.input {
+            Toggle(isOn: Binding(get: { input.isCaptured }, set: { input.setCaptured($0) })) {
+                Label("Capture Mouse", systemImage: input.isCaptured ? "cursorarrow.square.fill" : "cursorarrow.square")
+            }
+            .help("Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)")
+            #if os(iOS)
+            .toggleStyle(.button)
+            #endif
         }
         Toggle(isOn: $showStats) {
             Label("Statistics", systemImage: "chart.bar.xaxis")

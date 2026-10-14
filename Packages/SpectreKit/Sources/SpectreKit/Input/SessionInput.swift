@@ -19,9 +19,19 @@ public final class SessionInput {
     /// Where the host last reported its pointer (§7.4), 0...1.
     public private(set) var hostPosition: CGPoint?
 
-    /// Called when ``cursor`` or ``videoSize`` changed: the view updates
-    /// its system cursor and pointer mapping.
+    /// Whether the mouse is captured: the local pointer locked and hidden,
+    /// relative motion sent, the host's cursor drawn where it reports it.
+    public private(set) var isCaptured = false
+
+    /// Scroll units (gdp-spec.md §8.2).
+    @ObservationIgnored public var scrollConverter = ScrollConverter()
+
+    /// Called when ``cursor``, ``videoSize`` or ``isCaptured`` changed: the
+    /// view updates its system cursor and pointer mapping.
     @ObservationIgnored public var onDisplayChange: (() -> Void)?
+    /// The platform's half of capturing: lock and hide the local pointer
+    /// (true) or give it back (false). Returns whether it took effect.
+    @ObservationIgnored public var captureHandler: ((Bool) -> Bool)?
 
     public init(sink: InputSink, presenter: VideoPresenter? = nil) {
         sender = InputSender(sink: sink)
@@ -53,12 +63,21 @@ public final class SessionInput {
 
     /// Whether the cursor is drawn into the picture rather than left to the
     /// system pointer. On the Mac the system draws the host's image as an
-    /// `NSCursor`, at no latency, wherever the local pointer is.
-    public var drawsCursorOverlay: Bool { false }
+    /// `NSCursor`, at no latency, wherever the local pointer is, except
+    /// while captured: then the local pointer is locked and hidden.
+    public var drawsCursorOverlay: Bool {
+        #if os(macOS)
+        isCaptured
+        #else
+        true
+        #endif
+    }
 
-    /// Where the overlay cursor goes: where the client put the pointer.
+    /// Where the overlay cursor goes: where the host says while captured
+    /// (only it knows, §7.4), otherwise where the client put the pointer.
     var overlayPosition: CGPoint? {
-        drawsCursorOverlay ? sender.lastPosition : nil
+        guard drawsCursorOverlay else { return nil }
+        return isCaptured ? hostPosition ?? sender.lastPosition : sender.lastPosition
     }
 
     func updateOverlay() {
@@ -66,6 +85,45 @@ public final class SessionInput {
         presenter.setCursorImage(drawsCursorOverlay ? cursor : nil)
         presenter.setCursorPosition(overlayPosition)
     }
+
+    // MARK: Pointer
+
+    /// Moves the pointer to a position on the output (0...1): absolute motion.
+    public func move(to position: CGPoint) {
+        sender.move(to: position)
+        if drawsCursorOverlay { updateOverlay() }
+    }
+
+    /// Moves the pointer by output pixels: relative motion, while captured.
+    public func move(by dx: Double, _ dy: Double) {
+        sender.move(by: dx, dy)
+    }
+
+    public func button(_ code: UInt32, pressed: Bool) { sender.button(code, pressed: pressed) }
+
+    /// A platform scroll event's deltas (content movement, see ``ScrollConverter``).
+    public func scroll(deltaX: Double, deltaY: Double, precise: Bool) {
+        let n = scrollConverter.notches(deltaX: deltaX, deltaY: deltaY, precise: precise)
+        sender.scroll(horizontal: n.horizontal, vertical: n.vertical)
+    }
+
+    /// Captures or releases the mouse (gdp-spec.md §8.2: relative motion
+    /// while captured). The platform view does the locking.
+    public func setCaptured(_ on: Bool) {
+        guard on != isCaptured, captureHandler?(on) ?? false else { return }
+        isCaptured = on
+        if on {
+            // Until the host reports a position, its pointer is where the last absolute motion put it.
+            hostPosition = nil
+        } else {
+            // Relative motion moved the host's pointer: the next absolute motion must be sent.
+            sender.forgetPosition()
+        }
+        updateOverlay()
+        onDisplayChange?()
+    }
+
+    public func toggleCapture() { setCaptured(!isCaptured) }
 
     // MARK: Keyboard
 
@@ -80,10 +138,14 @@ public final class SessionInput {
     /// control in this window took it): nothing may stay held (§8.2).
     public func focusLost() {
         sender.releaseAll()
+        setCaptured(false)
     }
 
     /// The session is ending or the view is going away.
     public func end() {
         focusLost()
+        presenter?.setCursorImage(nil)
+        presenter?.setCursorPosition(nil)
+        presenter = nil
     }
 }

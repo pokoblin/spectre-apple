@@ -16,7 +16,9 @@ public final class MacSessionView: MTKView {
             guard oldValue !== input else { return }
             oldValue?.focusLost()
             oldValue?.onDisplayChange = nil
+            oldValue?.captureHandler = nil
             input?.onDisplayChange = { [weak self] in self?.displayChanged() }
+            input?.captureHandler = { [weak self] on in self?.capture(on) ?? false }
             displayChanged()
         }
     }
@@ -25,6 +27,7 @@ public final class MacSessionView: MTKView {
     private var systemCursor: (image: CursorImage, scale: CGFloat, cursor: NSCursor)?
 
     private var keyMonitor: Any?
+    private var trackingArea: NSTrackingArea?
     private var observers: [NSObjectProtocol] = []
 
     public override var acceptsFirstResponder: Bool { input != nil }
@@ -121,6 +124,90 @@ public final class MacSessionView: MTKView {
         window?.invalidateCursorRects(for: self)
     }
 
+    // MARK: - Mouse
+
+    public override func acceptsFirstMouse(for event: NSEvent?) -> Bool { input != nil }
+
+    public override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+                                  owner: self, userInfo: nil)
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    public override func mouseMoved(with event: NSEvent) { pointerMoved(event) }
+    public override func mouseDragged(with event: NSEvent) { pointerMoved(event) }
+    public override func rightMouseDragged(with event: NSEvent) { pointerMoved(event) }
+    public override func otherMouseDragged(with event: NSEvent) { pointerMoved(event) }
+
+    public override func mouseDown(with event: NSEvent) { pointerButton(event, pressed: true) }
+    public override func mouseUp(with event: NSEvent) { pointerButton(event, pressed: false) }
+    public override func rightMouseDown(with event: NSEvent) { pointerButton(event, pressed: true) }
+    public override func rightMouseUp(with event: NSEvent) { pointerButton(event, pressed: false) }
+    public override func otherMouseDown(with event: NSEvent) { pointerButton(event, pressed: true) }
+    public override func otherMouseUp(with event: NSEvent) { pointerButton(event, pressed: false) }
+
+    public override func scrollWheel(with event: NSEvent) {
+        guard let input else { return super.scrollWheel(with: event) }
+        // Momentum (the glide after a trackpad flick) is forwarded too: the host applies none of its own.
+        input.scroll(deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
+                     precise: event.hasPreciseScrollingDeltas)
+    }
+
+    private func pointerMoved(_ event: NSEvent) {
+        guard let input else { return }
+        if input.isCaptured {
+            // Points of mouse travel as output pixels at the picture's scale,
+            // so the remote cursor keeps up with the hand as the local one would.
+            let scale = mapping.pointsPerVideoPixel
+            input.move(by: event.deltaX / scale, event.deltaY / scale)
+        } else {
+            input.move(to: position(of: event))
+        }
+    }
+
+    private func pointerButton(_ event: NSEvent, pressed: Bool) {
+        guard let input, let code = PointerButton.code(forButtonNumber: event.buttonNumber) else { return }
+        if pressed, window?.firstResponder !== self { window?.makeFirstResponder(self) }
+        if !input.isCaptured { input.move(to: position(of: event)) }
+        input.button(code, pressed: pressed)
+    }
+
+    /// The event's position on the output, clamped to the picture.
+    private func position(of event: NSEvent) -> CGPoint {
+        let p = convert(event.locationInWindow, from: nil)
+        return mapping.normalized(CGPoint(x: p.x, y: bounds.height - p.y)).position
+    }
+
+    /// Locks the local pointer (hidden, disconnected from the mouse, so
+    /// moves arrive as deltas and clicks stay in this window) or frees it
+    /// where the host's pointer is.
+    private func capture(_ on: Bool) -> Bool {
+        if on {
+            guard let window, window.isKeyWindow else { return false }
+            warpPointer(to: mapping.viewPoint(input?.sender.lastPosition ?? CGPoint(x: 0.5, y: 0.5)))
+            CGAssociateMouseAndMouseCursorPosition(0)
+            NSCursor.hide()
+        } else {
+            CGAssociateMouseAndMouseCursorPosition(1)
+            if let p = input?.hostPosition ?? input?.sender.lastPosition { warpPointer(to: mapping.viewPoint(p)) }
+            NSCursor.unhide()
+        }
+        return true
+    }
+
+    /// Moves the local pointer to a point in this view (top-left origin).
+    private func warpPointer(to point: CGPoint) {
+        guard let window, let screen = window.screen ?? NSScreen.screens.first else { return }
+        let inWindow = convert(NSPoint(x: point.x, y: bounds.height - point.y), to: nil)
+        let onScreen = window.convertPoint(toScreen: inWindow)
+        // Quartz display space: top-left of the primary display, y down.
+        let primary = NSScreen.screens.first?.frame ?? screen.frame
+        CGWarpMouseCursorPosition(CGPoint(x: onScreen.x, y: primary.maxY - onScreen.y))
+    }
+
     // MARK: - Keyboard
 
     private func handlesKeys(for event: NSEvent) -> Bool {
@@ -174,6 +261,7 @@ public final class MacSessionView: MTKView {
     private func perform(_ shortcut: LocalShortcut, event: NSEvent) -> Bool {
         switch shortcut {
         case .toggleCapture:
+            input?.toggleCapture()
             return true
         case .toggleFullScreen:
             input?.focusLost()
