@@ -27,15 +27,22 @@ public struct VideoView: NSViewRepresentable {
 #else
 public struct VideoView: UIViewRepresentable {
     let presenter: VideoPresenter
+    let input: SessionInput?
 
-    public init(presenter: VideoPresenter) { self.presenter = presenter }
+    public init(presenter: VideoPresenter, input: SessionInput? = nil) {
+        self.presenter = presenter
+        self.input = input
+    }
 
-    public func makeUIView(context: Context) -> MTKView {
-        let view = MTKView(frame: .zero, device: presenter.renderer.device)
+    public func makeUIView(context: Context) -> IOSSessionView {
+        let view = IOSSessionView(frame: .zero, device: presenter.renderer.device)
         presenter.attach(view)
+        view.input = input
         return view
     }
 
-    public func updateUIView(_ view: MTKView, context: Context) {}
+    public func updateUIView(_ view: IOSSessionView, context: Context) {
+        view.input = input
+    }
 }
 #endif

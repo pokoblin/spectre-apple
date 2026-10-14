@@ -86,6 +86,11 @@ public final class InputSender {
         for code in heldButtons.sorted() { button(code, pressed: false) }
     }
 
+    /// Releases the pointer buttons held (the pointer changing hands).
+    public func releaseButtons() {
+        for code in heldButtons.sorted() { button(code, pressed: false) }
+    }
+
     /// Forget the last position so the next absolute motion is sent even if
     /// it is the same (after the mouse was captured, the host's pointer is
     /// wherever relative motion left it).

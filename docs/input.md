@@ -8,6 +8,7 @@
 App/Shared/PlaybackModel           会话建立后创建 SessionInput，结束时先释放按键再断开
   └ SpectreKit/Input
       ├ MacSessionView (macOS)     MTKView 子类：本地事件监听（键盘）、鼠标事件、cursor rect、捕获
+      ├ IOSSessionView (iOS)       MTKView 子类：UIPress、悬停、.indirectPointer 触摸、滚动、指针锁定 + GCMouse
       ├ SessionInput               一个会话的输入状态：host 光标、画面尺寸、捕获模式
       ├ ScrollConverter            滚动量 → notch
       ├ PointerMapping             视图坐标 ↔ 画面 0..1（含黑边）
@@ -80,6 +81,28 @@ Cmd+Tab、Cmd+Space、Mission Control 等系统快捷键由系统先拦截，到
 统计浮层原先会挡住它下面的点击（SwiftUI 的 Text 截获了 mouseDown），已经设为不参与命中测试。
 
 computer-use 合成的鼠标移动是按绝对位置模拟的。指针锁住以后，由它算出的 delta 和真实鼠标不同（方向也可能是反的），所以捕获模式下相对移动的方向和手感，要用真实的鼠标和触控板确认。
+
+## iPadOS / iOS：键盘和指针
+
+**入口改成 UIKit**：系统只问窗口的根 view controller 要不要锁定指针（`prefersPointerLocked`，或者沿 `childViewControllerForPointerLock` 往下问），而 SwiftUI `WindowGroup` 的根是一个 App 不能继承的 hosting controller，SwiftUI 也没有指针锁定的修饰符。所以 iOS 改用 UIKit 入口（`App/iOS/AppDelegate.swift`）：scene delegate 自己建窗口，根是 `RootViewController`（`UIHostingController<ContentView>` 的子类，实现 `PointerLockHost`）。界面还是同一个 ContentView；macOS 仍然是 SwiftUI `App`。
+
+注意：从旧版本（SwiftUI 入口）升级的开发安装，系统会用保存的旧 scene 配置恢复窗口，结果是一片黑屏。卸载重装一次即可。
+
+**硬件键盘**：`pressesBegan/Ended/Cancelled` 里，`UIKey.keyCode` 本身就是 HID usage（`UIKeyboardHIDUsage`），直接转发，左右修饰键是不同的 usage。Ctrl+Cmd+G 切换捕获；Mac 上另外两个本地快捷键（全屏、退出）在 iPad 上没有意义，照常转发。`UIScene.willDeactivateNotification`（切到别的 App、下拉控制中心等）和失去第一响应者时释放所有按键。系统快捷键（Cmd+Tab、地球键等）由 iPadOS 先处理。
+
+**触控板和鼠标**（Info.plist 打开 `UIApplicationSupportsIndirectInputEvents`）：
+
+- 悬停：`UIHoverGestureRecognizer` 的位置作为绝对移动发出。
+- 点击：以 `.indirectPointer` 类型的触摸送达，`UIEvent.buttonMask` 是当前按住的键，按位映射：主键 → `BTN_LEFT`，次键 → `BTN_RIGHT`，第 3 键 → `BTN_MIDDLE`，依此类推，和 Mac 的 `buttonNumber` 一样。每个触摸事件都和上一次的按键集合对比，多出来的发按下，少了的发松开；触摸结束或取消时全部松开。
+- 滚动：一个只接受滚动的 `UIPanGestureRecognizer`（`allowedScrollTypesMask = .all`，`allowedTouchTypes = []`，手指不会触发它）。每次的 translation 增量按“内容的移动”处理，和 AppKit 精确滚动一样换算成 notch（25 点 = 1 notch）。
+- 指针外观：画面上用 `UIPointerStyle.hidden()` 隐藏系统指针，由 Metal 叠加层在客户端放置指针的位置画 host 的光标（iPadOS 的指针只能是路径形状，不能显示 host 的位图）。
+
+**捕获模式**：Ctrl+Cmd+G 或工具栏的 Capture Mouse。根 view controller 请求锁定指针，`GCMouse.current` 提供原始 delta（GameController 的 y 轴向上为正，取反）和按键（左、右、中、辅助键）。捕获期间忽略 `.indirectPointer` 触摸带来的按键，以免和 GCMouse 重复。切换捕获时会先松开所有鼠标键，因为一个来源按下的键，另一个来源永远不会报告它松开。没有鼠标（`GCMouse.current == nil`，比如在模拟器里）时不会进入捕获。iPadOS 只在 App 占满屏幕时才真正锁定指针；没锁住时，相对移动照样发送，只是本地指针还能移出窗口。
+
+### iPad 模拟器实测
+
+- 硬件键盘：输入 "aB"，host 依次收到 a 的按下和松开，然后是左 Shift 按下、b 按下、b 松开、左 Shift 松开。
+- 触控板和鼠标：模拟器在无界面模式下运行，自动化工具只能发直接触摸，所以 `.indirectPointer` 点击、悬停、滚动和 GCMouse 捕获这几条路径只是编译通过，**还没有实际运行过**，需要在真机上（或在 Simulator.app 里用 I/O → Input → Send Pointer to Device）确认。
 
 ## 光标（§7.4）
 

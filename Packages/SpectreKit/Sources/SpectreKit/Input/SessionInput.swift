@@ -110,7 +110,10 @@ public final class SessionInput {
     /// Captures or releases the mouse (gdp-spec.md §8.2: relative motion
     /// while captured). The platform view does the locking.
     public func setCaptured(_ on: Bool) {
-        guard on != isCaptured, captureHandler?(on) ?? false else { return }
+        guard on != isCaptured else { return }
+        // A button held through one source would never see its release from the other.
+        sender.releaseButtons()
+        guard captureHandler?(on) ?? false else { return }
         isCaptured = on
         if on {
             // Until the host reports a position, its pointer is where the last absolute motion put it.
