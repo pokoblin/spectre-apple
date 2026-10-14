@@ -1,0 +1,5 @@
+module LibGDPHeaders {
+    header "LibGDPHeaders.h"
+    requires cplusplus
+    export *
+}

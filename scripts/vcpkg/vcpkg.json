@@ -1,0 +1,15 @@
+{
+  "$comment": "libgdp's dependencies only (third_party/ghost/libgdp/CMakeLists.txt). Built static by scripts/build-gdpcore.sh with the triplets in triplets/.",
+  "name": "spectre-apple-gdpcore",
+  "version-string": "0",
+  "builtin-baseline": "07f4812200df3d3c931c0c8a6081d3b21fe2bf9f",
+  "dependencies": [
+    {
+      "name": "ngtcp2",
+      "features": ["openssl"]
+    },
+    "openssl",
+    "protobuf",
+    "zstd"
+  ]
+}

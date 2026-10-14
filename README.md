@@ -16,15 +16,67 @@
 | `Packages/GDPKit/` | libgdp 的 xcframework + C 桥接 + Swift 封装 |
 | `Packages/SpectreKit/` | 共用代码：会话、VideoToolbox 解码、Metal 显示 |
 | `scripts/` | 编译依赖、生成 xcframework 的脚本 |
+| `experiments/` | 一次性实验（如 Swift/C++ interop probe），不参与 App 构建 |
 | `third_party/ghost/` | 上游 ghost（git submodule，只读） |
 
 ## 从零构建
 
-（随原型各步骤补全）
+### 需要的工具
+
+- Xcode 27（含 iOS 27 模拟器运行时）
+- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- `cmake`（3.25+）、`ninja`：`brew install cmake ninja`
+- [vcpkg](https://github.com/microsoft/vcpkg)，建议固定在上游 CI 用的提交：
+
+```bash
+git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
+```
+
+```bash
+git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
+```
+
+```bash
+~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
+```
+
+vcpkg 不在 `~/src/vcpkg` 的话，后面的命令前设置 `VCPKG_ROOT`。
+
+### 1. 取代码
 
 ```bash
 git clone --recurse-submodules <this repo> spectre-apple
 ```
+
+已经克隆过的话补上 submodule：
+
+```bash
+git submodule update --init
+```
+
+### 2. 编译 GDPCore.xcframework
+
+libgdp 和依赖（vcpkg 静态库）加 C 桥接层，合并成 `Packages/GDPKit/Artifacts/GDPCore.xcframework`（不进 git）。首次编译依赖需要几分钟，之后有 vcpkg 二进制缓存。
+
+```bash
+scripts/build-gdpcore.sh
+```
+
+也可以只编某几个平台（`macos`、`ios`、`ios-simulator`），xcframework 会包含 `build/gdpcore/` 下已编好的所有平台：
+
+```bash
+scripts/build-gdpcore.sh macos
+```
+
+日志在 `build/logs/`。
+
+### 3. 运行 GDPKit 测试
+
+```bash
+swift test --package-path Packages/GDPKit
+```
+
+### 4. 生成 Xcode 工程
 
 ```bash
 xcodegen generate

@@ -1,0 +1,4 @@
+module GDPCore {
+    header "gdpcore.h"
+    export *
+}

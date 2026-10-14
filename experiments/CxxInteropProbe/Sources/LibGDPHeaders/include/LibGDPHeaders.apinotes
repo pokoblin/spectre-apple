@@ -1,0 +1,27 @@
+# Swift annotations for libgdp's classes, applied from outside the headers
+# (they can't be edited): import the non-copyable, non-movable classes as
+# unmanaged references.
+Name: LibGDPHeaders
+Namespaces:
+- Name: gdp
+  Tags:
+  - Name: Transport
+    SwiftImportAs: reference
+    SwiftRetainOp: immortal
+    SwiftReleaseOp: immortal
+  - Name: Connection
+    SwiftImportAs: reference
+    SwiftRetainOp: immortal
+    SwiftReleaseOp: immortal
+  - Name: Stream
+    SwiftImportAs: reference
+    SwiftRetainOp: immortal
+    SwiftReleaseOp: immortal
+  - Name: ClientConnection
+    SwiftImportAs: reference
+    SwiftRetainOp: immortal
+    SwiftReleaseOp: immortal
+  - Name: LobbyClient
+    SwiftImportAs: reference
+    SwiftRetainOp: immortal
+    SwiftReleaseOp: immortal
