@@ -1,0 +1,3 @@
+[submodule "third_party/ghost"]
+	path = third_party/ghost
+	url = https://github.com/jsaiko/ghost
