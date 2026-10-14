@@ -94,7 +94,12 @@ struct TestHost::Impl {
 			s->on_data = [this, p](const uint8_t *data, size_t len) { on_input(*p, data, len); };
 		};
 		p->conn->on_state_changed = [this, p](gdp::ConnectionState st) {
-			if (st == gdp::ConnectionState::kShutdown && p == viewer) viewer = nullptr;
+			if (st != gdp::ConnectionState::kShutdown || p != viewer) return;
+			viewer = nullptr;
+			std::lock_guard lock(mu);
+			obs.viewer_closed = true;
+			obs.viewer_close_code = p->conn->shutdown_error_code();
+			obs.viewer_close_reason = p->conn->shutdown_reason();
 		};
 		peers.push_back(std::move(peer));
 		std::lock_guard lock(mu);

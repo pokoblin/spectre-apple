@@ -1,6 +1,8 @@
 import Foundation
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 import GDPKit
 import Observation
@@ -70,6 +72,7 @@ final class PlaybackModel {
     private let bench: BenchOptions?
     private var benchScreen: Int?
     private var hostInputPrinted = 0
+    private var terminationObserver: NSObjectProtocol?
 
     init(arguments: [String] = CommandLine.arguments) {
         // The per-second report reaches a log file (or a pipe) as it is printed.
@@ -127,6 +130,21 @@ final class PlaybackModel {
     }
 
     /// Detach: the desktop session keeps running (gdp-spec.md §7.10).
+    /// The session window is going away (closed, not the session ending):
+    /// end the session properly rather than leave it to the host's idle timeout.
+    func windowClosed() {
+        guard remote != nil || player != nil || loopback != nil else { return }
+        ticker?.cancel()
+        stopAll()
+    }
+
+    /// The app is about to exit: release what is held and close the
+    /// connection before the process goes, taking the close with it.
+    private func appWillTerminate() {
+        input?.end()
+        remote?.session?.closeAndWait(timeout: 0.5)
+    }
+
     func disconnect() {
         guard let remote else { return reportEnded("Disconnected.") }
         input?.end() // §8.2: release what is held before detaching
@@ -277,6 +295,16 @@ final class PlaybackModel {
             Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
         }
         self.remote = remote
+        if terminationObserver == nil {
+            #if os(macOS)
+            let name = NSApplication.willTerminateNotification
+            #else
+            let name = UIApplication.willTerminateNotification
+            #endif
+            terminationObserver = NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] _ in MainActor.assumeIsolated { self?.appWillTerminate() }
+            }
+        }
         do {
             try remote.connect(config)
             input = remote.session.map { SessionInput(sink: $0, presenter: presenter) }

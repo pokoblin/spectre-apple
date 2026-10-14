@@ -177,6 +177,11 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 
 统计浮层原先总是打开，盖住远端桌面的左上角。现在连真实 host 时默认关闭（工具栏按钮随时打开），loopback、direct 和 demo 仍然默认打开，因为在那里看统计和 host 收到的输入就是目的。
 
+**结束会话**：原先直接关掉窗口或退出 App，连接就跟着进程消失了，host 要等 QUIC 的空闲超时（约 25 秒）才发现 viewer 走了。现在：
+
+- 关闭窗口：先松开所有按键，再正常关闭会话；Spectre 只有一个窗口，所以关掉它也就退出了 App（`applicationShouldTerminateAfterLastWindowClosed`）。
+- 退出 App（Cmd+Q、菜单）：在 `willTerminate` 里先松开按键，再用 `GDPSession.closeAndWait` 同步关闭，最多等 0.5 秒，让 CONNECTION_CLOSE 赶在进程退出前发出去。测试 host 新增了 `viewerClosed`、`viewerCloseCode`，端到端测试确认 `closeAndWait` 返回时 host 已经收到了错误码为 0 的正常关闭。
+
 调试过程中排除了“主线程卡死”：对进程采样，主线程在正常等待事件；每秒的统计和发给 host 的 StatsReport 一直在继续。
 
 **和上游设计文档不一致的地方**：`audio-cursor-gamepad.md` 说绝对模式下 wraith 不发 `CursorPosition`，实际上它每处理一次我们的绝对移动都会回报一次位置。我们只在捕获模式下使用 host 报告的位置，所以没有影响。

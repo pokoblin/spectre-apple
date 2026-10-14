@@ -424,6 +424,9 @@ typedef struct {
     uint32_t touches;
     bool input_before_accept;
     uint32_t input_event_count;      // logged, see gdpc_test_host_input_events
+    bool viewer_closed;              // the accepted viewer's connection ended
+    uint64_t viewer_close_code;      // its close code (0: a normal close)
+    char viewer_close_reason[128];
     double pointer_x, pointer_y;     // with simulate_pointer
     uint32_t cursor_positions_sent;
 

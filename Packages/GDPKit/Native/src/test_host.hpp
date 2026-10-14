@@ -68,6 +68,11 @@ public:
 		std::string accepted_codec;
 		bool closed = false;
 		uint64_t close_code = 0; // what this host closed with
+		// The accepted viewer's connection ended, and how (its close code
+		// and reason as the transport reports them; an idle timeout has no code).
+		bool viewer_closed = false;
+		uint64_t viewer_close_code = 0;
+		std::string viewer_close_reason;
 
 		uint32_t stats_reports = 0;
 		struct Stats {

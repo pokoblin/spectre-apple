@@ -67,6 +67,7 @@ struct SessionView: View {
             Text("This ends the desktop session itself, not just this connection.")
         }
         .task { await model.start() }
+        .onDisappear { model.windowClosed() }
         .task { if !model.isRemoteSession { await diagnostics.run() } }
     }
 

@@ -373,6 +373,9 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->axis_vertical_sum = o.axis_vertical_sum;
 	out->axis_horizontal_sum = o.axis_horizontal_sum;
 	out->input_event_count = static_cast<uint32_t>(o.inputs.size());
+	out->viewer_closed = o.viewer_closed;
+	out->viewer_close_code = o.viewer_close_code;
+	copy_string(out->viewer_close_reason, sizeof(out->viewer_close_reason), o.viewer_close_reason);
 	out->pointer_x = o.pointer_x;
 	out->pointer_y = o.pointer_y;
 	out->cursor_positions_sent = o.cursor_positions_sent;

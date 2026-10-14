@@ -74,6 +74,10 @@ public final class GDPTestHost: @unchecked Sendable {
         /// The simulated pointer (``Configuration/simulatePointer``), 0...1.
         public var pointer: (x: Double, y: Double)
         public var cursorPositionsSent: UInt32
+        /// The accepted viewer's connection ended: its close code and the transport's reason.
+        public var viewerClosed: Bool
+        public var viewerCloseCode: UInt64
+        public var viewerCloseReason: String
 
         public var framesSent, nextFrameID: UInt32
         public var maxDatagramSize: UInt16
@@ -239,6 +243,8 @@ public final class GDPTestHost: @unchecked Sendable {
             axisVerticalSum: o.axis_vertical_sum, axisHorizontalSum: o.axis_horizontal_sum, touches: o.touches,
             inputBeforeAccept: o.input_before_accept, inputEventCount: Int(o.input_event_count),
             pointer: (o.pointer_x, o.pointer_y), cursorPositionsSent: o.cursor_positions_sent,
+            viewerClosed: o.viewer_closed, viewerCloseCode: o.viewer_close_code,
+            viewerCloseReason: s(o.viewer_close_reason),
             framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size)
     }
 }

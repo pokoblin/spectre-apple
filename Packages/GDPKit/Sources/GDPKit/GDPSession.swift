@@ -196,6 +196,8 @@ public final class GDPSession: @unchecked Sendable {
     private var readSource: DispatchSourceRead?
     private var statsTimer: DispatchSourceTimer?
     private var ended = false
+    /// Signalled once the connection has closed (the close callback ran).
+    private let closedSignal = DispatchSemaphore(value: 0)
 
     public init(queue: DispatchQueue = DispatchQueue(label: "spectre.session", qos: .userInteractive),
                 handlers: Handlers) {
@@ -292,6 +294,24 @@ public final class GDPSession: @unchecked Sendable {
 
     /// Detach: close with code 0; the desktop session keeps running (§7.10).
     public func close() { async { gdpc_session_close($0) } }
+
+    /// Closes and waits, at most `timeout`, for the close to go out: for an
+    /// app about to exit, which would otherwise take its CONNECTION_CLOSE
+    /// with it and leave the host to notice through its idle timeout.
+    /// Everything queued before (key releases) is sent first. Returns
+    /// whether the connection closed in time. Not from the session queue.
+    @discardableResult
+    public func closeAndWait(timeout: TimeInterval = 0.5) -> Bool {
+        precondition(DispatchQueue.getSpecific(key: queueKey) == nil, "closeAndWait from the session queue")
+        let alreadyEnded: Bool = queue.sync {
+            if let handle, !ended { gdpc_session_close(handle) }
+            return handle == nil || ended
+        }
+        if alreadyEnded { return true }
+        guard closedSignal.wait(timeout: .now() + timeout) == .success else { return false }
+        closedSignal.signal() // for anyone else waiting
+        return true
+    }
 
     public func recordFrameTiming(decodeMicroseconds: UInt32, presentMicroseconds: UInt32) {
         async { gdpc_session_record_frame_timing($0, decodeMicroseconds, presentMicroseconds) }
@@ -406,6 +426,7 @@ public final class GDPSession: @unchecked Sendable {
         readSource?.cancel()
         statsTimer?.cancel()
         handlers.closed?(ending)
+        closedSignal.signal()
     }
 
     private func teardown() {

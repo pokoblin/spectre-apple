@@ -428,6 +428,20 @@ struct ControlTests {
         #expect(await eventually { rec.snapshot.positions.last?.0 == 0 })
     }
 
+    @Test func closeAndWaitClosesBeforeReturning() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        session.sendKey(hidUsage: 0x04, pressed: false) // queued before the close: sent first
+        #expect(session.closeAndWait(timeout: 2))
+        #expect(rec.snapshot.ending?.code == 0)
+        // The host hears a normal close, not an idle timeout.
+        #expect(await eventually(.seconds(2)) { host.observed.viewerClosed })
+        #expect(host.observed.viewerCloseCode == 0)
+        #expect(host.observed.keyEvents == 1)
+        #expect(session.closeAndWait(timeout: 0.1)) // already closed: returns at once
+    }
+
     @Test func audioPacketsAreHandedUp() async throws {
         var hc = GDPTestHost.Configuration()
         hc.audio = true
