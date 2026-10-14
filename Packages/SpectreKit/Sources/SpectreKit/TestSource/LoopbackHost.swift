@@ -26,6 +26,8 @@ public final class LoopbackHost: @unchecked Sendable {
         config.height = UInt32(stream.height)
         // Keep a pointer as wraith does, so a captured mouse moves the cursor (§7.4).
         config.simulatePointer = true
+        // Take the microphone, so the demo shows what the host receives (§10.1).
+        config.capabilities = ["microphone"]
         beep = audio ? Self.encodeBeep() : []
         config.audio = !beep.isEmpty
         host = try GDPTestHost(config)

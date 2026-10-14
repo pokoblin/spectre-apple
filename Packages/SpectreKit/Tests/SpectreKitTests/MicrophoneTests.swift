@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import GDPKit
+import Synchronization
 import Testing
 @testable import SpectreKit
 
@@ -118,5 +119,82 @@ struct AudioRingInputTests {
         // Full: only what fits.
         #expect(ring.write(from: abl, frames: 5) == 5)
         #expect(ring.write(from: abl, frames: 5) == 3)
+    }
+}
+
+/// gdp-spec.md §10.1 end to end: RemoteSession → QUIC → GDPTestHost, the
+/// packets decoded again on the host's side of the test.
+@Suite("Microphone end to end")
+struct MicrophoneEndToEndTests {
+    private func connect(_ configure: (inout GDPTestHost.Configuration) -> Void) async throws -> (GDPTestHost, RemoteSession) {
+        var config = GDPTestHost.Configuration()
+        config.codecs = ["h264"]
+        configure(&config)
+        let host = try GDPTestHost(config)
+        let remote = RemoteSession(mailbox: FrameMailbox(), stats: PlaybackStats(), audioOutput: .manual) {}
+        let established = Mutex(false)
+        remote.onStateChange = { state in
+            if case .established = state { established.withLock { $0 = true } }
+        }
+        try remote.connect(host.sessionConfiguration(codecs: ["h264"]))
+        #expect(await eventually { established.withLock { $0 } })
+        return (host, remote)
+    }
+
+    @Test func packetsReachTheHostAndDecode() async throws {
+        let (host, remote) = try await connect { $0.capabilities = ["microphone"] }
+        defer { remote.close() }
+        // Offered without being asked: the capability is fixed for the connection.
+        #expect(host.observed.capabilities == ["microphone"])
+        let format = try #require(remote.microphoneFormat)
+        #expect(format == microphone)
+        #expect(remote.microphoneUnavailable == nil)
+
+        let encoder = try #require(MicrophoneEncoder(format: format))
+        var sent = 0
+        for i in 0..<100 {
+            if i == 50 { try await Task.sleep(for: .milliseconds(100)) } // off, then on again
+            encoder.append(deviceBuffer(rate: 48000, channels: 1, start: i * 480, frames: 480)) {
+                remote.sendMicrophonePacket($0)
+                sent += 1
+            }
+        }
+        #expect(sent == 100)
+        #expect(await eventually { host.observed.microphonePackets == 100 })
+        let packets = host.microphonePackets()
+        // seq carries on across the pause: nothing was sent in it (§10.1).
+        #expect(packets.map(\.sequence) == (0..<100).map(UInt16.init))
+        #expect(Int32(bitPattern: packets[50].pts &- packets[49].pts) >= 100_000)
+        let decoder = try #require(OpusDecoder(format))
+        var decoded: [Float] = []
+        for p in packets { decoder.decode(p.opus) { decoded += $0 } }
+        #expect(abs(frequency(decoded[4800..<43200], sampleRate: 48000) - 440) < 3)
+        #expect(host.observed.microphoneDropped == 0)
+        #expect(remote.linkStats()?.microphoneSent == 100)
+    }
+
+    @Test func aHostWithoutTheCapability() async throws {
+        let (host, remote) = try await connect { _ in }
+        defer { remote.close() }
+        #expect(host.observed.capabilities == ["microphone"]) // offered all the same
+        #expect(remote.microphoneFormat == nil)
+        #expect(remote.microphoneUnavailable == "the host takes no microphone")
+        await #expect(throws: MicrophoneCapture.Failure.self) { try await remote.setMicrophone(true) }
+        #expect(remote.microphone == nil)
+        remote.sendMicrophonePacket([0x70, 1, 2])
+        #expect(await eventually { remote.linkStats()?.microphoneDropped == 1 })
+    }
+
+    /// §6.8: a format the client can't encode means no microphone, and the
+    /// session goes on.
+    @Test func anUnsupportedFormat() async throws {
+        let (host, remote) = try await connect {
+            $0.capabilities = ["microphone"]
+            $0.microphoneFormat = GDPSession.AudioConfig(codec: "opus", sampleRate: 44100, channels: 1, frameMilliseconds: 10)
+        }
+        defer { remote.close() }
+        #expect(remote.microphoneFormat == nil)
+        #expect(remote.microphoneUnavailable?.contains("44100") == true)
+        #expect(!host.observed.closed)
     }
 }

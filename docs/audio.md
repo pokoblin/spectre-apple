@@ -166,3 +166,16 @@ AVAudioEngine.inputNode（设备格式）→ AVAudioSinkNode（实时线程，�
 
 测试（`MicrophoneTests`）：48 kHz 单声道的设备音频按 512、333、1024、97、480 帧这样不均匀地分块送进去，一秒正好得到 100 包，约 32 kb/s，用 `OpusDecoder` 解回来是 440 Hz，电平是 −9.03 dBFS（幅度 0.5 的正弦）；44.1 kHz 立体声的设备音频经过重采样、混成单声道后得到 98–100 包（重采样器会扣下几帧），频率和幅度不变；中途从 48 kHz 换成 16 kHz 也能继续；静音的电平是 −160。环形缓冲区的非交错写入：交错、回绕、写满时只写进能放下的部分。采集设备本身要麦克风权限，不在单元测试里，在 App 里实测。
 
+## 接入会话
+
+- **总是提供 capability**：`RemoteSession.connect` 会在 SessionHello 的 capability 里加上 `microphone`。capability 在整个连接期间固定，不提供的话会话中途就没法再开麦克风。提供了只表示"可以发"，麦克风本身仍然关着，直到用户打开（§10.1）。代价是：wraith 会把 `gdp-mic` 设为远端默认的录音设备，没开麦克风时它就是静音。
+- Accept 时：`microphone` 生效、而且格式能编（`OpusFormat` 认得，系统编码器也建得起来），就记下 `microphoneFormat`；否则把原因记在 `microphoneUnavailable` 里（"the host takes no microphone"，或者是什么格式），会话照常进行。
+- `setMicrophone(true)`：先请求权限（第一次会弹系统授权框），再在 `RemoteSession` 的音频队列上建立 `MicrophoneCapture` 并启动，每个包直接交给 `GDPSession.sendMicrophone`。`setMicrophone(false)` 停止采集、释放设备。会话结束时自动关闭。每个会话开始时麦克风都是关的，不记住上次的状态。
+- loopback 和 demo 的测试 host 也支持这个 capability，所以不连真实 host 也能看到它收到了什么。
+
+测试（`MicrophoneEndToEndTests`，GDPTestHost → QUIC）：
+- 客户端没被要求也会提供 `microphone`。
+- 一秒的测试音分两段发出，中间停 100 ms。host 收到 100 包，`seq` 是 0–99，停顿前后连续，`pts` 相差超过 100 ms；在 host 那边用 `OpusDecoder` 解回来是 440 Hz。
+- host 不支持这个 capability 时：没有格式，原因写清楚，`setMicrophone(true)` 抛错（在请求权限之前），发出的包在客户端就被丢弃。
+- host 给出 44.1 kHz 这种编不了的格式时：没有麦克风，会话照常进行。
+

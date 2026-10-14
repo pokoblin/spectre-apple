@@ -9,7 +9,7 @@ import Synchronization
 /// and present times back into StatsReport, and reports frames the decoder
 /// rejected as lost so the host repairs them (gdp-spec.md §7.5). Plays the
 /// session's audio when SessionAccept describes a format it can decode
-/// (§6.8, §10).
+/// (§6.8, §10), and sends the microphone while the user has it on (§10.1).
 public final class RemoteSession: @unchecked Sendable {
     public enum State: Sendable {
         case connecting
@@ -41,6 +41,11 @@ public final class RemoteSession: @unchecked Sendable {
         var player: SessionAudioPlayer?
         var unavailable: String?
         var muted = false
+        /// SessionAccept.microphone, if `microphone` is in effect and we can encode it.
+        var microphoneFormat: OpusFormat?
+        var microphoneUnavailable: String?
+        var microphone: MicrophoneCapture?
+        var ended = false
     }
     private let audioState = Mutex(AudioState())
     /// Starts and stops the player in order, off the session queue.
@@ -61,7 +66,11 @@ public final class RemoteSession: @unchecked Sendable {
 
     deinit {
         stats.setTimingSink(nil)
-        if let player = audioState.withLock({ $0.player }) { audioQueue.async { player.stop() } }
+        let (player, microphone) = audioState.withLock { ($0.player, $0.microphone) }
+        audioQueue.async {
+            player?.stop()
+            microphone?.stop()
+        }
     }
 
     /// The session's audio, from SessionAccept on, if it has a format we play.
@@ -83,7 +92,66 @@ public final class RemoteSession: @unchecked Sendable {
         }
     }
 
+    /// The format the host takes the microphone in, once established with
+    /// `microphone` in effect (gdp-spec.md §6.8, §10.1); nil before or without.
+    public var microphoneFormat: OpusFormat? { audioState.withLock { $0.microphoneFormat } }
+
+    /// Why the microphone can't be used, once established without it.
+    public var microphoneUnavailable: String? { audioState.withLock { $0.microphoneUnavailable } }
+
+    /// The open microphone, while it is on.
+    public var microphone: MicrophoneCapture? { audioState.withLock { $0.microphone } }
+
+    /// Turns the microphone on (asking for permission the first time) or
+    /// off. Off releases the device and stops the packets; there is nothing
+    /// to tell the host (§10.1). Never on unless the user asked for it.
+    public func setMicrophone(_ on: Bool) async throws(MicrophoneCapture.Failure) {
+        if on {
+            guard let format = microphoneFormat else { throw .unsupportedFormat }
+            guard await MicrophoneCapture.requestPermission() else { throw .permissionDenied }
+            let session = session
+            let capture = MicrophoneCapture(format: format) { [weak session] packet in
+                session?.sendMicrophone(opus: packet)
+            }
+            let result: Result<Void, MicrophoneCapture.Failure> = await withCheckedContinuation { done in
+                audioQueue.async { [self] in
+                    guard audioState.withLock({ !$0.ended && $0.microphone == nil }) else {
+                        return done.resume(returning: .success(()))
+                    }
+                    do throws(MicrophoneCapture.Failure) {
+                        try capture.start()
+                        audioState.withLock { $0.microphone = capture }
+                        done.resume(returning: .success(()))
+                    } catch {
+                        done.resume(returning: .failure(error))
+                    }
+                }
+            }
+            try result.get()
+        } else {
+            await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+                audioQueue.async { [self] in
+                    let capture = audioState.withLock {
+                        let c = $0.microphone
+                        $0.microphone = nil
+                        return c
+                    }
+                    capture?.stop()
+                    done.resume()
+                }
+            }
+        }
+    }
+
+    /// One packet in the microphone format, straight to the host: what the
+    /// capture does with each packet (and what tests use without a device).
+    public func sendMicrophonePacket(_ opus: [UInt8]) { session?.sendMicrophone(opus: opus) }
+
     public func connect(_ config: GDPSession.Configuration) throws(GDPSession.ConnectError) {
+        // Always offered (it is fixed for the connection); the microphone
+        // itself stays closed until the user turns it on (§10.1).
+        var config = config
+        if !config.capabilities.contains("microphone") { config.capabilities.append("microphone") }
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
         h.closed = { [weak self] ending in
@@ -133,6 +201,7 @@ public final class RemoteSession: @unchecked Sendable {
         }
         outputsChanged(accept.outputs)
         startAudio(accept.audio)
+        microphoneAccepted(accept)
         onStateChange?(.established(accept))
     }
 
@@ -155,9 +224,32 @@ public final class RemoteSession: @unchecked Sendable {
         audioQueue.async { player.start() }
     }
 
+    private func microphoneAccepted(_ accept: GDPSession.Accept) {
+        audioState.withLock {
+            if let config = accept.microphone {
+                // §6.8: a format we can't encode leaves the session without a microphone.
+                if let format = OpusFormat(config), MicrophoneEncoder(format: format) != nil {
+                    $0.microphoneFormat = format
+                } else {
+                    $0.microphoneUnavailable = "unsupported microphone format: \(config.codec) \(config.sampleRate) Hz, \(config.channels) ch, \(config.frameMilliseconds) ms"
+                }
+            } else {
+                $0.microphoneUnavailable = "the host takes no microphone"
+            }
+        }
+    }
+
     private func stopAudio() {
-        guard let player = audioState.withLock({ $0.player }) else { return }
-        audioQueue.async { player.stop() }
+        let (player, microphone) = audioState.withLock {
+            $0.ended = true
+            let m = $0.microphone
+            $0.microphone = nil
+            return ($0.player, m)
+        }
+        audioQueue.async {
+            player?.stop()
+            microphone?.stop()
+        }
     }
 
     private func outputsChanged(_ outputs: [GDPSession.Output]) {

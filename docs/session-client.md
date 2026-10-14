@@ -70,7 +70,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 
 ## 没有实现的
 
-- capability：`clipboard`、`refine`、`gamepad`、`hid`、`microphone`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。
+- capability：`clipboard`、`refine`、`gamepad`、`hid`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。（`microphone` 已经实现，`RemoteSession` 总是提供，见 [audio.md](audio.md)。）
 - 额外的流（§2.2 的 `StreamOpen`）：客户端不授予额外流的额度，收到也不会处理。
 - AV1、PyroWave（VideoToolbox 解不了 PyroWave；AV1 要看硬件，以后再评估）。
 - ~~lobby 阶段（`LobbyClient`、§4）~~：已完成，见 [login.md](login.md)。
