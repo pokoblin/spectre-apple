@@ -52,6 +52,17 @@ final class PlaybackModel {
     var mode: VideoPresenter.Mode = .onArrival {
         didSet { presenter?.mode = mode; stats.reset() }
     }
+    /// Silence the session's audio on this device (the host isn't told);
+    /// remembered across sessions and launches.
+    var isAudioMuted = UserDefaults.standard.bool(forKey: PlaybackModel.audioMutedKey) {
+        didSet {
+            remote?.isAudioMuted = isAudioMuted
+            UserDefaults.standard.set(isAudioMuted, forKey: Self.audioMutedKey)
+        }
+    }
+    private static let audioMutedKey = "audioMuted"
+    /// The session plays audio (SessionAccept described a format we decode).
+    private(set) var hasAudio = false
 
     let presenter: VideoPresenter?
     /// The session's input, while there is a session to send it to.
@@ -211,6 +222,7 @@ final class PlaybackModel {
         remote?.close()
         remote = nil
         loopback = nil
+        hasAudio = false
         hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
         sessionText = ""
     }
@@ -288,6 +300,7 @@ final class PlaybackModel {
     private func connect(_ config: GDPSession.Configuration) {
         guard let presenter else { return }
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
+        remote.isAudioMuted = isAudioMuted
         remote.onPictureChange = { [weak presenter, weak self] picture in
             Task { @MainActor in
                 presenter?.displaySize = picture.size
@@ -331,6 +344,7 @@ final class PlaybackModel {
         case let .established(accept):
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
+            hasAudio = remote.audio != nil
             if let a = remote.audio?.format {
                 print("session: audio opus \(a.sampleRate) Hz, \(a.channels) ch, \(a.frameMilliseconds) ms")
             } else {
@@ -395,12 +409,31 @@ final class PlaybackModel {
                           link.recentLosses, link.windowSpan)
         text += String(format: "\nfirst-slice delay min %d / avg %d µs (offset unknown), %u reports sent",
                        link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
+        text += "\n" + audioOverlay()
         if let host = testHost?.observed {
             text += String(format: "\nhost saw: %u reports, frame %u acked, decode %u µs, present %u µs, %u lost",
                            host.statsReports, host.lastHighestFrameID, host.lastDecodeMicroseconds,
                            host.lastPresentMicroseconds,
                            host.lostFrameIDs.count)
             text += "\n" + Self.inputOverlay(host)
+        }
+        return text
+    }
+
+    /// The session's audio (docs/audio.md): buffering, repairs, and the A/V
+    /// offset, audio's playout − pts less video's on-screen − pts (the
+    /// clocks' unknown offset cancels; positive: audio is heard later).
+    private func audioOverlay() -> String {
+        guard let remote else { return "" }
+        guard let player = remote.audio else { return "audio: none (\(remote.audioUnavailable ?? "connecting"))" }
+        if let failure = player.failure { return "audio: \(failure)" }
+        let s = player.pipeline.statistics, c = s.counters
+        let buffered = Double(s.queuedPackets) * player.format.packetDuration + s.ringSeconds
+        var text = String(format: "audio %@%.0f ms buffered, played %d, concealed %d, late %d, underruns %d, trimmed %d, drift -%d/+%d",
+                          isAudioMuted ? "(muted) " : (s.isPlaying ? "" : "(buffering) "), buffered * 1000,
+                          c.played, c.concealed, c.late, c.underruns, c.trimmed, c.dropped, c.inserted)
+        if let audio = s.playoutMinusPTS, let video = stats.presentMinusPTS {
+            text += String(format: ", A/V %+.0f ms", Double(audio &- video) / 1000)
         }
         return text
     }

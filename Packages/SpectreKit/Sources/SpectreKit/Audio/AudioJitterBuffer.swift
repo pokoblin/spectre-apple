@@ -63,8 +63,11 @@ public struct AudioJitterBuffer: Sendable {
         /// Arrived after their slot was played or concealed.
         public var late = 0
         public var duplicates = 0
-        /// Dropped by overrun trimming or drift correction.
+        /// Dropped by drift correction.
         public var dropped = 0
+        /// Dropped to bring the queue back to `targetPackets`: on overrun,
+        /// and when playback starts with more than that queued.
+        public var trimmed = 0
         /// Concealed slots inserted by drift correction.
         public var inserted = 0
         /// The output ran dry while playing.
@@ -126,9 +129,7 @@ public struct AudioJitterBuffer: Sendable {
         // newest; while buffering too, or the queue would span far enough to
         // look like a jump.
         if queue.count > configuration.maxPackets {
-            let n = queue.count - configuration.targetPackets
-            queue.removeFirst(n)
-            counters.dropped += n
+            trimToTarget()
             if isPlaying {
                 expected = queue[0].sequence
                 resetDrift()
@@ -149,8 +150,12 @@ public struct AudioJitterBuffer: Sendable {
             guard queue.count >= configuration.targetPackets
                     || now - oldest >= Double(configuration.targetPackets) * configuration.packetDuration - 1e-9
             else { return nil }
+            // Start at the target latency, not more: packets that piled up
+            // with nobody pulling (the engine starting, the app in the
+            // background) would otherwise stay as extra delay.
+            trimToTarget()
             isPlaying = true
-            expected = first.sequence
+            expected = queue[0].sequence
             resetDrift()
         }
 
@@ -195,6 +200,13 @@ public struct AudioJitterBuffer: Sendable {
         queue.removeAll()
         isPlaying = false
         resetDrift()
+    }
+
+    private mutating func trimToTarget() {
+        let n = queue.count - configuration.targetPackets
+        guard n > 0 else { return }
+        queue.removeFirst(n)
+        counters.trimmed += n
     }
 
     private mutating func restart() {

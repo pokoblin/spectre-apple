@@ -123,9 +123,10 @@ struct AudioJitterBufferTests {
         insert(&jb, Array(0..<6))
         #expect(pull(&jb, 2) == [0, 1])
         insert(&jb, Array(6..<14)) // 12 queued: at the limit
-        #expect(jb.counters.dropped == 0)
+        #expect(jb.counters.trimmed == 0)
         insert(&jb, [14]) // 13: trim to 6
-        #expect(jb.counters.dropped == 7)
+        #expect(jb.counters.trimmed == 7)
+        #expect(jb.counters.dropped == 0)
         #expect(jb.depth == 6)
         #expect(pull(&jb, 7) == [9, 10, 11, 12, 13, 14, nil])
     }
@@ -345,8 +346,16 @@ extension AudioJitterBufferTests {
         var jb = AudioJitterBuffer()
         insert(&jb, Array(0..<100))
         #expect(jb.counters.resyncs == 0)
-        let depth = jb.depth
-        #expect((6...12).contains(depth))
-        #expect(pull(&jb, 1) == [100 - depth])
+        #expect((6...12).contains(jb.depth))
+        // And playback starts at the target latency: the newest six.
+        #expect(pull(&jb, 7) == [94, 95, 96, 97, 98, 99, nil])
+        #expect(jb.counters.trimmed == 94)
+    }
+
+    @Test func playbackStartsWithTheNewestTargetPackets() {
+        var jb = AudioJitterBuffer()
+        insert(&jb, Array(0..<9))
+        #expect(pull(&jb, 7) == [3, 4, 5, 6, 7, 8, nil])
+        #expect(jb.counters.trimmed == 3)
     }
 }

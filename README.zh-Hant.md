@@ -20,9 +20,10 @@
 - **登入**：lobby 登入（§4、§5），首次連線時確認並記住伺服器憑證（TOFU），依伺服器的提示進行互動式驗證，選擇裝置和桌面工作階段，接管既有的工作階段。見 [docs/login.md](docs/login.md)。
 - **視訊**：H.264／HEVC，由 VideoToolbox 硬體解碼，零複製交給 Metal 顯示；向主機回報影格遺失和延遲統計（StatsReport）。見 [docs/session-client.md](docs/session-client.md)、[docs/prototype-findings.md](docs/prototype-findings.md)。
 - **輸入**：鍵盤按實體按鍵位置轉送；滑鼠支援絕對座標、各個按鍵和平滑捲動，也可以擷取滑鼠以傳送相對移動；在本機繪製遠端游標；iPad 支援實體鍵盤、觸控板和滑鼠，手指可以選擇「直接觸控」或「觸控板」兩種用法。見 [docs/input.md](docs/input.md)。
+- **音訊**：播放遠端桌面的聲音（Opus，使用系統內建的解碼器），60 ms 的抖動緩衝，遺失封包時加以補償；工具列可以靜音。見 [docs/audio.md](docs/audio.md)。
 - **工作階段控制**：中斷連線（遠端工作階段會保留）、登出（結束遠端工作階段）。
 
-尚未完成：音訊和麥克風、剪貼簿、遊戲控制器、無損細化層（refine）、螢幕鍵盤、AV1／PyroWave。
+尚未完成：麥克風、剪貼簿、遊戲控制器、無損細化層（refine）、螢幕鍵盤、AV1／PyroWave。
 
 ## 建置
 
@@ -97,6 +98,8 @@ App 啟動後是登入畫面：輸入伺服器（`host[:port]`，預設連接埠
 
 - **Touch**：點在哪裡，指標就在哪裡。輕點是左鍵，長按是右鍵，單指拖曳是左鍵拖曳，雙指拖曳是捲動，雙指或三指輕點是右鍵或中鍵。
 - **Trackpad**：把螢幕當觸控板使用，單指移動游標，輕點即點按。
+
+**聲音**：主機傳送聲音時就會播放（wraith 能擷取到工作階段的音訊時就會傳送）。工具列的 **Mute** 按鈕只讓本機靜音，設定會被記住。demo 和 loopback 的測試主機每秒響一聲提示音。
 
 ## 開發
 
@@ -177,6 +180,7 @@ iOS 的進入點是 UIKit 的 app delegate，這樣根 view controller 才能鎖
 - [docs/session-client.md](docs/session-client.md)：工作階段層，對照規格 §6–§11
 - [docs/login.md](docs/login.md)：lobby 登入、憑證信任、demo
 - [docs/input.md](docs/input.md)：鍵盤、滑鼠、游標、觸控
+- [docs/audio.md](docs/audio.md)：音訊、抖動緩衝、Opus 解碼
 
 ## 授權
 

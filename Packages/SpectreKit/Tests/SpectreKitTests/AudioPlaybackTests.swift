@@ -79,7 +79,7 @@ struct AudioPlaybackTests {
         #expect(abs(frequency(link.right[4800..<24000], sampleRate: 48000) - 660) < 3)
         let s = pipeline.statistics
         #expect(s.counters.played >= 54)
-        #expect(s.counters.concealed == 0 && s.counters.underruns == 0 && s.counters.dropped == 0)
+        #expect(s.counters.concealed == 0 && s.counters.underruns == 0 && s.counters.dropped == 0 && s.counters.trimmed == 0)
         #expect(s.decodeErrors == 0)
     }
 
@@ -132,9 +132,10 @@ struct AudioPlaybackTests {
     @Test func largeRendersAreNotUnderruns() throws {
         let packets = opusTone(packets: 12)
         let pipeline = try #require(AudioPipeline(format: .session))
-        feed(pipeline, packets, from: 0, 0..<12)
+        feed(pipeline, packets, from: 0, 0..<6)
         pipeline.pump(now: 0)
         _ = render(pipeline, frames: 2048) // ran dry: the ring held two packets
+        feed(pipeline, packets, from: 0, 6..<12) // meanwhile, more arrived
         pipeline.pump(now: 0)
         #expect(pipeline.statistics.counters.underruns == 0)
         #expect(pipeline.ring.available >= 2048)
@@ -146,12 +147,13 @@ struct AudioPlaybackTests {
         let packets = opusTone(packets: 20)
         let pipeline = try #require(AudioPipeline(format: .session))
         pipeline.setOutputLatency(0.010)
-        feed(pipeline, packets, from: 0, 0..<12)
+        feed(pipeline, packets, from: 0, 0..<6)
         pipeline.pump(now: 0)
         // Render the first 480 frames "at" host time t; the next pump
         // measures (t + 10 ms output latency) − pts of the first sample.
         let t = AVAudioTime.hostTime(forSeconds: 5)
         _ = render(pipeline, frames: 480, hostTime: t)
+        feed(pipeline, packets, from: 0, 6..<12)
         pipeline.pump(now: 0)
         // The first packet starts 2.5 ms late in pts (its pre-skip was trimmed).
         let expected = Int32(5_000_000 + 10_000 - 2_500)
@@ -279,7 +281,7 @@ struct SessionAudioEndToEndTests {
         #expect(c.received == 50) // 49 distinct, one twice
         #expect(c.concealed == 1)
         #expect(c.duplicates == 1)
-        #expect(c.late == 0 && c.underruns == 0 && c.dropped == 0)
+        #expect(c.late == 0 && c.underruns == 0 && c.dropped == 0 && c.trimmed == 0)
         #expect(c.played >= 43)
         #expect(abs(frequency(left[4800..<19200], sampleRate: 48000) - 440) < 3)
         #expect(abs(frequency(right[4800..<19200], sampleRate: 48000) - 660) < 3)

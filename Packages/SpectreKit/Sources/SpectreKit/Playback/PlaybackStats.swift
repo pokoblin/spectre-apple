@@ -90,6 +90,7 @@ public final class PlaybackStats: Sendable {
         var zeroCopy = 0
         var replacedAtStart: UInt64 = 0
         var hardwareDecoder = false
+        var presentMinusPTS: Int32?
     }
 
     private let state = Mutex(State())
@@ -119,12 +120,20 @@ public final class PlaybackStats: Sendable {
     public func reset() {
         let replaced = mailbox?.replacedCount ?? 0
         state.withLock {
-            let hw = $0.hardwareDecoder
+            let hw = $0.hardwareDecoder, pts = $0.presentMinusPTS
             $0 = State()
             $0.replacedAtStart = replaced
             $0.hardwareDecoder = hw
+            $0.presentMinusPTS = pts
         }
     }
+
+    /// `(client clock when the latest frame reached the screen) − its pts`,
+    /// µs, wrapped to 32 bits as `pts` is (gdp-spec.md §11). The client clock
+    /// is the host time base (`CACurrentMediaTime`), as audio's
+    /// ``AudioPipeline/Statistics/playoutMinusPTS`` is, so the unknown offset
+    /// between the two ends cancels in the difference: the A/V offset.
+    public var presentMinusPTS: Int32? { state.withLock { $0.presentMinusPTS } }
 
     public func recordDecoded(_ frame: DecodedFrame) {
         state.withLock { $0.decode.append(frame.decodeDuration * 1000) }
@@ -147,6 +156,8 @@ public final class PlaybackStats: Sendable {
             $0.present.append((presentedTime - frame.decodedTime) * 1000)
             if $0.lastPresented > 0 { $0.intervals.append((presentedTime - $0.lastPresented) * 1000) }
             $0.lastPresented = presentedTime
+            let shown = UInt32(truncatingIfNeeded: UInt64(presentedTime * 1_000_000))
+            $0.presentMinusPTS = Int32(bitPattern: shown &- frame.pts)
         }
         guard presentedTime > 0, let sink = timingSink.withLock({ $0 }) else { return }
         func us(_ seconds: CFTimeInterval) -> UInt32 { UInt32(clamping: Int64((max(seconds, 0) * 1_000_000).rounded())) }

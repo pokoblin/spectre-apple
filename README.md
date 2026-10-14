@@ -20,9 +20,10 @@ Working:
 - **Login**: lobby login (§4, §5); the server's certificate is confirmed on first connection and remembered (trust on first use); interactive authentication following the server's prompts; choosing a device and a desktop session; taking over a running session. See [docs/login.md](docs/login.md).
 - **Video**: H.264 and HEVC, decoded in hardware by VideoToolbox and handed to Metal without copies; frame loss and latency statistics reported back to the host (StatsReport). See [docs/session-client.md](docs/session-client.md) and [docs/prototype-findings.md](docs/prototype-findings.md).
 - **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
+- **Audio**: the remote desktop's sound (Opus, decoded by the system's own codec) through a 60 ms jitter buffer that conceals lost packets; mute from the toolbar. See [docs/audio.md](docs/audio.md).
 - **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
-Not done yet: audio and microphone, clipboard, gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
+Not done yet: the microphone, clipboard, gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
 
 ## Building
 
@@ -97,6 +98,8 @@ The app opens on the login screen: enter the server (`host[:port]`, port 4442 by
 
 - **Touch**: the pointer goes where you touch. Tap to left-click, long-press to right-click, drag with one finger to left-drag, drag with two fingers to scroll, and tap with two or three fingers to right- or middle-click.
 - **Trackpad**: the screen works like a trackpad. Move the cursor with one finger and tap to click.
+
+**Sound**: the remote desktop's sound plays when the host sends it (wraith does when it can capture the session's audio). The toolbar's **Mute** button silences it on this device only; the setting is remembered. The demo and loopback host beep once a second.
 
 ## Development
 
@@ -177,6 +180,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 - [docs/session-client.md](docs/session-client.md): the session layer, checked against §6–§11 of the specification
 - [docs/login.md](docs/login.md): lobby login, certificate trust, the demo
 - [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
+- [docs/audio.md](docs/audio.md): audio, jitter buffer, Opus decoding
 
 ## License
 

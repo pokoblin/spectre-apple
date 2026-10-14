@@ -105,6 +105,16 @@ struct SessionView: View {
             .help("Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad.")
         }
         #endif
+        if model.hasAudio {
+            Button { model.isAudioMuted.toggle() } label: {
+                if model.isAudioMuted {
+                    Label("Unmute", systemImage: "speaker.slash")
+                } else {
+                    Label("Mute", systemImage: "speaker.wave.2")
+                }
+            }
+            .help(model.isAudioMuted ? "Play the remote desktop's sound" : "Mute the remote desktop's sound on this device")
+        }
         Toggle(isOn: $showStats) {
             Label("Statistics", systemImage: "chart.bar.xaxis")
         }

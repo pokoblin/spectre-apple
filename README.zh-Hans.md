@@ -18,9 +18,10 @@
 - **登录**：lobby 登录（§4、§5），首次连接时确认并记住服务器证书（TOFU），按服务器的提示交互式认证，选择设备和桌面会话，接管已有会话。见 [docs/login.md](docs/login.md)。
 - **视频**：H.264 / HEVC，VideoToolbox 硬件解码，零拷贝交给 Metal 显示；向 host 回报丢帧和延迟统计（StatsReport）。见 [docs/session-client.md](docs/session-client.md)、[docs/prototype-findings.md](docs/prototype-findings.md)。
 - **输入**：键盘按物理位置转发；鼠标支持绝对坐标、各按键和平滑滚动，可以捕获鼠标发送相对移动；显示远端光标；iPad 支持硬件键盘、触控板和鼠标，手指可以选“直接触摸”或“触控板”两种用法。见 [docs/input.md](docs/input.md)。
+- **音频**：播放远端桌面的声音（Opus，用系统自带的解码器），60 ms 的抖动缓冲，丢包时做补偿；工具栏可以静音。见 [docs/audio.md](docs/audio.md)。
 - **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
 
-还没有做：音频和麦克风、剪贴板、手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
+还没有做：麦克风、剪贴板、手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
 
 ## 构建
 
@@ -95,6 +96,8 @@ App 启动后是登录页：输入服务器（`host[:port]`，默认端口 4442�
 
 - **Touch**：点在哪里，指针就在哪里。轻点是左键，长按是右键，单指拖动是左键拖动，双指拖动是滚动，双指或三指轻点是右键或中键。
 - **Trackpad**：把屏幕当触控板用，单指移动光标，轻点是点击。
+
+**声音**：host 发送声音时就会播放（wraith 能采集到会话的音频时就会发）。工具栏的 **Mute** 按钮只让本机静音，设置会被记住。demo 和 loopback 的测试 host 每秒响一下提示音。
 
 ## 开发
 
@@ -175,6 +178,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/session-client.md](docs/session-client.md)：会话层，对照规范 §6–§11
 - [docs/login.md](docs/login.md)：lobby 登录、证书信任、demo
 - [docs/input.md](docs/input.md)：键盘、鼠标、光标、触摸
+- [docs/audio.md](docs/audio.md)：音频、抖动缓冲、Opus 解码
 
 ## 许可证
 
