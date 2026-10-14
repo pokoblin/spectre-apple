@@ -29,7 +29,11 @@ struct SessionView: View {
             Color.black.ignoresSafeArea()
             if let presenter = model.presenter {
                 VideoView(presenter: presenter, input: model.input)
+                    #if os(iOS)
                     .ignoresSafeArea()
+                    #endif
+                    // On the Mac the picture starts below the toolbar: under
+                    // it, the remote desktop's top edge (GNOME's top bar) is hidden.
             }
             VStack(alignment: .leading, spacing: 8) {
                 #if os(iOS)
