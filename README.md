@@ -1,33 +1,37 @@
 # spectre-apple
 
-[ghost](https://github.com/jsaiko/ghost) 远程桌面的 Apple 原生客户端，支持 macOS、iPadOS 和 iOS（只支持 Apple 芯片 / arm64）。App 显示名 **Spectre**，Bundle ID `org.ghost.spectre.apple`。
+**English** | [简体中文](README.zh-Hans.md) | [繁體中文](README.zh-Hant.md) | [Español](README.es.md)
 
-> **致谢**：本项目的灵感来自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)。ghost 是一个完整的远程桌面系统，包括 GDP 协议、host 端 wraith 和 Linux 客户端 spectre。spectre-apple 让 Apple 设备也能连上 ghost：它使用 ghost 的协议库 libgdp，按 ghost 公开的协议规范和设计文档编写，名字也沿用了上游客户端的 Spectre。感谢原作者把 ghost 开源，并以 MIT 许可证开放 libgdp 和协议规范，这个项目才得以实现。本项目是独立的第三方客户端，并非 ghost 官方项目。
+A native Apple client for the [ghost](https://github.com/jsaiko/ghost) remote desktop, for macOS, iPadOS and iOS (Apple silicon / arm64 only). The app is called **Spectre**; its bundle ID is `org.ghost.spectre.apple`.
 
-![iPad 上的会话：触控板模式，Metal 绘制的远端光标](docs/images/ipad-trackpad-mode.jpg)
+> **Acknowledgements**: this project is inspired by [ghost](https://github.com/jsaiko/ghost) by [Joseph Saiko](https://saiko.dev), a complete remote desktop system made up of the GDP protocol, the wraith host and the spectre client for Linux. spectre-apple brings Apple devices to ghost: it uses ghost's protocol library, libgdp, is written from ghost's published protocol specification and design documents, and borrows the name Spectre from the upstream client. Many thanks to the author for open-sourcing ghost and for releasing libgdp and the protocol specification under the MIT license; this project would not exist without them. spectre-apple is an independent, third-party client and is not part of the ghost project.
 
-- **协议层**：上游的 C++ libgdp（QUIC：ngtcp2 + OpenSSL；protobuf；zstd），编译成静态库打包为 xcframework，通过一层 C ABI 暴露给 Swift。
-- **平台层**：Swift 6、SwiftUI、Metal、VideoToolbox。会话、登录和输入的客户端逻辑都照 GDP 规范（`third_party/ghost/docs/spec/gdp-spec.md`）自行实现。
+![A session on iPad in trackpad mode, with the remote cursor drawn by Metal](docs/images/ipad-trackpad-mode.jpg)
 
-## 现状
+- **Protocol**: upstream's C++ libgdp (QUIC with ngtcp2 and OpenSSL, protobuf, zstd), built as static libraries into an xcframework and exposed to Swift through a thin C ABI.
+- **Platform**: Swift 6, SwiftUI, Metal and VideoToolbox. The client side of sessions, login and input is written from the GDP specification (`third_party/ghost/docs/spec/gdp-spec.md`).
 
-已经可用：
+The design notes and measurements under [`docs/`](docs/) are written in Simplified Chinese.
 
-- **登录**：lobby 登录（§4、§5），首次连接时确认并记住服务器证书（TOFU），按服务器的提示交互式认证，选择设备和桌面会话，接管已有会话。见 [docs/login.md](docs/login.md)。
-- **视频**：H.264 / HEVC，VideoToolbox 硬件解码，零拷贝交给 Metal 显示；向 host 回报丢帧和延迟统计（StatsReport）。见 [docs/session-client.md](docs/session-client.md)、[docs/prototype-findings.md](docs/prototype-findings.md)。
-- **输入**：键盘按物理位置转发；鼠标支持绝对坐标、各按键和平滑滚动，可以捕获鼠标发送相对移动；显示远端光标；iPad 支持硬件键盘、触控板和鼠标，手指可以选“直接触摸”或“触控板”两种用法。见 [docs/input.md](docs/input.md)。
-- **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
+## Status
 
-还没有做：音频和麦克风、剪贴板、手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
+Working:
 
-## 构建
+- **Login**: lobby login (§4, §5); the server's certificate is confirmed on first connection and remembered (trust on first use); interactive authentication following the server's prompts; choosing a device and a desktop session; taking over a running session. See [docs/login.md](docs/login.md).
+- **Video**: H.264 and HEVC, decoded in hardware by VideoToolbox and handed to Metal without copies; frame loss and latency statistics reported back to the host (StatsReport). See [docs/session-client.md](docs/session-client.md) and [docs/prototype-findings.md](docs/prototype-findings.md).
+- **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
+- **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
-### 需要的工具
+Not done yet: audio and microphone, clipboard, gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
 
-- Xcode 27（含 iOS 27 模拟器运行时）
+## Building
+
+### Requirements
+
+- Xcode 27 (with the iOS 27 simulator runtime)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- `cmake`（3.25+）和 `ninja`：`brew install cmake ninja`
-- [vcpkg](https://github.com/microsoft/vcpkg)，建议固定在上游 CI 用的提交：
+- `cmake` (3.25+) and `ninja`: `brew install cmake ninja`
+- [vcpkg](https://github.com/microsoft/vcpkg), preferably pinned to the commit upstream CI uses:
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
@@ -41,62 +45,62 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 ~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ```
 
-vcpkg 不在 `~/src/vcpkg` 的话，后面的命令前设置 `VCPKG_ROOT`。
+If vcpkg is not in `~/src/vcpkg`, set `VCPKG_ROOT` for the commands below.
 
-### 步骤
+### Steps
 
-1. 取代码（包括上游 ghost 的 submodule）：
+1. Get the code, including the upstream ghost submodule:
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
    ```
 
-   已经克隆过的话补上 submodule：`git submodule update --init`。
+   In an existing clone, fetch the submodule with `git submodule update --init`.
 
-2. 编译 `GDPCore.xcframework`：libgdp 和它的依赖（vcpkg 静态库）加上 C 桥接层，合并成 `Packages/GDPKit/Artifacts/GDPCore.xcframework`（不进 git）。首次编译依赖要几分钟，之后有 vcpkg 的二进制缓存。日志在 `build/logs/`。
+2. Build `GDPCore.xcframework`: libgdp and its dependencies (static vcpkg libraries) plus the C bridge, merged into `Packages/GDPKit/Artifacts/GDPCore.xcframework` (not committed). The first build of the dependencies takes a few minutes; later builds use vcpkg's binary cache. Logs go to `build/logs/`.
 
    ```bash
    scripts/build-gdpcore.sh
    ```
 
-   默认编 `macos`、`ios`、`ios-simulator` 三个平台，也可以只编其中几个，例如 `scripts/build-gdpcore.sh macos`。
+   It builds `macos`, `ios` and `ios-simulator` by default; name some of them to build only those, for example `scripts/build-gdpcore.sh macos`.
 
-3. 生成 Xcode 工程，打开 `Spectre.xcodeproj`，选 `Spectre` scheme 运行：
+3. Generate the Xcode project, open `Spectre.xcodeproj` and run the `Spectre` scheme:
 
    ```bash
    xcodegen generate
    ```
 
-   也可以在命令行编译 macOS 版：
+   Or build the macOS app from the command line:
 
    ```bash
    xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
    ```
 
-在真机上运行，需要在 Xcode 里给 target 选一个开发者 Team。
+To run on a device, choose a development team for the target in Xcode.
 
-## 使用
+## Using it
 
-App 启动后是登录页：输入服务器（`host[:port]`，默认端口 4442）和用户名，按服务器的提示登录，选择桌面后进入会话。首次连接会先请你确认服务器的证书指纹。
+The app opens on the login screen: enter the server (`host[:port]`, port 4442 by default) and your user name, answer the server's prompts, then pick a desktop to start the session. On the first connection you are asked to confirm the server's certificate fingerprint.
 
-**没有服务器？**点 **Try the demo host**（用户 demo，密码 demo）：App 内会起一个测试 lobby 和测试 host，走完整的登录和会话流程，画面是测试码流，统计浮层会显示 host 收到的输入。
+**No server?** Tap **Try the demo host** (user demo, password demo): the app starts a test lobby and a test host inside itself and goes through the whole login and session flow, showing a test stream, with the statistics overlay listing the input the host received.
 
-**键盘和鼠标**：按键按物理位置转发，由远端的键盘布局决定输入什么字符；Cmd 作为 Super（Windows 键）转发，所以远端的复制、粘贴仍然是 Ctrl+C、Ctrl+V。只有下面三个快捷键留在本地：
+**Keyboard and mouse**: keys are sent by physical position, and the remote keyboard layout decides which characters they type. Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these three shortcuts stay local:
 
-| 快捷键 | 作用 |
+| Shortcut | Action |
 |---|---|
-| Ctrl+Cmd+G | 捕获或释放鼠标（游戏、3D 视图用相对移动），工具栏上也有 Capture Mouse 按钮 |
-| Ctrl+Cmd+F | 全屏 |
-| Cmd+Q | 退出 |
+| Ctrl+Cmd+G | Capture or release the mouse (relative motion for games and 3D views); also the Capture Mouse button in the toolbar |
+| Ctrl+Cmd+F | Full screen |
+| Cmd+Q | Quit |
 
-**iPad 和 iPhone 上的手指**：用工具栏按钮在两种模式间切换。
+**Fingers on iPad and iPhone**: switch between two modes with the toolbar button.
 
-- **Touch**：点在哪里，指针就在哪里。轻点是左键，长按是右键，单指拖动是左键拖动，双指拖动是滚动，双指或三指轻点是右键或中键。
-- **Trackpad**：把屏幕当触控板用，单指移动光标，轻点是点击。
+- **Touch**: the pointer goes where you touch. Tap to left-click, long-press to right-click, drag with one finger to left-drag, drag with two fingers to scroll, and tap with two or three fingers to right- or middle-click.
+- **Trackpad**: the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
-## 开发
+## Development
 
-### 测试
+### Tests
 
 ```bash
 swift test --package-path Packages/GDPKit
@@ -106,7 +110,7 @@ swift test --package-path Packages/GDPKit
 swift test --package-path Packages/SpectreKit
 ```
 
-两个包里都有一个进程内的测试 host（以及测试 lobby），通过真实的 QUIC 回环连接做端到端测试。SpectreKit 的测试还包括 H.264/HEVC 彩条的色彩校验和 Metal 渲染测试。在 iPad 模拟器上跑：
+Both packages have an in-process test host (and test lobby) for end-to-end tests over a real QUIC loopback connection. SpectreKit's tests also check the colours of H.264 and HEVC colour bars and render with Metal. To run them in the iPad simulator:
 
 ```bash
 (cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
@@ -116,27 +120,27 @@ swift test --package-path Packages/SpectreKit
 (cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
 ```
 
-### 跳过登录的开发模式
+### Skipping the login
 
-带下面任意命令行参数启动时，App 会跳过登录、直接播放。它先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放；左上角每秒更新一次解码、显示和会话的统计，stdout 也会打印同样的内容。工具栏可以切换来源、H.264/HEVC 和呈现节奏。来源有三种：
+Started with any of the options below, the app skips the login and plays straight away. It first encodes a 10-second 1080p60 test stream with VideoToolbox (about 3 seconds), then loops it; the top left shows decode, presentation and session statistics, updated every second and also printed to stdout. The toolbar switches the source, H.264/HEVC and the presentation pacing. There are three sources:
 
-- **Loopback**（默认）：App 内的测试 host 通过真实的 GDP 会话（QUIC，127.0.0.1）发送测试码流。
-- **Direct**：测试码流直接交给解码器，不经过网络。
-- **Remote**：连接一个用静态 token 启动的 wraith（§6.11）：
+- **Loopback** (the default): a test host inside the app sends the test stream over a real GDP session (QUIC on 127.0.0.1).
+- **Direct**: the test stream goes straight to the decoder, with no network.
+- **Remote**: a wraith started with a static token (§6.11):
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
 ```
 
-测量模式：预热 2 秒后测 N 秒，打印统计后退出。
+Benchmark mode: measures for N seconds after a 2-second warm-up, prints the statistics and exits.
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-其他参数：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N，0 为不限>`、`--screen <屏幕序号>`、`--rate <display link Hz>`、`--min-present-ms <ms>`。
+Other options: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 for no limit>`, `--screen <screen index>`, `--rate <display link Hz>`, `--min-present-ms <ms>`.
 
-### iOS / iPadOS 模拟器
+### iOS and iPadOS simulator
 
 ```bash
 xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -configuration Release -derivedDataPath build/DerivedData build
@@ -150,33 +154,33 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopback
 ```
 
-iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定指针，见 [docs/input.md](docs/input.md)。如果之前装过旧版本（SwiftUI 入口），要先卸载一次（`xcrun simctl uninstall booted org.ghost.spectre.apple`），否则系统恢复旧窗口时会是一片黑屏。
+On iOS the app starts from a UIKit app delegate, so that its root view controller can lock the pointer (see [docs/input.md](docs/input.md)). If an older build (with the SwiftUI entry point) was installed, uninstall it once (`xcrun simctl uninstall booted org.ghost.spectre.apple`); otherwise the system restores the old window and it stays black.
 
-在模拟器里 VideoToolbox 是软件解码，而且没有 `presentedTime`，所以模拟器上的耗时数字不能和真机或 macOS 比较。
+In the simulator VideoToolbox decodes in software and there is no `presentedTime`, so timings measured there can't be compared with a device or macOS.
 
-### 目录
+### Layout
 
-| 路径 | 内容 |
+| Path | Contents |
 |---|---|
-| `project.yml` | XcodeGen 工程定义（一个 macOS + iOS 多平台 App target） |
-| `App/` | 各平台入口和界面（登录、会话） |
-| `Packages/GDPKit/` | libgdp 的 C 桥接（`Native/`）和 Swift 封装：会话、lobby、测试 host |
-| `Packages/SpectreKit/` | 共用代码：会话、VideoToolbox 解码、Metal 显示、输入、登录流程 |
-| `scripts/` | 编译依赖、生成 xcframework 的脚本 |
-| `docs/` | 设计和实测记录 |
-| `experiments/` | 一次性实验（如 Swift/C++ interop probe），不参与 App 构建 |
-| `third_party/ghost/` | 上游 ghost（git submodule，只读） |
+| `project.yml` | XcodeGen project (one multiplatform macOS + iOS app target) |
+| `App/` | Per-platform entry points and the UI (login, session) |
+| `Packages/GDPKit/` | The C bridge to libgdp (`Native/`) and its Swift wrapper: sessions, lobby, test host |
+| `Packages/SpectreKit/` | Shared code: session, VideoToolbox decoding, Metal presentation, input, login flow |
+| `scripts/` | Scripts that build the dependencies and the xcframework |
+| `docs/` | Design notes and measurements (in Simplified Chinese) |
+| `experiments/` | One-off experiments (such as a Swift/C++ interop probe), not part of the app build |
+| `third_party/ghost/` | Upstream ghost (git submodule, read-only) |
 
-### 文档
+### Documents
 
-- [docs/prototype-findings.md](docs/prototype-findings.md)：原型阶段的三个技术风险和验证结论（Swift 调用 libgdp、零拷贝显示、iOS 交叉编译）
-- [docs/session-client.md](docs/session-client.md)：会话层，对照规范 §6–§11
-- [docs/login.md](docs/login.md)：lobby 登录、证书信任、demo
-- [docs/input.md](docs/input.md)：键盘、鼠标、光标、触摸
+- [docs/prototype-findings.md](docs/prototype-findings.md): the prototype's three technical risks and how each was settled (calling libgdp from Swift, zero-copy presentation, cross-compiling for iOS)
+- [docs/session-client.md](docs/session-client.md): the session layer, checked against §6–§11 of the specification
+- [docs/login.md](docs/login.md): lobby login, certificate trust, the demo
+- [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
 
-## 许可证
+## License
 
-[MIT](LICENSE)。
+[MIT](LICENSE).
 
-- 上游 ghost 中，`libgdp/` 和协议规范是 MIT，其余部分（包括上游自己的 spectre 客户端）是 GPL-3.0-only。本项目只编译 `libgdp/`，客户端代码照规范和公开标准自行编写，没有复制或移植 GPL 部分的代码。
-- 编译出的 App 静态链接了 ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd，它们都是宽松许可证（MIT、Apache-2.0、BSD-3-Clause）。分发二进制时要附上它们的许可声明，见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- In upstream ghost, `libgdp/` and the protocol specification are MIT, and everything else (including upstream's own spectre client) is GPL-3.0-only. This project builds only `libgdp/`; its client code is written from the specification and public standards, and no code from the GPL parts is copied or ported.
+- The app links ngtcp2, OpenSSL, Protocol Buffers, Abseil and zstd statically, all under permissive licenses (MIT, Apache-2.0, BSD-3-Clause). A binary distribution must include their notices: see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
