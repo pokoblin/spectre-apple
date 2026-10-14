@@ -202,3 +202,7 @@ AVAudioEngine.inputNode（设备格式）→ AVAudioSinkNode（实时线程，�
 - **发现并修正**：iOS 上打开麦克风时，音频会话切到 `.playAndRecord`，模拟器上播放的渲染请求变大，缓冲从约 70 ms 涨到约 105 ms。关掉麦克风后，缓冲原先一直停在约 102 ms（音画偏差 +113 ms），因为预读量取的是"见过的最大一次渲染请求"，只增不减。现在只看最近两个 2 秒窗口里的最大值，关掉麦克风几秒后缓冲回到 60–72 ms，音画偏差回到约 +77 ms。测试 `theLookaheadFollowsRecentRendersOnly` 覆盖这个情况。
 - 每次切换音频会话类别，播放引擎都会收到配置变更并重启，`trimmed` 增加约 20 包（一两百毫秒的声音被跳过）。这是开关麦克风的代价；macOS 没有音频会话，不受影响。
 
+## 真实 host 实测（麦克风）
+
+2026-10-15 在内网的真实 ghost host（ghostd + wraith，Ubuntu 26.04，GNOME）上验证：用安装到 `/Applications` 的 macOS Release 版登录，打开工具栏的 Microphone，远端能正常收到本机麦克风的声音。这一次没有记录统计浮层的数字。
+
