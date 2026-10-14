@@ -92,6 +92,8 @@ xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=mac
 
 App 启动后是登录页：输入服务器（`host[:port]`，默认端口 4442）和用户名，按服务器的提示登录，选择桌面后进入会话。首次连接会先让你确认服务器的证书指纹。没有服务器时点 **Try the demo host**（用户 demo，密码 demo），App 内会起一个测试 lobby 和测试 host。见 [docs/login.md](docs/login.md)。
 
+会话里的键盘、鼠标和触摸会转发到远端桌面（[docs/input.md](docs/input.md)）：按键按物理位置转发，Cmd 作为 Super；只有 **Ctrl+Cmd+G**（捕获/释放鼠标）、**Ctrl+Cmd+F**（全屏）和 **Cmd+Q** 留在本地。捕获鼠标后发送相对移动，适合游戏和 3D 视图，工具栏上也有 Capture Mouse 按钮。在 iPad 和 iPhone 上，手指有两种用法，用工具栏按钮切换：**Touch**（点在哪里指针就在哪里）和 **Trackpad**（把屏幕当触控板用）。连着测试 host（loopback、demo）时，统计浮层和 stdout 会显示 host 收到的输入。
+
 带下面任意命令行参数启动时，会跳过登录、直接播放（开发和测量用）。App 先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放，左上角每秒更新一次解码、显示和会话的统计。工具栏可以切换来源、H.264/HEVC 和呈现节奏。来源有三种：
 
 - **Loopback**（默认）：App 内的测试 host 通过真实的 GDP 会话（QUIC，127.0.0.1）发送测试码流，经 SessionClient 收下后解码显示，StatsReport 再回到 host。见 [docs/session-client.md](docs/session-client.md)。
@@ -140,6 +142,12 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 
 ```bash
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --bench 10 --codec h265
+```
+
+iOS 的入口是 UIKit 的 app delegate（为了让根 view controller 能锁定指针，见 [docs/input.md](docs/input.md)）。之前装过旧版本（SwiftUI 入口）的模拟器或设备，要先卸载一次，否则恢复的旧窗口是一片黑屏：
+
+```bash
+xcrun simctl uninstall booted org.ghost.spectre.apple
 ```
 
 在模拟器里 VideoToolbox 是软件解码，而且没有 `presentedTime`，所以模拟器上的耗时数字不能和真机或 macOS 比较，见 [docs/prototype-findings.md](docs/prototype-findings.md)。在真机上运行需要在 Xcode 里给 target 选一个开发者 Team。

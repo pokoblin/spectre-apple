@@ -2,6 +2,8 @@
 
 照 `third_party/ghost/docs/spec/gdp-spec.md` §8.1–§8.3 和 §7.4 自行实现。上游的行为（快捷键、捕获模式）只参考了设计文档：`docs/design/spectre-client.md` 的 "Session window and input" 和 `packaging/macos/README.md` 的 "Keys"。没有读过、也没有移植 `client/spectre`、spectre-qt 的代码（GPL-3.0），按键映射表是照 USB HID Usage Tables（Keyboard/Keypad page 0x07）和 Apple 公开的键码常量（Carbon 的 `kVK_*`）写的。
 
+![iPad 模拟器上的触控板模式：Metal 画的 host 光标、工具栏的 Capture Mouse 和 Trackpad、host 收到的输入](images/ipad-trackpad-mode.jpg)
+
 ## 分层
 
 ```
@@ -162,3 +164,25 @@ host 不把指针画进视频，只发 `CursorShape`（BGRA 预乘，最大 384�
 **测试 host 的光标**：测试 host 接受会话后发一个 2×2 的白点；loopback 和 demo 的 `LoopbackHost` 在每次接受会话后改发一个 25×25 的十字准星，更容易看清。
 
 macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里）：指针在画面上时，系统光标是 16.7×16.7 点（25 像素 × 0.667），热点在 (8, 8)；移到画面外变回箭头（28×40）。
+
+## 测试
+
+`swift test --package-path Packages/SpectreKit`：macOS 上 92 个，iPad 模拟器上 90 个（有 2 个只在 macOS 上跑：对照 Carbon 键码常量、NSCursor）。与输入相关的有：
+
+- **键码表**（`KeyMapTests`）：每个 kVK 映射到唯一的 usage，ISO 下也一样；在 macOS 上和 Carbon 的 `kVK_*` 常量逐个对照，并检查表里的键码集合正好等于 Carbon 列表；ISO 对调、fn、未知键码、各个修饰键的设备位；在 iOS 上和 `UIKeyboardHIDUsage` 抽查对照。
+- **InputSender**：丢掉自动重复和多余的松开，`releaseAll()` 的顺序（普通键、修饰键、鼠标键），Caps Lock 每次切换发按下加松开。
+- **坐标映射**：上下黑边、左右黑边、往返换算、还没有画面时的情况。
+- **滚动换算**：行和点、符号、不产生负零。
+- **光标**（`CursorTests`）：形状校验、热点、CGImage 逐像素读回、NSCursor 的尺寸和缩放上下限，以及两个 GPU 测试（光标的位置、缩放、预乘混合、在黑边处被裁掉）。
+- **手势**（`TouchPointerTests`，40 个）：见上文。
+- **端到端**（`InputEndToEndTests`，经真实的 GDP 会话连到 `GDPTestHost`）：按键、自动重复、会话结束时释放；绝对移动、按键、两个方向的滚动、捕获后的相对移动和 host 回报的 `CursorPosition`、释放捕获后重新发送绝对位置。
+- **GDPKit**：测试 host 的事件日志和指针模拟（`inputArrivesInOrder`、`simulatedPointerReportsCursorPosition`）。
+
+## 没有做的
+
+- 全屏时抓取系统快捷键（Cmd+Tab 等）。这次决定不做；沙盒里也不能用会吞事件的 event tap。
+- 屏幕软键盘：没有硬件键盘的 iPhone 和 iPad 现在不能打字。软键盘按字符输入，需要按布局把字符换算回物理键位，是另一套设计。
+- 发送原始的 §8.3 `TouchEvent`：wraith 会忽略它。
+- 鼠标灵敏度设置。滚动的“25 点 = 1 notch”和触摸的“24 点 = 1 notch”还没有在真实的 host 上校准过。
+- 需要真实设备确认的：macOS 捕获模式下相对移动的方向和手感；iPad 的触控板和鼠标（悬停、点击、滚动、指针锁定、GCMouse）。
+- 窗口大小变化时没有重画上一帧（和原来一样，等下一帧）。
