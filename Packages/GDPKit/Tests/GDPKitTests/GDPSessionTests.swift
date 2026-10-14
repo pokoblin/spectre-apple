@@ -432,13 +432,15 @@ struct ControlTests {
         let host = try GDPTestHost()
         let rec = Recorder()
         let session = try await connected(host, rec)
-        session.sendKey(hidUsage: 0x04, pressed: false) // queued before the close: sent first
+        // Queued right before the close: all of it goes out first (key
+        // releases before detaching, §8.2), not discarded by the close.
+        for usage in UInt32(0x04)..<0x18 { session.sendKey(hidUsage: usage, pressed: false) }
         #expect(session.closeAndWait(timeout: 2))
         #expect(rec.snapshot.ending?.code == 0)
         // The host hears a normal close, not an idle timeout.
         #expect(await eventually(.seconds(2)) { host.observed.viewerClosed })
         #expect(host.observed.viewerCloseCode == 0)
-        #expect(host.observed.keyEvents == 1)
+        #expect(host.observed.keyEvents == 20)
         #expect(session.closeAndWait(timeout: 0.1)) // already closed: returns at once
     }
 

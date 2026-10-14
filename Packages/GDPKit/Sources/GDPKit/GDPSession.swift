@@ -293,9 +293,35 @@ public final class GDPSession: @unchecked Sendable {
     }
 
     /// Detach: close with code 0; the desktop session keeps running (§7.10).
-    public func close() { async { gdpc_session_close($0) } }
+    /// Closes the connection (code 0). What was sent just before (the key
+    /// releases §8.2 asks for before detaching) goes out first: libgdp only
+    /// buffers stream data until its network thread flushes, and a close
+    /// posted right behind it would be written first and discard it. So
+    /// the close waits ``flushDelay()``.
+    public func close() {
+        queue.async { [self] in
+            guard handle != nil, !ended else { return }
+            queue.asyncAfter(deadline: .now() + flushDelay()) { [self] in
+                if let handle, !ended { gdpc_session_close(handle) }
+            }
+        }
+    }
 
-    /// Closes and waits, at most `timeout`, for the close to go out: for an
+    /// How long a close waits for stream data queued before it: two round
+    /// trips (enough for it to be sent, and on most links acknowledged),
+    /// within 20-250 ms. Session queue only.
+    private func flushDelay() -> TimeInterval {
+        var rtt: UInt32 = 0
+        if let handle {
+            var s = gdpc_session_link_stats()
+            gdpc_session_get_link_stats(handle, &s)
+            rtt = s.rtt_us
+        }
+        return min(max(2 * Double(rtt) / 1e6, 0.02), 0.25)
+    }
+
+    /// Closes (as ``close()``, after the flush delay) and waits, at most
+    /// `timeout`, for the close to go out: for an
     /// app about to exit, which would otherwise take its CONNECTION_CLOSE
     /// with it and leave the host to notice through its idle timeout.
     /// Everything queued before (key releases) is sent first. Returns
@@ -303,10 +329,8 @@ public final class GDPSession: @unchecked Sendable {
     @discardableResult
     public func closeAndWait(timeout: TimeInterval = 0.5) -> Bool {
         precondition(DispatchQueue.getSpecific(key: queueKey) == nil, "closeAndWait from the session queue")
-        let alreadyEnded: Bool = queue.sync {
-            if let handle, !ended { gdpc_session_close(handle) }
-            return handle == nil || ended
-        }
+        let alreadyEnded: Bool = queue.sync { handle == nil || ended }
+        close()
         if alreadyEnded { return true }
         guard closedSignal.wait(timeout: .now() + timeout) == .success else { return false }
         closedSignal.signal() // for anyone else waiting

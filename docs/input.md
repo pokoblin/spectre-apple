@@ -181,6 +181,7 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 
 - 关闭窗口：先松开所有按键，再正常关闭会话；Spectre 只有一个窗口，所以关掉它也就退出了 App（`applicationShouldTerminateAfterLastWindowClosed`）。
 - 退出 App（Cmd+Q、菜单）：在 `willTerminate` 里先松开按键，再用 `GDPSession.closeAndWait` 同步关闭，最多等 0.5 秒，让 CONNECTION_CLOSE 赶在进程退出前发出去。测试 host 新增了 `viewerClosed`、`viewerCloseCode`，端到端测试确认 `closeAndWait` 返回时 host 已经收到了错误码为 0 的正常关闭。
+- 关闭前先让按键松开发出去：libgdp 的 `Stream::send` 只把数据放进缓冲区，要等网络线程本轮的 flush 才真正发送；紧跟着排队的关闭会在同一轮里先写出 CONNECTION_CLOSE，缓冲区里的数据就丢了（测试里关闭前发的 20 个按键事件，大多到不了 host）。所以 `GDPSession.close()` 会先等两个 RTT（20–250 ms）再关闭。断开按钮、关闭窗口、退出 App 都走这条路。
 
 调试过程中排除了“主线程卡死”：对进程采样，主线程在正常等待事件；每秒的统计和发给 host 的 StatsReport 一直在继续。
 
