@@ -73,6 +73,10 @@ final class PlaybackModel {
     private var benchScreen: Int?
     private var hostInputPrinted = 0
     private var terminationObserver: NSObjectProtocol?
+    /// Held while a stream plays: keeps App Nap from throttling the timers
+    /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
+    /// the window is in the background. Idle system sleep still happens.
+    private var activity: NSObjectProtocol?
 
     init(arguments: [String] = CommandLine.arguments) {
         // The per-second report reaches a log file (or a pipe) as it is printed.
@@ -197,6 +201,8 @@ final class PlaybackModel {
     }
 
     private func stopAll() {
+        if let activity { ProcessInfo.processInfo.endActivity(activity) }
+        activity = nil
         input?.end()
         input = nil
         player?.stop()
@@ -212,6 +218,9 @@ final class PlaybackModel {
     private func play() async {
         stopAll()
         guard presenter != nil else { return }
+        activity = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiatedAllowingIdleSystemSleep, .latencyCritical],
+            reason: "Remote desktop session")
         switch source {
         case .remote:
             guard let config = remoteConfig else {

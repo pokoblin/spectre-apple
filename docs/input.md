@@ -183,6 +183,8 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 - 退出 App（Cmd+Q、菜单）：在 `willTerminate` 里先松开按键，再用 `GDPSession.closeAndWait` 同步关闭，最多等 0.5 秒，让 CONNECTION_CLOSE 赶在进程退出前发出去。测试 host 新增了 `viewerClosed`、`viewerCloseCode`，端到端测试确认 `closeAndWait` 返回时 host 已经收到了错误码为 0 的正常关闭。
 - 关闭前先让按键松开发出去：libgdp 的 `Stream::send` 只把数据放进缓冲区，要等网络线程本轮的 flush 才真正发送；紧跟着排队的关闭会在同一轮里先写出 CONNECTION_CLOSE，缓冲区里的数据就丢了（测试里关闭前发的 20 个按键事件，大多到不了 host）。所以 `GDPSession.close()` 会先等两个 RTT（20–250 ms）再关闭。断开按钮、关闭窗口、退出 App 都走这条路。
 
+**App Nap**：会话期间持有一个 `ProcessInfo` activity（`.userInitiatedAllowingIdleSystemSleep` 加 `.latencyCritical`），不让系统在窗口隐藏或被遮住时节流 App 的定时器和队列（StatsReport 每 250 ms 一个，§7.5），但不阻止 Mac 空闲睡眠。实测：在有 60 fps 视频流的 loopback 会话里，即使没有这个 activity，隐藏 60 秒也没有被节流（StatsReport 正好每秒 4 个），因为 App 一直在工作。它防的是远端桌面静止、几乎没有新帧、App 大多空闲的时候。采样时进程状态里的 `N` 是系统给隐藏 App 降低的调度优先级，不是 App Nap。
+
 调试过程中排除了“主线程卡死”：对进程采样，主线程在正常等待事件；每秒的统计和发给 host 的 StatsReport 一直在继续。
 
 **和上游设计文档不一致的地方**：`audio-cursor-gamepad.md` 说绝对模式下 wraith 不发 `CursorPosition`，实际上它每处理一次我们的绝对移动都会回报一次位置。我们只在捕获模式下使用 host 报告的位置，所以没有影响。
