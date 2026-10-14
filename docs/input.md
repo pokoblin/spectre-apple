@@ -25,7 +25,7 @@ App/Shared/PlaybackModel           会话建立后创建 SessionInput，结束�
 
 **按物理位置**（§8.2）：macOS 用 `NSEvent.keyCode`（`kVK_*`，物理位置）查表得到 HID usage，host 按自己的键盘布局解释。字符、输入法都不参与。
 
-- **修饰键**：`flagsChanged` 的 keyCode 区分左右键（`kVK_Shift`/`kVK_RightShift` 等），按下还是松开看 `modifierFlags` 里与设备相关的位（IOKit `NX_DEVICE*KEYMASK`）。Caps Lock 每次切换只报一次 `flagsChanged`，所以每次都发一次按下加松开。fn 键没有 0x07 页的 usage，不转发；fn 和方向键组合时，macOS 已经把 keyCode 换成了 Home/End/PageUp/PageDown，可以照常转发。
+- **修饰键**：左右键用 `modifierFlags` 里与设备相关的位（IOKit `NX_DEVICE*KEYMASK`）区分。每个带修饰键状态的事件（`flagsChanged`、keyDown/keyUp、鼠标按键、滚轮）都按它的标志位把 8 个修饰键的状态整体同步一遍（`MacKeyCodes.modifierStates`），而不是只处理“变化的那个键”：`flagsChanged` 可能丢失。实测：在会话窗口里按 Shift+Cmd+Ctrl+4 截图，macOS 的截图界面会接管键盘，松开时只补一个 keyCode 为 0、标志全为 0 的 `flagsChanged`；原先的实现认不出它，Shift、Super、Ctrl 就一直按在 host 上。之后按 Super 实际上是 Ctrl+Shift+Super（不打开活动概览），滚轮带着 Ctrl，拖动也带着修饰键。没有设备位的合成事件（某些自动化工具）保留已按下的一侧。Caps Lock 每次切换只报一次 `flagsChanged`，所以每次都发一次按下加松开。fn 键没有 0x07 页的 usage，不转发；fn 和方向键组合时，macOS 已经把 keyCode 换成了 Home/End/PageUp/PageDown，可以照常转发。
 - **Cmd 作为 Super**（左右 GUI 键），和上游一致：远端的复制、粘贴仍然是 Ctrl+C、Ctrl+V。
 - **自动重复**：`isARepeat` 的 keyDown 丢掉，由 host 的合成器自己重复。InputSender 也会丢掉“已经按下的键再次按下”和“没按下的键松开”（例如获得焦点之前就按住的键）。
 - **为什么用本地事件监听**：AppKit 不会把“按住 Cmd 时按下的键”的 keyUp 交给 view，Cmd 组合键也会先送到菜单。所以 MacSessionView 用 `NSEvent.addLocalMonitorForEvents` 截获 keyDown/keyUp/flagsChanged，只有当它是 key window 的第一响应者时才处理，窗口里的其他文本框照常输入。
@@ -184,6 +184,12 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 - 关闭前先让按键松开发出去：libgdp 的 `Stream::send` 只把数据放进缓冲区，要等网络线程本轮的 flush 才真正发送；紧跟着排队的关闭会在同一轮里先写出 CONNECTION_CLOSE，缓冲区里的数据就丢了（测试里关闭前发的 20 个按键事件，大多到不了 host）。所以 `GDPSession.close()` 会先等两个 RTT（20–250 ms）再关闭。断开按钮、关闭窗口、退出 App 都走这条路。
 
 **App Nap**：会话期间持有一个 `ProcessInfo` activity（`.userInitiatedAllowingIdleSystemSleep` 加 `.latencyCritical`），不让系统在窗口隐藏或被遮住时节流 App 的定时器和队列（StatsReport 每 250 ms 一个，§7.5），但不阻止 Mac 空闲睡眠。实测：在有 60 fps 视频流的 loopback 会话里，即使没有这个 activity，隐藏 60 秒也没有被节流（StatsReport 正好每秒 4 个），因为 App 一直在工作。它防的是远端桌面静止、几乎没有新帧、App 大多空闲的时候。采样时进程状态里的 `N` 是系统给隐藏 App 降低的调度优先级，不是 App Nap。
+
+**输入跟踪**：设置环境变量 `SPECTRE_INPUT_LOG=1` 启动，stdout 会逐条打印收到的 macOS 事件原始值（keyCode、`modifierFlags`、滚轮的 `scrollingDelta`/`delta`、是否精确、phase）和发给 host 的每个事件（`→ key`、`→ move`、`→ button`、`→ scroll`）。上面修饰键卡住的问题就是靠它看出来的。
+
+**拖动时 20 fps**：拖动窗口时 host 每秒只出约 20 帧（客户端解码约 1.5 ms、解码到上屏约 15 ms，每秒发出约 100 次指针移动），瓶颈在 host：这台机器用 x264 软件编码（superfast 预设，Intel N100）。有硬件编码（VA-API、NVENC）的 host 不受这个限制。
+
+**滚轮**：一个普通鼠标（无精确滚动）每格给出带系统加速的小数行数，比如连滚 3 格是 0.1、1.19、4.80；按 §8.2 原样作为小数 notch 发出。
 
 调试过程中排除了“主线程卡死”：对进程采样，主线程在正常等待事件；每秒的统计和发给 host 的 StatsReport 一直在继续。
 

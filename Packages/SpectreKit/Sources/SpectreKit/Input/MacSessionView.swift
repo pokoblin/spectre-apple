@@ -150,7 +150,11 @@ public final class MacSessionView: MTKView {
     public override func otherMouseUp(with event: NSEvent) { pointerButton(event, pressed: false) }
 
     public override func scrollWheel(with event: NSEvent) {
+        InputTrace.log(String(format: "scrollWheel scrolling %+.3f, %+.3f delta %+.3f, %+.3f precise %d phase %lu momentum %lu",
+                              event.scrollingDeltaX, event.scrollingDeltaY, event.deltaX, event.deltaY,
+                              event.hasPreciseScrollingDeltas ? 1 : 0, event.phase.rawValue, event.momentumPhase.rawValue))
         guard let input else { return super.scrollWheel(with: event) }
+        if window?.firstResponder === self { syncModifiers(event, changedKeyCode: nil) } // Ctrl+wheel zooms
         // Momentum (the glide after a trackpad flick) is forwarded too: the host applies none of its own.
         input.scroll(deltaX: event.scrollingDeltaX, deltaY: event.scrollingDeltaY,
                      precise: event.hasPreciseScrollingDeltas)
@@ -169,8 +173,10 @@ public final class MacSessionView: MTKView {
     }
 
     private func pointerButton(_ event: NSEvent, pressed: Bool) {
+        InputTrace.log("mouse button \(event.buttonNumber) \(pressed ? "down" : "up") clicks \(event.clickCount)")
         guard let input, let code = PointerButton.code(forButtonNumber: event.buttonNumber) else { return }
         if pressed, window?.firstResponder !== self { window?.makeFirstResponder(self) }
+        if window?.firstResponder === self { syncModifiers(event, changedKeyCode: nil) } // Ctrl+click, Super+drag
         if !input.isCaptured { input.move(to: position(of: event)) }
         input.button(code, pressed: pressed)
     }
@@ -212,14 +218,24 @@ public final class MacSessionView: MTKView {
 
     private func handlesKeys(for event: NSEvent) -> Bool {
         guard input != nil, let window, event.window === window else { return false }
-        return window.isKeyWindow && window.firstResponder === self
+        let handles = window.isKeyWindow && window.firstResponder === self
+        if !handles {
+            InputTrace.log("key event not taken: key window \(window.isKeyWindow), first responder \(String(describing: window.firstResponder))")
+        }
+        return handles
     }
 
     /// Returns whether the event was consumed.
     private func handleKey(_ event: NSEvent) -> Bool {
+        InputTrace.log(String(format: "%@ keyCode %d flags 0x%08lX repeat %d chars %@",
+                              event.type == .flagsChanged ? "flagsChanged" : event.type == .keyDown ? "keyDown" : "keyUp",
+                              event.keyCode, event.modifierFlags.rawValue,
+                              event.type == .flagsChanged ? 0 : (event.isARepeat ? 1 : 0),
+                              event.type == .flagsChanged ? "-" : (event.charactersIgnoringModifiers ?? "?")))
         guard let input else { return false }
         switch event.type {
         case .keyDown:
+            syncModifiers(event, changedKeyCode: nil)
             if let shortcut = localShortcut(event) {
                 return perform(shortcut, event: event)
             }
@@ -227,19 +243,29 @@ public final class MacSessionView: MTKView {
             if !event.isARepeat, let usage = usage(event) { input.key(usage, pressed: true) }
             return true
         case .keyUp:
+            syncModifiers(event, changedKeyCode: nil)
             if let usage = usage(event) { input.key(usage, pressed: false) }
             return true
         case .flagsChanged:
-            guard let usage = usage(event) else { return true }
-            if usage == HIDUsage.capsLock {
+            if usage(event) == HIDUsage.capsLock {
                 // One event per toggle, not per press and release.
-                input.tapKey(usage)
-            } else if let mask = MacKeyCodes.deviceFlagMask(forKeyCode: event.keyCode) {
-                input.key(usage, pressed: event.modifierFlags.rawValue & mask != 0)
+                input.tapKey(HIDUsage.capsLock)
+            } else {
+                syncModifiers(event, changedKeyCode: event.keyCode)
             }
             return true
         default:
             return false
+        }
+    }
+
+    /// Brings the host's modifiers in line with the event's flags (see
+    /// ``MacKeyCodes/modifierStates(flags:changedKeyCode:held:)``).
+    private func syncModifiers(_ event: NSEvent, changedKeyCode: UInt16?) {
+        guard let input else { return }
+        for m in MacKeyCodes.modifierStates(flags: event.modifierFlags.rawValue, changedKeyCode: changedKeyCode,
+                                            held: input.sender.heldKeys) {
+            input.key(m.usage, pressed: m.pressed)
         }
     }
 

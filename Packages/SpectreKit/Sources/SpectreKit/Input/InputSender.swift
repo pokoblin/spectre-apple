@@ -39,6 +39,7 @@ public final class InputSender {
         } else {
             guard heldKeys.remove(usage) != nil else { return }
         }
+        InputTrace.log(String(format: "→ key 0x%02X %@", usage, pressed ? "down" : "up"))
         sink.sendKey(hidUsage: usage, pressed: pressed)
     }
 
@@ -55,6 +56,7 @@ public final class InputSender {
         } else {
             guard heldButtons.remove(code) != nil else { return }
         }
+        InputTrace.log(String(format: "→ button 0x%X %@", code, pressed ? "down" : "up"))
         sink.sendPointerButton(code, pressed: pressed)
     }
 
@@ -62,18 +64,21 @@ public final class InputSender {
     public func move(to position: CGPoint) {
         guard position != lastPosition else { return }
         lastPosition = position
+        InputTrace.log(String(format: "→ move to %.4f, %.4f", position.x, position.y))
         sink.sendPointerMotion(dx: position.x, dy: position.y, absolute: true)
     }
 
     /// Moves the pointer by an amount in output pixels (the mouse captured).
     public func move(by dx: Double, _ dy: Double) {
         guard dx != 0 || dy != 0 else { return }
+        InputTrace.log(String(format: "→ move by %+.2f, %+.2f px", dx, dy))
         sink.sendPointerMotion(dx: dx, dy: dy, absolute: false)
     }
 
     /// Scrolls, in wheel notches: positive right and down (§8.2).
     public func scroll(horizontal: Double, vertical: Double) {
         guard horizontal != 0 || vertical != 0 else { return }
+        InputTrace.log(String(format: "→ scroll %+.3f, %+.3f notches", horizontal, vertical))
         sink.sendPointerAxis(horizontal: horizontal, vertical: vertical)
     }
 

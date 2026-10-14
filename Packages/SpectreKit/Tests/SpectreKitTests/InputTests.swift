@@ -166,6 +166,40 @@ struct ScrollTests {
     }
 }
 
+@Suite("Modifier state from event flags")
+struct ModifierSyncTests {
+    func down(_ flags: UInt, _ keyCode: UInt16? = nil, held: Set<UInt32> = []) -> Set<UInt32> {
+        Set(MacKeyCodes.modifierStates(flags: flags, changedKeyCode: keyCode, held: held).filter(\.pressed).map(\.usage))
+    }
+
+    /// The sequence a real Mac produced for Shift+Cmd+Ctrl(+4), the screenshot
+    /// shortcut: the screenshot UI then takes the keyboard and the release
+    /// arrives as one flagsChanged with key code 0 and no flags.
+    @Test func screenshotShortcutReleasesEverything() {
+        #expect(down(0x0002_0102, 0x38) == [HIDUsage.leftShift])
+        #expect(down(0x0012_010A, 0x37) == [HIDUsage.leftShift, HIDUsage.leftGUI])
+        #expect(down(0x0016_210A, 0x3E) == [HIDUsage.leftShift, HIDUsage.leftGUI, HIDUsage.rightControl])
+        #expect(down(0x0000_0000, 0, held: [HIDUsage.leftShift, HIDUsage.leftGUI, HIDUsage.rightControl]).isEmpty)
+    }
+
+    @Test func cmdAloneAndBothShifts() {
+        #expect(down(0x0010_0108, 0x37) == [HIDUsage.leftGUI]) // logged from a real left Cmd
+        #expect(down(0x0000_0100, 0x37, held: [HIDUsage.leftGUI]).isEmpty)
+        #expect(down(0x0002_0006) == [HIDUsage.leftShift, HIDUsage.rightShift])
+        #expect(down(0x0002_0004, 0x38, held: [HIDUsage.leftShift, HIDUsage.rightShift]) == [HIDUsage.rightShift])
+        #expect(down(0x0008_0060) == [HIDUsage.leftAlt, HIDUsage.rightAlt])
+    }
+
+    /// Flags without device bits (a synthesized event): keep what is held,
+    /// add the key that changed; the kind's flag clearing still releases.
+    @Test func flagsWithoutDeviceBits() {
+        #expect(down(0x0010_0000, 0x36) == [HIDUsage.rightGUI])
+        #expect(down(0x0010_0000, nil, held: [HIDUsage.leftGUI]) == [HIDUsage.leftGUI])
+        #expect(down(0x0000_0000, nil, held: [HIDUsage.leftGUI]).isEmpty)
+    }
+}
+
+@MainActor
 @Suite("Local shortcuts")
 struct LocalShortcutTests {
     @Test func onlyTheReservedCombinationsStayLocal() {

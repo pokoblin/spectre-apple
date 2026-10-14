@@ -210,6 +210,36 @@ public enum MacKeyCodes {
         }
     }
 
+    /// The side-specific modifiers: key code, HID usage, device-dependent
+    /// flag (``deviceFlagMask(forKeyCode:)``) and the device-independent
+    /// flag of their kind (`NSEvent.ModifierFlags` raw values).
+    private static let modifiers: [(keyCode: UInt16, usage: UInt32, device: UInt, kind: UInt)] = [
+        (0x38, HIDUsage.leftShift, 0x0000_0002, 0x0002_0000), (0x3C, HIDUsage.rightShift, 0x0000_0004, 0x0002_0000),
+        (0x3B, HIDUsage.leftControl, 0x0000_0001, 0x0004_0000), (0x3E, HIDUsage.rightControl, 0x0000_2000, 0x0004_0000),
+        (0x3A, HIDUsage.leftAlt, 0x0000_0020, 0x0008_0000), (0x3D, HIDUsage.rightAlt, 0x0000_0040, 0x0008_0000),
+        (0x37, HIDUsage.leftGUI, 0x0000_0008, 0x0010_0000), (0x36, HIDUsage.rightGUI, 0x0000_0010, 0x0010_0000),
+    ]
+
+    /// Which of the eight side-specific modifiers are down, from an event's
+    /// `modifierFlags`: the whole state, not just the key that changed. A
+    /// `flagsChanged` can go missing (macOS's screenshot UI takes the
+    /// keyboard and later sends one with key code 0 and no flags at all),
+    /// so every event that carries flags re-states them.
+    ///
+    /// A kind's device-independent flag clear: both sides up. Set, with
+    /// device bits: those say which side. Set without any (an event
+    /// synthesized without them): the sides keep `held`, and the key that
+    /// changed (`changedKeyCode`, for a `flagsChanged`) is down.
+    public static func modifierStates(flags: UInt, changedKeyCode: UInt16?, held: Set<UInt32>)
+        -> [(usage: UInt32, pressed: Bool)] {
+        modifiers.map { m in
+            guard flags & m.kind != 0 else { return (m.usage, false) }
+            let kindDevice = modifiers.filter { $0.kind == m.kind }.reduce(UInt(0)) { $0 | $1.device }
+            if flags & kindDevice != 0 { return (m.usage, flags & m.device != 0) }
+            return (m.usage, held.contains(m.usage) || changedKeyCode == m.keyCode)
+        }
+    }
+
     #if os(macOS)
     /// Whether the keyboard that last typed is ISO, for `hidUsage(forKeyCode:isISO:)`.
     public static var currentKeyboardIsISO: Bool {
