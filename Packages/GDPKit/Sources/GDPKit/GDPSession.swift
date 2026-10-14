@@ -85,6 +85,13 @@ public final class GDPSession: @unchecked Sendable {
         public var sampleRate: UInt32
         public var channels: UInt32
         public var frameMilliseconds: UInt32
+
+        public init(codec: String, sampleRate: UInt32, channels: UInt32, frameMilliseconds: UInt32) {
+            self.codec = codec
+            self.sampleRate = sampleRate
+            self.channels = channels
+            self.frameMilliseconds = frameMilliseconds
+        }
     }
 
     public struct Accept: Sendable {
