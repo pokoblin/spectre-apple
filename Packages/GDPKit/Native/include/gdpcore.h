@@ -240,6 +240,11 @@ typedef struct {
     uint32_t audio_sample_rate_hz;
     uint32_t audio_channels;
     uint32_t audio_frame_ms;
+    bool has_microphone;               // `microphone` in effect, with SessionAccept.microphone (§6.8)
+    const char *microphone_codec;
+    uint32_t microphone_sample_rate_hz;
+    uint32_t microphone_channels;
+    uint32_t microphone_frame_ms;
     const char *const *capabilities;   // in effect
     size_t capability_count;
     int32_t network_profile;
@@ -286,6 +291,8 @@ typedef struct {
     uint32_t delay_samples;
     uint64_t bytes_last_window;
     uint32_t last_window_us;
+    uint64_t microphone_sent;
+    uint64_t microphone_dropped;       // not established, not negotiated, or refused by the transport
 } gdpc_session_link_stats;
 
 gdpc_session *gdpc_session_create(const gdpc_session_callbacks *callbacks);
@@ -315,6 +322,9 @@ void gdpc_session_send_pointer_button(gdpc_session *session, uint32_t button, bo
 void gdpc_session_send_pointer_axis(gdpc_session *session, double horizontal, double vertical);
 // `phase`: 1 down, 2 move, 3 up, 4 cancel (§8.3).
 void gdpc_session_send_touch(gdpc_session *session, uint32_t touch_id, int32_t phase, double x, double y);
+// One Opus packet of the microphone (§10.1); seq and pts are filled in.
+// Dropped unless established with `microphone` in effect.
+bool gdpc_session_send_microphone(gdpc_session *session, const uint8_t *opus, size_t len);
 
 void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_stats *out);
 
@@ -339,6 +349,12 @@ typedef struct {
     uint32_t audio_sample_rate_hz;   //   0: 48000
     uint32_t audio_channels;         //   0: 2
     uint32_t audio_frame_ms;         //   0: 10
+    // SessionAccept.microphone when `microphone` is negotiated (it must be
+    // in `capabilities`): NULL / 0 for {48000, 1, 10, "opus"}.
+    const char *microphone_codec;
+    uint32_t microphone_sample_rate_hz;
+    uint32_t microphone_channels;
+    uint32_t microphone_frame_ms;
     const char *force_codec;         // NULL or a codec to accept regardless
     uint64_t refuse_code;            // 0, or close with this after a good hello
     const char *reject_reason;       // NULL, or send SessionReject
@@ -437,6 +453,10 @@ typedef struct {
     uint32_t frames_sent;
     uint32_t next_frame_id;
     uint16_t max_datagram_size;
+
+    uint32_t microphone_packets;     // §10.1, from the viewer under `microphone`
+    uint64_t microphone_bytes;       // datagram bytes
+    uint32_t microphone_dropped;     // without the capability, or not from the accepted viewer
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
@@ -468,6 +488,10 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 // Copies up to `cap` of the input events received so far (the first 8192),
 // oldest first, starting at `first`; returns how many were copied.
 size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdpc_test_input_event *out, size_t cap);
+// Microphone packet `index` (in arrival order, the first minute): false past
+// the end. Copies at most `cap` bytes of its Opus payload; `*len` is the full size.
+bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, uint16_t *seq, uint32_t *pts,
+    uint8_t *opus, size_t cap, size_t *len);
 
 // ---------------------------------------------------------------------------
 // Lobby (§4, §5): logging in to a host agent or a broker, ending in a

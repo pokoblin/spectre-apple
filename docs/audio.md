@@ -119,3 +119,33 @@ Core Audio 实时线程：AVAudioSourceNode 只做拷贝，不够的部分填静
 - **播放器**（`SessionAudioPlayer`，`AVAudioEngine` 的离线手动渲染模式，不需要声卡，CI 和模拟器上都能跑）：经过引擎和混音器出来的左右声道分别是 440 / 660 Hz，幅度不变；静音后约 30 ms 淡出为全零，但包照常被拉走，取消静音后马上有声音，没有欠载；单声道的源在左右声道上完全一样。
 - **端到端**（GDPTestHost → QUIC → GDPSession → RemoteSession → 播放器，离线渲染）：50 个包里有乱序（11 在 10 前面）、丢失（20）、重复（29），逐个到达、逐个渲染：补偿 1 次、重复 1 次、没有迟到、欠载和丢弃，左右声道的频率对；会话建立前设置的静音对之后的播放器有效；三种不支持的格式（aac、44.1 kHz、6 声道）和没有音频时，会话照常进行、没有播放器，原因写清楚；host 关闭会话后引擎停止。
 - **GDPKit**：测试 host 自己编号、打 `pts` 的音频（`seq` 0、1、2，`pts` 是会话时钟、递增），以及配置成其它格式时 Accept 里的 `audio`。
+
+# 麦克风
+
+把本机麦克风的声音发给 host（gdp-spec.md §6.7、§6.8、§10.1）。上游的行为只参考了 `docs/design/audio-cursor-gamepad.md` 的 Microphone 一节。
+
+## 规范要点
+
+- **是 capability**（`microphone`），这一点和播放不同：客户端在 SessionHello 里提供，host 支持就在 Accept 的 capability 里回应，同时在 `SessionAccept.microphone` 里给出格式（这个版本是 `{48000 Hz, 1 声道, 10 ms, "opus"}`）。客户端必须严格按这个格式编码，做不到就不开麦克风，会话照常进行。capability 在整个连接期间固定，会话中途不能再加。
+- **datagram**：通道 0x03，布局和音频一样（`seq` u16 + `pts` u32 + 一个 Opus 包）。`seq` 从会话建立时的 0 开始；`pts` 用**客户端自己的**会话时钟（收到 Accept 时清零），host 不用它来安排播放。
+- **用户要求之前不能打开麦克风，也不能发包**；静音就是停止发包，协议里没有对应的消息。
+- host 端缓冲几包，用 PLC 补短的空档，迟到和重复的包丢掉，再把声音作为录音设备交给远端的程序（wraith 的 `gdp-mic`，会被设成会话里默认的录音设备）。
+
+## 编码：系统自带的 Opus 编码器
+
+实验（2026-10-15，macOS 27）：用 `AVAudioConverter` 把 48 kHz 单声道编成 10 ms 的包，写成 Ogg Opus 文件，再用 ffmpeg 的 **libopus 解码器**（wraith 用的也是 libopus）解回来。信号是 300 Hz（幅度 0.3）加 1200 Hz（幅度 0.2）。
+
+| 码率 | 编出来的包 | libopus 解出的幅度（300 / 1200 / 700 Hz） |
+|---|---|---|
+| 32 kb/s（上游 spectre 的麦克风码率） | 实际 33 kb/s，在 Hybrid（TOC config 14，SILK + CELT）和 CELT（config 30）之间切换 | 0.297 / 0.193 / 0.000 |
+| 64 kb/s | 只用 CELT，实际 69 kb/s | 0.300 / 0.200 / 0.000 |
+
+所以麦克风也用系统编码器，不引入 libopus，码率定为 32 kb/s。系统编码器可选的码率是 6、7、8、12、16、20、24、28、32、40、50、60、80、100、120、160、256、512 kb/s。
+
+## 协议层（GDPKit）
+
+- `SessionClient::send_microphone`：会话已建立、`microphone` 生效、Accept 里有格式时才发，否则计入 `microphone_dropped`。`seq` 在收到 Accept 时清零，每发一包加一（停发期间停着不涨）；`pts` 是 `monotonic − 收到 Accept 的时刻`，截成 32 位。超过当前最大 datagram 长度、或者传输层拒绝的包也算丢弃。Swift 端是 `GDPSession.sendMicrophone(opus:)`，在会话队列上执行；`LinkStats` 里有已发和丢弃的包数。
+- Accept 里的 `microphone` 只在 `microphone` capability 生效时才交给上层（`Accept.microphone`）；没有协商这个 capability 时，即使 host 发了这个字段也忽略。
+- **测试 host**：把 `microphone` 放进它支持的 capability 就会启用；协商成功后在 Accept 里带上 `microphoneFormat`（默认 `{48000, 1, 10, "opus"}`，可以改成别的格式来测试）。它接收通道 0x03 的包，只收已认证的当前 viewer、而且协商了这个 capability 的，其余的计入 `microphoneDropped`（§3.2）。收到的包记下前一分钟（6000 包）的 `seq`、`pts` 和内容，通过 `microphonePackets(from:)` 读取。
+- 测试（GDPKit）：`seq` 是 0、1、2，`pts` 从 Accept 开始计时并递增，内容一致，Accept 里的格式正确；客户端没提供或者 host 不支持这个 capability 时，Accept 里没有格式，发出的包在客户端就被丢弃，host 什么也收不到。
+

@@ -54,6 +54,12 @@ struct AcceptInfo {
 	uint32_t audio_sample_rate_hz = 0;
 	uint32_t audio_channels = 0;
 	uint32_t audio_frame_ms = 0;
+	// SessionAccept.microphone (§6.8), kept only when `microphone` is in effect.
+	bool has_microphone = false;
+	std::string microphone_codec;
+	uint32_t microphone_sample_rate_hz = 0;
+	uint32_t microphone_channels = 0;
+	uint32_t microphone_frame_ms = 0;
 	std::vector<std::string> capabilities;
 	int32_t network_profile = 0;
 	bool via_gateway = false;
@@ -119,6 +125,8 @@ public:
 		uint32_t stats_reports_sent = 0;
 		uint64_t frames_delivered = 0;
 		uint64_t frames_dropped = 0; // complete but not delivered (waiting for a keyframe)
+		uint64_t microphone_sent = 0;
+		uint64_t microphone_dropped = 0; // not established, not negotiated, or the transport refused it
 		StreamReceiveStats::Snapshot video;
 	};
 
@@ -156,6 +164,11 @@ public:
 	void send_pointer_axis(double horizontal, double vertical);
 	void send_touch(uint32_t touch_id, int32_t phase, double x, double y);
 
+	// One Opus packet of the microphone (§10.1) on datagram channel 0x03:
+	// seq counts from 0 at SessionAccept, pts is our session clock. Dropped
+	// (false) unless established with `microphone` in effect.
+	bool send_microphone(const uint8_t *opus, size_t len);
+
 	LinkStats link_stats() const;
 
 private:
@@ -188,6 +201,10 @@ private:
 	uint64_t session_epoch_us_ = 0;
 	uint32_t upstream_rtt_us_ = 0;
 	std::vector<std::string> capabilities_; // in effect
+	bool microphone_ = false;               // `microphone` in effect, with a format
+	uint16_t microphone_seq_ = 0;
+	uint64_t microphone_sent_ = 0;
+	uint64_t microphone_dropped_ = 0;
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}

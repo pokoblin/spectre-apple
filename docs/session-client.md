@@ -47,6 +47,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §8.4 input 流上的回程数据 | 没有 `hid` capability 时，host 发来的数据一律忽略 |
 | §3.2 datagram | 只处理视频（0x01）和音频（0x02），其它通道丢弃；音频在建立之后原样交给上层 |
 | §6.8、§10 音频 | SessionHello 里没有音频字段，不用声明。`RemoteSession` 在 Accept 时检查 `audio` 的格式，能解就起播放器（抖动缓冲 + 系统 Opus 解码 + AVAudioEngine），不能解或没有就照常运行、没有声音。见 [audio.md](audio.md) |
+| §10.1 麦克风 | `send_microphone`：只在 `microphone` 生效时发，`seq` 从 Accept 时的 0 开始，`pts` 用客户端的会话时钟。Accept 里的 `microphone` 只在这个 capability 生效时才交给上层。见 [audio.md](audio.md) 的麦克风一节 |
 | §9.3 重组 | 用 libgdp 的 `VideoFrameReassembler`。丢包后丢弃非关键帧，直到下一个关键帧（可配置） |
 | §11 32 位回绕 | frame_id 和 pts 只按差值比较（转成 int32）；测试覆盖了从 0xFFFFFFFE 回绕到 1 的情况 |
 | §12 关闭码 | 协议错误时用对应的码关闭（11/12/13）；host 关闭时把码和 libgdp 的描述交给上层；`Ending.isOrdinaryEnd` 按"十位数分组"判断 |

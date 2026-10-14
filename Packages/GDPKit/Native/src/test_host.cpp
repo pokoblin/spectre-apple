@@ -34,6 +34,7 @@ struct TestHost::Impl {
 		gdp::FrameReader input_reader;
 		bool hello_seen = false;
 		bool accepted = false;
+		bool microphone = false; // negotiated (§10.1)
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
 		uint64_t close_code = 0;
@@ -46,8 +47,9 @@ struct TestHost::Impl {
 	std::list<std::unique_ptr<Peer>> peers;
 	Peer *viewer = nullptr;
 
-	mutable std::mutex mu; // guards `obs` and `keyframe_wanted`
+	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
+	std::vector<MicrophonePacket> microphone_log;
 	bool keyframe_wanted = false;
 
 	// Loop thread only.
@@ -94,6 +96,7 @@ struct TestHost::Impl {
 		p->conn->on_input_stream = [this, p](gdp::Stream *s) {
 			s->on_data = [this, p](const uint8_t *data, size_t len) { on_input(*p, data, len); };
 		};
+		p->conn->on_datagram = [this, p](const uint8_t *data, size_t len, uint64_t) { on_datagram(*p, data, len); };
 		p->conn->on_state_changed = [this, p](gdp::ConnectionState st) {
 			if (st != gdp::ConnectionState::kShutdown || p != viewer) return;
 			viewer = nullptr;
@@ -105,6 +108,25 @@ struct TestHost::Impl {
 		peers.push_back(std::move(peer));
 		std::lock_guard lock(mu);
 		obs.connected = true;
+	}
+
+	void on_datagram(Peer &p, const uint8_t *data, size_t len) {
+		auto channel = gdp::peek_channel(data, len);
+		if (!channel || *channel != gdp::DatagramChannel::kMicrophone) return;
+		gdp::AudioDatagramHeader h;
+		const uint8_t *payload = nullptr;
+		size_t plen = 0;
+		bool ok = gdp::AudioDatagramHeader::decode(data, len, &h, &payload, &plen, gdp::DatagramChannel::kMicrophone);
+		std::lock_guard lock(mu);
+		// §3.2, §10.1: only from the authenticated viewer, under the capability.
+		if (!ok || !p.accepted || !p.microphone || &p != viewer) {
+			obs.microphone_dropped++;
+			return;
+		}
+		obs.microphone_packets++;
+		obs.microphone_bytes += len;
+		if (microphone_log.size() < TestHost::kMaxMicrophoneLog)
+			microphone_log.push_back(MicrophonePacket{h.seq, h.pts, std::vector<uint8_t>(payload, payload + plen)});
 	}
 
 	void send(Peer &p, const gdp::session::ControlEnvelope &env) {
@@ -194,7 +216,18 @@ struct TestHost::Impl {
 			a->set_codec(cfg.audio_codec);
 		}
 		std::vector<std::string> offered_caps(hello.capabilities().begin(), hello.capabilities().end());
-		for (const auto &c : gdp::negotiate_capabilities(offered_caps, cfg.capabilities)) accept->add_capabilities(c);
+		p.microphone = false;
+		for (const auto &c : gdp::negotiate_capabilities(offered_caps, cfg.capabilities)) {
+			accept->add_capabilities(c);
+			if (c == "microphone") p.microphone = true;
+		}
+		if (p.microphone) {
+			auto *m = accept->mutable_microphone();
+			m->set_sample_rate_hz(cfg.microphone_sample_rate_hz);
+			m->set_channels(cfg.microphone_channels);
+			m->set_frame_ms(cfg.microphone_frame_ms);
+			m->set_codec(cfg.microphone_codec);
+		}
 		accept->set_network_profile(hello.network_profile() == gdp::session::NETWORK_PROFILE_AUTO
 				? gdp::session::NETWORK_PROFILE_LAN
 				: hello.network_profile());
@@ -577,6 +610,13 @@ bool TestHost::take_keyframe_wanted() {
 TestHost::Observed TestHost::observed() const {
 	std::lock_guard lock(impl_->mu);
 	return impl_->obs;
+}
+
+bool TestHost::microphone_packet(size_t index, MicrophonePacket *out) const {
+	std::lock_guard lock(impl_->mu);
+	if (index >= impl_->microphone_log.size()) return false;
+	*out = impl_->microphone_log[index];
+	return true;
 }
 
 } // namespace gdpcore

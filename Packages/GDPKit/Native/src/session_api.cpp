@@ -82,6 +82,11 @@ struct gdpc_session {
 			a.audio_sample_rate_hz = info.audio_sample_rate_hz;
 			a.audio_channels = info.audio_channels;
 			a.audio_frame_ms = info.audio_frame_ms;
+			a.has_microphone = info.has_microphone;
+			a.microphone_codec = info.microphone_codec.c_str();
+			a.microphone_sample_rate_hz = info.microphone_sample_rate_hz;
+			a.microphone_channels = info.microphone_channels;
+			a.microphone_frame_ms = info.microphone_frame_ms;
 			a.capabilities = caps.data();
 			a.capability_count = caps.size();
 			a.network_profile = info.network_profile;
@@ -213,6 +218,10 @@ void gdpc_session_send_touch(gdpc_session *session, uint32_t touch_id, int32_t p
 	session->client.send_touch(touch_id, phase, x, y);
 }
 
+bool gdpc_session_send_microphone(gdpc_session *session, const uint8_t *opus, size_t len) {
+	return session->client.send_microphone(opus, len);
+}
+
 void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_stats *out) {
 	auto s = session->client.link_stats();
 	*out = gdpc_session_link_stats{};
@@ -232,6 +241,8 @@ void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_
 	out->delay_samples = s.video.last_delay_samples;
 	out->bytes_last_window = s.video.last_bytes;
 	out->last_window_us = s.video.last_interval_us;
+	out->microphone_sent = s.microphone_sent;
+	out->microphone_dropped = s.microphone_dropped;
 }
 
 // --- Test host ---
@@ -249,6 +260,10 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	if (c->audio_sample_rate_hz) config.audio_sample_rate_hz = c->audio_sample_rate_hz;
 	if (c->audio_channels) config.audio_channels = c->audio_channels;
 	if (c->audio_frame_ms) config.audio_frame_ms = c->audio_frame_ms;
+	if (c->microphone_codec) config.microphone_codec = c->microphone_codec;
+	if (c->microphone_sample_rate_hz) config.microphone_sample_rate_hz = c->microphone_sample_rate_hz;
+	if (c->microphone_channels) config.microphone_channels = c->microphone_channels;
+	if (c->microphone_frame_ms) config.microphone_frame_ms = c->microphone_frame_ms;
 	if (c->force_codec) config.force_codec = c->force_codec;
 	config.refuse_code = c->refuse_code;
 	if (c->reject_reason) config.reject_reason = c->reject_reason;
@@ -393,6 +408,9 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->frames_sent = o.frames_sent;
 	out->next_frame_id = o.next_frame_id;
 	out->max_datagram_size = o.max_datagram_size;
+	out->microphone_packets = o.microphone_packets;
+	out->microphone_bytes = o.microphone_bytes;
+	out->microphone_dropped = o.microphone_dropped;
 }
 
 size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdpc_test_input_event *out, size_t cap) {
@@ -403,6 +421,17 @@ size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdp
 		out[n] = gdpc_test_input_event{static_cast<int32_t>(e.kind), e.code, e.pressed, e.x, e.y, e.absolute, e.phase};
 	}
 	return n;
+}
+
+bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, uint16_t *seq, uint32_t *pts,
+	uint8_t *opus, size_t cap, size_t *len) {
+	gdpcore::TestHost::MicrophonePacket p;
+	if (!host->host.microphone_packet(index, &p)) return false;
+	*seq = p.seq;
+	*pts = p.pts;
+	*len = p.opus.size();
+	std::copy(p.opus.begin(), p.opus.begin() + static_cast<ptrdiff_t>(std::min(cap, p.opus.size())), opus);
+	return true;
 }
 
 } // extern "C"

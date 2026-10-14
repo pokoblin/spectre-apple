@@ -31,6 +31,11 @@ public:
 		uint32_t audio_sample_rate_hz = 48000;
 		uint32_t audio_channels = 2;
 		uint32_t audio_frame_ms = 10;
+		// SessionAccept.microphone, sent when `microphone` is negotiated (§6.8, §10.1).
+		std::string microphone_codec = "opus";
+		uint32_t microphone_sample_rate_hz = 48000;
+		uint32_t microphone_channels = 1;
+		uint32_t microphone_frame_ms = 10;
 		// Misbehaviour, for tests:
 		std::string force_codec;     // accept with this codec whatever was offered
 		uint64_t refuse_code = 0;    // close with this code after a good hello
@@ -55,6 +60,13 @@ public:
 		int32_t phase = 0;    // touch
 	};
 	static constexpr size_t kMaxInputLog = 8192;
+	static constexpr size_t kMaxMicrophoneLog = 6000; // a minute of 10 ms packets
+
+	struct MicrophonePacket {
+		uint16_t seq = 0;
+		uint32_t pts = 0;
+		std::vector<uint8_t> opus;
+	};
 
 	struct Observed {
 		bool connected = false;
@@ -120,6 +132,12 @@ public:
 		uint32_t cursor_positions_sent = 0;
 		bool input_before_accept = false;
 
+		// §10.1: packets on channel 0x03 from the viewer under `microphone`,
+		// and those dropped (no capability, not accepted, not the viewer).
+		uint32_t microphone_packets = 0;
+		uint64_t microphone_bytes = 0;
+		uint32_t microphone_dropped = 0;
+
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;
 		uint16_t max_datagram_size = 0;
@@ -156,6 +174,8 @@ public:
 	bool take_keyframe_wanted();
 
 	Observed observed() const;
+	// Microphone packet `index` in arrival order (the first kMaxMicrophoneLog); false past the end.
+	bool microphone_packet(size_t index, MicrophonePacket *out) const;
 
 private:
 	struct Impl;

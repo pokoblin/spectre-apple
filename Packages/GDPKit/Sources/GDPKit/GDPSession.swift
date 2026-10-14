@@ -99,6 +99,9 @@ public final class GDPSession: @unchecked Sendable {
         public var outputs: [Output]
         public var bitrateCeiling: UInt32
         public var audio: AudioConfig?
+        /// The format to send the microphone in (gdp-spec.md §6.8, §10.1):
+        /// present when `microphone` is in effect.
+        public var microphone: AudioConfig?
         public var capabilities: [String]
         public var networkProfile: NetworkProfile
         public var viaGateway: Bool
@@ -163,6 +166,10 @@ public final class GDPSession: @unchecked Sendable {
         public var delaySamples: UInt32
         public var bytesLastWindow: UInt64
         public var lastWindowMicroseconds: UInt32
+        /// Microphone packets sent, and dropped (before SessionAccept, without
+        /// `microphone` in effect, or refused by the transport).
+        public var microphoneSent: UInt64
+        public var microphoneDropped: UInt64
 
         /// Frames lost of the trailing window (up to 64).
         public var recentLosses: Int { lossBitmap.nonzeroBitCount }
@@ -382,6 +389,13 @@ public final class GDPSession: @unchecked Sendable {
         async { gdpc_session_send_touch($0, id, phase.rawValue, x, y) }
     }
 
+    /// One Opus packet of the microphone, in ``Accept/microphone``'s format
+    /// (gdp-spec.md §10.1). The session numbers it (`seq` from 0) and stamps
+    /// it with its clock; dropped unless `microphone` is in effect.
+    public func sendMicrophone(opus: [UInt8]) {
+        async { h in _ = opus.withUnsafeBufferPointer { gdpc_session_send_microphone(h, $0.baseAddress, $0.count) } }
+    }
+
     /// A snapshot for the statistics overlay.
     public func linkStats() -> LinkStats? {
         onQueue {
@@ -394,7 +408,8 @@ public final class GDPSession: @unchecked Sendable {
                              highestFrameID: s.has_frames ? s.highest_frame_id : nil, lossBitmap: s.loss_bitmap,
                              windowSpan: s.window_span, delayMinMicroseconds: s.delay_min_us,
                              delayAvgMicroseconds: s.delay_avg_us, delaySamples: s.delay_samples,
-                             bytesLastWindow: s.bytes_last_window, lastWindowMicroseconds: s.last_window_us)
+                             bytesLastWindow: s.bytes_last_window, lastWindowMicroseconds: s.last_window_us,
+                             microphoneSent: s.microphone_sent, microphoneDropped: s.microphone_dropped)
         }
     }
 
@@ -442,6 +457,9 @@ public final class GDPSession: @unchecked Sendable {
             bitrateCeiling: a.bitrate_ceiling_bps,
             audio: a.has_audio ? AudioConfig(codec: String(cString: a.audio_codec), sampleRate: a.audio_sample_rate_hz,
                                              channels: a.audio_channels, frameMilliseconds: a.audio_frame_ms) : nil,
+            microphone: a.has_microphone
+                ? AudioConfig(codec: String(cString: a.microphone_codec), sampleRate: a.microphone_sample_rate_hz,
+                              channels: a.microphone_channels, frameMilliseconds: a.microphone_frame_ms) : nil,
             capabilities: UnsafeBufferPointer(start: a.capabilities, count: a.capability_count).map { String(cString: $0!) },
             networkProfile: NetworkProfile(rawValue: a.network_profile) ?? .auto,
             viaGateway: a.via_gateway,

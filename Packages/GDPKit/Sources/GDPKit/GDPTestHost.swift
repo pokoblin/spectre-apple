@@ -15,6 +15,10 @@ public final class GDPTestHost: @unchecked Sendable {
         /// Advertise `audioFormat` in SessionAccept.audio (gdp-spec.md §6.8).
         public var audio = false
         public var audioFormat = GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 2, frameMilliseconds: 10)
+        /// SessionAccept.microphone, sent when `microphone` is negotiated: put
+        /// it in `capabilities` to support it (gdp-spec.md §6.8, §10.1).
+        public var microphoneFormat = GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 1,
+                                                             frameMilliseconds: 10)
         /// Accept with this codec whatever was offered (a misbehaving host).
         public var forceCodec: String?
         /// Close with this §12 code after a good hello.
@@ -83,6 +87,35 @@ public final class GDPTestHost: @unchecked Sendable {
 
         public var framesSent, nextFrameID: UInt32
         public var maxDatagramSize: UInt16
+
+        /// Microphone datagrams from the viewer under `microphone` (§10.1),
+        /// their bytes, and those dropped (no capability, or not the viewer).
+        public var microphonePackets: UInt32
+        public var microphoneBytes: UInt64
+        public var microphoneDropped: UInt32
+    }
+
+    public struct MicrophonePacket: Sendable, Equatable {
+        public var sequence: UInt16
+        public var pts: UInt32
+        public var opus: [UInt8]
+    }
+
+    /// The microphone packets received from index `first` on, in arrival
+    /// order (the first minute's are kept).
+    public func microphonePackets(from first: Int = 0) -> [MicrophonePacket] {
+        var out: [MicrophonePacket] = []
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        var index = first
+        while true {
+            var seq: UInt16 = 0, pts: UInt32 = 0, len = 0
+            let found = buffer.withUnsafeMutableBufferPointer {
+                gdpc_test_host_microphone_packet(handle, index, &seq, &pts, $0.baseAddress, $0.count, &len)
+            }
+            guard found else { return out }
+            out.append(MicrophonePacket(sequence: seq, pts: pts, opus: Array(buffer.prefix(min(len, buffer.count)))))
+            index += 1
+        }
     }
 
     public struct Failure: Error, CustomStringConvertible {
@@ -99,6 +132,7 @@ public final class GDPTestHost: @unchecked Sendable {
             withCStrings(config.capabilities) { caps in
                 config.scratchDirectory.path(percentEncoded: false).withCString { dir in
                     config.token.withCString { token in
+                        withOptionalCString(config.microphoneFormat.codec) { microphoneCodec in
                         withOptionalCString(config.audioFormat.codec) { audioCodec in
                         withOptionalCString(config.forceCodec) { force in
                             withOptionalCString(config.rejectReason) { reject in
@@ -116,6 +150,10 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.audio_sample_rate_hz = config.audioFormat.sampleRate
                                 c.audio_channels = config.audioFormat.channels
                                 c.audio_frame_ms = config.audioFormat.frameMilliseconds
+                                c.microphone_codec = microphoneCodec
+                                c.microphone_sample_rate_hz = config.microphoneFormat.sampleRate
+                                c.microphone_channels = config.microphoneFormat.channels
+                                c.microphone_frame_ms = config.microphoneFormat.frameMilliseconds
                                 c.force_codec = force
                                 c.refuse_code = config.refuseCode
                                 c.reject_reason = reject
@@ -124,6 +162,7 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.simulate_pointer = config.simulatePointer
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
+                        }
                         }
                         }
                     }
@@ -259,7 +298,9 @@ public final class GDPTestHost: @unchecked Sendable {
             pointer: (o.pointer_x, o.pointer_y), cursorPositionsSent: o.cursor_positions_sent,
             viewerClosed: o.viewer_closed, viewerCloseCode: o.viewer_close_code,
             viewerCloseReason: s(o.viewer_close_reason),
-            framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size)
+            framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size,
+            microphonePackets: o.microphone_packets, microphoneBytes: o.microphone_bytes,
+            microphoneDropped: o.microphone_dropped)
     }
 }
 

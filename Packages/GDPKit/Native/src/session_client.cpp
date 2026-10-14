@@ -247,6 +247,15 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 		bool duplicate = std::find(info.capabilities.begin(), info.capabilities.end(), c) != info.capabilities.end();
 		if (offered && !duplicate) info.capabilities.push_back(c);
 	}
+	// §6.8, §10.1: the microphone's format comes with the capability.
+	bool microphone = std::find(info.capabilities.begin(), info.capabilities.end(), "microphone") != info.capabilities.end();
+	if (microphone && accept.has_microphone()) {
+		info.has_microphone = true;
+		info.microphone_codec = accept.microphone().codec();
+		info.microphone_sample_rate_hz = accept.microphone().sample_rate_hz();
+		info.microphone_channels = accept.microphone().channels();
+		info.microphone_frame_ms = accept.microphone().frame_ms();
+	}
 	info.network_profile = accept.network_profile();
 	info.via_gateway = accept.via_gateway();
 	info.encoder = accept.encoder();
@@ -254,6 +263,8 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	info.host_name = accept.host_name();
 
 	capabilities_ = info.capabilities;
+	microphone_ = info.has_microphone;
+	microphone_seq_ = 0; // §10.1
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
@@ -469,6 +480,31 @@ void SessionClient::send_touch(uint32_t touch_id, int32_t phase, double x, doubl
 	send_input(env);
 }
 
+bool SessionClient::send_microphone(const uint8_t *opus, size_t len) {
+	// §10.1, §3.2: only once established, and only under the capability.
+	if (!accepted_ || !microphone_ || !conn_ || len == 0) {
+		++microphone_dropped_;
+		return false;
+	}
+	std::vector<uint8_t> dgram(1 + gdp::AudioDatagramHeader::kSize + len);
+	uint16_t max = conn_->max_datagram_size();
+	if (max == 0 || dgram.size() > max) {
+		++microphone_dropped_;
+		return false;
+	}
+	gdp::AudioDatagramHeader h;
+	h.seq = microphone_seq_++;
+	h.pts = static_cast<uint32_t>(gdp::monotonic_us() - session_epoch_us_); // §11, truncated
+	h.encode(dgram.data(), gdp::DatagramChannel::kMicrophone);
+	std::copy(opus, opus + len, dgram.begin() + 1 + gdp::AudioDatagramHeader::kSize);
+	if (!conn_->send_datagram(dgram.data(), dgram.size(), true)) {
+		++microphone_dropped_;
+		return false;
+	}
+	++microphone_sent_;
+	return true;
+}
+
 SessionClient::LinkStats SessionClient::link_stats() const {
 	LinkStats s;
 	if (conn_ && conn_->state() == gdp::ConnectionState::kConnected) {
@@ -480,6 +516,8 @@ SessionClient::LinkStats SessionClient::link_stats() const {
 	s.stats_reports_sent = stats_reports_sent_;
 	s.frames_delivered = frames_delivered_;
 	s.frames_dropped = frames_dropped_;
+	s.microphone_sent = microphone_sent_;
+	s.microphone_dropped = microphone_dropped_;
 	if (!streams_.empty()) s.video = streams_.front().stats.snapshot();
 	return s;
 }

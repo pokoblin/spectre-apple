@@ -483,6 +483,53 @@ struct ControlTests {
         #expect(Int32(bitPattern: packets[2].1 &- packets[0].1) >= 10_000)
     }
 
+    /// §10.1: under `microphone`, packets go out on channel 0x03 with seq
+    /// from 0 and pts on the client's session clock; SessionAccept.microphone
+    /// gives the format.
+    @Test func microphonePacketsReachTheHost() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.capabilities = ["microphone"]
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = ["microphone"] }
+        defer { withExtendedLifetime(session) {} }
+        let accept = try #require(rec.snapshot.accept)
+        #expect(accept.capabilities == ["microphone"])
+        #expect(accept.microphone == GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 1,
+                                                            frameMilliseconds: 10))
+        for i in 0..<3 {
+            session.sendMicrophone(opus: [0x70, UInt8(i), 0xAA])
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await eventually { host.observed.microphonePackets == 3 })
+        let packets = host.microphonePackets()
+        #expect(packets.map(\.sequence) == [0, 1, 2])
+        #expect(packets.map(\.opus) == [[0x70, 0, 0xAA], [0x70, 1, 0xAA], [0x70, 2, 0xAA]])
+        #expect(packets[0].pts < 5_000_000) // µs since SessionAccept
+        #expect(Int32(bitPattern: packets[2].pts &- packets[0].pts) >= 20_000)
+        #expect(host.microphonePackets(from: 2).map(\.sequence) == [2])
+        #expect(host.observed.microphoneDropped == 0)
+        #expect(session.linkStats()?.microphoneSent == 3)
+    }
+
+    /// Without `microphone` in effect nothing is sent (§6.7, §10.1), whichever
+    /// side lacks it; and a host's format comes only with the capability.
+    @Test(arguments: [(true, false), (false, true)])
+    func noMicrophoneWithoutTheCapability(clientOffers: Bool, hostSupports: Bool) async throws {
+        var hc = GDPTestHost.Configuration()
+        if hostSupports { hc.capabilities = ["microphone"] }
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec) { if clientOffers { $0.capabilities = ["microphone"] } }
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.microphone == nil)
+        #expect(rec.snapshot.accept?.capabilities.isEmpty == true)
+        session.sendMicrophone(opus: [1, 2, 3])
+        #expect(await eventually { session.linkStats()?.microphoneDropped == 1 })
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(host.observed.microphonePackets == 0 && host.observed.microphoneDropped == 0)
+    }
+
     @Test func hostCloseEndsTheSession() async throws {
         let host = try GDPTestHost()
         let rec = Recorder()
