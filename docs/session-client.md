@@ -46,6 +46,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §8 输入 | 键盘（HID usage）、指针移动（绝对/相对）、按键（`BTN_*`）、滚轮（以 notch 为单位）、触摸。建立之前不发；`client_time_us` 取单调时钟 |
 | §8.4 input 流上的回程数据 | 没有 `hid` capability 时，host 发来的数据一律忽略 |
 | §3.2 datagram | 只处理视频（0x01）和音频（0x02），其它通道丢弃；音频在建立之后原样交给上层 |
+| §6.8、§10 音频 | SessionHello 里没有音频字段，不用声明。`RemoteSession` 在 Accept 时检查 `audio` 的格式，能解就起播放器（抖动缓冲 + 系统 Opus 解码 + AVAudioEngine），不能解或没有就照常运行、没有声音。见 [audio.md](audio.md) |
 | §9.3 重组 | 用 libgdp 的 `VideoFrameReassembler`。丢包后丢弃非关键帧，直到下一个关键帧（可配置） |
 | §11 32 位回绕 | frame_id 和 pts 只按差值比较（转成 int32）；测试覆盖了从 0xFFFFFFFE 回绕到 1 的情况 |
 | §12 关闭码 | 协议错误时用对应的码关闭（11/12/13）；host 关闭时把码和 libgdp 的描述交给上层；`Ending.isOrdinaryEnd` 按"十位数分组"判断 |
@@ -79,7 +80,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 
 - 校验 SessionHello：认证前单帧上限 16 KiB，第一帧必须是 SessionHello，否则以 `AUTH_FAILED` 关闭；token 不对也是 `AUTH_FAILED`；同一时间只允许一个 viewer，另一个连接要 take_over 才能顶替。
 - 按客户端的偏好选择 codec，capability 取双方的交集；发送 Accept 和光标；按 §7.2 的规则响应 ResolutionChange；收到 Logout 后以 `SESSION_ENDED` 关闭。
-- 把视频帧切成 datagram 发送（可以指定丢弃某些分片，模拟丢包），也能发送音频、Ping、光标、DisplaysChanged、网络 profile、GatewayPath、诊断请求。
+- 把视频帧切成 datagram 发送（可以指定丢弃某些分片，模拟丢包），也能发送音频、Ping、光标、DisplaysChanged、网络 profile、GatewayPath、诊断请求。音频可以由调用方给出 `seq` 和 `pts`（测乱序、丢包），也可以像真实 host 那样由测试 host 自己编号（从 Accept 时的 0 开始）、用会话时钟打 `pts`（`sendAudio`）；Accept 里的音频格式可以配置（测不支持的格式）。
 - 可以故意出错：选一个客户端没提供的 codec、用指定的码拒绝、发 Reject、在 Accept 之前发 Ping、让 frame_id 从任意值开始。
 - 记录收到的一切，包括每份 StatsReport 的字段和所有被报告为丢失的 frame_id。收到 KeyframeRequest 或有新的丢失时会标记"需要关键帧"。
 

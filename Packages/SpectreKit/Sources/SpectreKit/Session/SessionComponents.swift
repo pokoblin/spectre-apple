@@ -2,15 +2,9 @@
 // GDPKit's GDPSession (a C++ SessionClient written from gdp-spec.md §6-§11,
 // behind the C ABI) and RemoteSession here, which runs its video path; the
 // shapes below record the remaining seams so that path doesn't have to be
-// reworked for them. (Keyboard and pointer input is done: Input/, see
-// docs/input.md.) Each capability (§6.7) is offered in SessionHello only
-// once it is implemented.
-
-/// Session audio out (gdp-spec.md §10): Opus packets through a jitter
-/// buffer into AVAudioEngine.
-public protocol AudioSink: AnyObject, Sendable {
-    func receive(sequence: UInt16, pts: UInt32, opusPacket: UnsafeRawBufferPointer)
-}
+// reworked for them. (Done: keyboard and pointer input, Input/, see
+// docs/input.md; session audio, Audio/, see docs/audio.md.) Each capability
+// (§6.7) is offered in SessionHello only once it is implemented.
 
 /// Microphone to the host (gdp-spec.md §10.1, capability `microphone`).
 public protocol MicrophoneSource: AnyObject, Sendable {

@@ -1,5 +1,7 @@
 import AVFoundation
 import Foundation
+import GDPKit
+import Synchronization
 import Testing
 @testable import SpectreKit
 
@@ -230,5 +232,99 @@ struct SessionAudioPlayerTests {
         }
         #expect(left == right)
         #expect(abs(frequency(left[3360..<9600], sampleRate: 48000) - 440) < 4)
+    }
+}
+
+/// gdp-spec.md §6.8 and §10 end to end: GDPTestHost → QUIC → GDPSession →
+/// RemoteSession → SessionAudioPlayer (offline rendering).
+@Suite("Session audio end to end")
+struct SessionAudioEndToEndTests {
+    private func connect(_ configure: (inout GDPTestHost.Configuration) -> Void,
+                         muted: Bool = false) async throws -> (GDPTestHost, RemoteSession) {
+        var config = GDPTestHost.Configuration()
+        config.codecs = ["h264"]
+        configure(&config)
+        let host = try GDPTestHost(config)
+        let remote = RemoteSession(mailbox: FrameMailbox(), stats: PlaybackStats(), audioOutput: .manual) {}
+        remote.isAudioMuted = muted
+        let established = Mutex(false)
+        remote.onStateChange = { state in
+            if case .established = state { established.withLock { $0 = true } }
+        }
+        try remote.connect(host.sessionConfiguration(codecs: ["h264"]))
+        #expect(await eventually { established.withLock { $0 } })
+        return (host, remote)
+    }
+
+    @Test func packetsFromTheHostPlayInOrderWithLossConcealed() async throws {
+        let (host, remote) = try await connect { $0.audio = true }
+        defer { remote.close() }
+        let player = try #require(remote.audio)
+        #expect(remote.audioUnavailable == nil)
+        #expect(player.format == .session)
+        #expect(await eventually { player.isRunning })
+
+        let packets = opusTone(packets: 50)
+        // Reordered (11 before 10), lost (20), duplicated (29).
+        let order = Array(0..<10) + [11, 10] + Array(12..<20) + Array(21..<30) + [29] + Array(30..<50)
+        var left: [Float] = [], right: [Float] = []
+        for (n, i) in order.enumerated() {
+            host.sendAudioPacket(sequence: UInt16(i), pts: UInt32(i * 10_000), opus: packets[i])
+            #expect(await eventually { player.pipeline.statistics.counters.received == n + 1 })
+            let out = try player.renderOffline(frames: 480)
+            left += UnsafeBufferPointer(start: out.floatChannelData![0], count: 480)
+            right += UnsafeBufferPointer(start: out.floatChannelData![1], count: 480)
+        }
+        let c = player.pipeline.statistics.counters
+        #expect(c.received == 50) // 49 distinct, one twice
+        #expect(c.concealed == 1)
+        #expect(c.duplicates == 1)
+        #expect(c.late == 0 && c.underruns == 0 && c.dropped == 0)
+        #expect(c.played >= 43)
+        #expect(abs(frequency(left[4800..<19200], sampleRate: 48000) - 440) < 3)
+        #expect(abs(frequency(right[4800..<19200], sampleRate: 48000) - 660) < 3)
+    }
+
+    @Test func mutingBeforeTheSessionHoldsForItsAudio() async throws {
+        let (_, remote) = try await connect({ $0.audio = true }, muted: true)
+        defer { remote.close() }
+        #expect(try #require(remote.audio).isMuted)
+        remote.isAudioMuted = false
+        #expect(try #require(remote.audio).isMuted == false)
+    }
+
+    /// §6.8: a format the client can't decode, or none, leaves the session
+    /// running without audio.
+    @Test(arguments: [
+        GDPSession.AudioConfig(codec: "aac", sampleRate: 48000, channels: 2, frameMilliseconds: 10),
+        GDPSession.AudioConfig(codec: "opus", sampleRate: 44100, channels: 2, frameMilliseconds: 10),
+        GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 6, frameMilliseconds: 10),
+    ])
+    func anUnsupportedFormatMeansNoAudio(format: GDPSession.AudioConfig) async throws {
+        let (host, remote) = try await connect {
+            $0.audio = true
+            $0.audioFormat = format
+        }
+        defer { remote.close() }
+        #expect(remote.audio == nil)
+        #expect(remote.audioUnavailable?.contains(format.codec) == true)
+        host.sendAudioPacket(sequence: 0, pts: 0, opus: [0xF4, 0, 0]) // ignored
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(!host.observed.closed)
+    }
+
+    @Test func noAudioFromTheHost() async throws {
+        let (_, remote) = try await connect { _ in }
+        defer { remote.close() }
+        #expect(remote.audio == nil)
+        #expect(remote.audioUnavailable == "the host sends no audio")
+    }
+
+    @Test func endingTheSessionStopsTheEngine() async throws {
+        let (host, remote) = try await connect { $0.audio = true }
+        let player = try #require(remote.audio)
+        #expect(await eventually { player.isRunning })
+        host.close(code: 42)
+        #expect(await eventually { !player.isRunning })
     }
 }

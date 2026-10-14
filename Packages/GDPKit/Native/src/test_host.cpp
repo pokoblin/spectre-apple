@@ -53,6 +53,7 @@ struct TestHost::Impl {
 	// Loop thread only.
 	uint64_t epoch_us = 0;
 	uint32_t next_frame_id = 0;
+	uint16_t next_audio_seq = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
 
@@ -187,10 +188,10 @@ struct TestHost::Impl {
 		accept->set_bitrate_ceiling_bps(50'000'000);
 		if (cfg.audio) {
 			auto *a = accept->mutable_audio();
-			a->set_sample_rate_hz(48000);
-			a->set_channels(2);
-			a->set_frame_ms(10);
-			a->set_codec("opus");
+			a->set_sample_rate_hz(cfg.audio_sample_rate_hz);
+			a->set_channels(cfg.audio_channels);
+			a->set_frame_ms(cfg.audio_frame_ms);
+			a->set_codec(cfg.audio_codec);
 		}
 		std::vector<std::string> offered_caps(hello.capabilities().begin(), hello.capabilities().end());
 		for (const auto &c : gdp::negotiate_capabilities(offered_caps, cfg.capabilities)) accept->add_capabilities(c);
@@ -208,6 +209,7 @@ struct TestHost::Impl {
 		viewer = &p;
 		epoch_us = gdp::monotonic_us(); // §11
 		next_frame_id = cfg.first_frame_id;
+		next_audio_seq = 0; // §10
 
 		// §6.5: the current cursor right after accepting.
 		gdp::session::ControlEnvelope cursor;
@@ -472,6 +474,19 @@ void TestHost::send_audio_packet(uint16_t seq, uint32_t pts, std::vector<uint8_t
 		gdp::AudioDatagramHeader h;
 		h.seq = seq;
 		h.pts = pts;
+		h.encode(dgram.data());
+		std::copy(opus.begin(), opus.end(), dgram.begin() + 1 + gdp::AudioDatagramHeader::kSize);
+		m->viewer->conn->send_datagram(dgram.data(), dgram.size(), true);
+	});
+}
+
+void TestHost::send_audio(std::vector<uint8_t> opus) {
+	impl_->post([m = impl_.get(), opus = std::move(opus)] {
+		if (!m->viewer) return;
+		std::vector<uint8_t> dgram(1 + gdp::AudioDatagramHeader::kSize + opus.size());
+		gdp::AudioDatagramHeader h;
+		h.seq = m->next_audio_seq++;
+		h.pts = static_cast<uint32_t>(gdp::monotonic_us() - m->epoch_us);
 		h.encode(dgram.data());
 		std::copy(opus.begin(), opus.end(), dgram.begin() + 1 + gdp::AudioDatagramHeader::kSize);
 		m->viewer->conn->send_datagram(dgram.data(), dgram.size(), true);

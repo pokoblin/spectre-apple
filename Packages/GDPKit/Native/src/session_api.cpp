@@ -245,6 +245,10 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	if (c->width) config.width = c->width;
 	if (c->height) config.height = c->height;
 	config.audio = c->audio;
+	if (c->audio_codec) config.audio_codec = c->audio_codec;
+	if (c->audio_sample_rate_hz) config.audio_sample_rate_hz = c->audio_sample_rate_hz;
+	if (c->audio_channels) config.audio_channels = c->audio_channels;
+	if (c->audio_frame_ms) config.audio_frame_ms = c->audio_frame_ms;
 	if (c->force_codec) config.force_codec = c->force_codec;
 	config.refuse_code = c->refuse_code;
 	if (c->reject_reason) config.reject_reason = c->reject_reason;
@@ -273,6 +277,10 @@ void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, 
 	const uint16_t *drop_slices, size_t drop_count, size_t max_payload) {
 	host->host.send_video_frame(std::vector<uint8_t>(data, data + len), keyframe,
 		std::vector<uint16_t>(drop_slices, drop_slices + drop_count), max_payload);
+}
+
+void gdpc_test_host_send_audio(gdpc_test_host *host, const uint8_t *opus, size_t len) {
+	host->host.send_audio(std::vector<uint8_t>(opus, opus + len));
 }
 
 void gdpc_test_host_send_audio_packet(gdpc_test_host *host, uint16_t seq, uint32_t pts, const uint8_t *opus,

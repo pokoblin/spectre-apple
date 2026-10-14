@@ -239,7 +239,8 @@ final class PlaybackModel {
                 playDirect(stream)
             } else {
                 do {
-                    let host = try LoopbackHost(stream: stream)
+                    // No test tone in a bench run: it measures video.
+                    let host = try LoopbackHost(stream: stream, audio: bench == nil)
                     loopback = host
                     connect(host.sessionConfiguration())
                     host.start()
@@ -330,6 +331,11 @@ final class PlaybackModel {
         case let .established(accept):
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
+            if let a = remote.audio?.format {
+                print("session: audio opus \(a.sampleRate) Hz, \(a.channels) ch, \(a.frameMilliseconds) ms")
+            } else {
+                print("session: no audio: \(remote.audioUnavailable ?? "?")")
+            }
             if source == .remote { streamInfo = "\(streamInfo) — \(accept.codec) \(size), \(accept.encoder)" }
             stats.reset()
             phase = .playing

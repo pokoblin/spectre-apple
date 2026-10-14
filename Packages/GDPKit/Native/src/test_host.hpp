@@ -26,7 +26,11 @@ public:
 		std::vector<std::string> capabilities;              // what it supports (§6.7)
 		uint32_t width = 1920;
 		uint32_t height = 1080;
-		bool audio = false; // advertise {48000, 2, 10, "opus"}
+		bool audio = false; // advertise the format below in SessionAccept.audio (§6.8)
+		std::string audio_codec = "opus";
+		uint32_t audio_sample_rate_hz = 48000;
+		uint32_t audio_channels = 2;
+		uint32_t audio_frame_ms = 10;
 		// Misbehaviour, for tests:
 		std::string force_codec;     // accept with this codec whatever was offered
 		uint64_t refuse_code = 0;    // close with this code after a good hello
@@ -136,6 +140,8 @@ public:
 	void send_video_frame(std::vector<uint8_t> data, bool keyframe, std::vector<uint16_t> drop_slices = {},
 		size_t max_payload = 0);
 	void send_audio_packet(uint16_t seq, uint32_t pts, std::vector<uint8_t> opus);
+	// As a host does: seq counts from 0 at SessionAccept, pts is the session clock now (§10, §11).
+	void send_audio(std::vector<uint8_t> opus);
 	void send_ping(uint64_t nonce);
 	void send_cursor_shape(uint32_t w, uint32_t h, uint32_t hot_x, uint32_t hot_y, std::vector<uint8_t> argb);
 	void send_cursor_position(double x, double y);

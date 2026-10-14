@@ -2,11 +2,14 @@ import CoreGraphics
 import Dispatch
 import GDPKit
 import QuartzCore
+import Synchronization
 
 /// A session's video path: GDPSession (network, on its queue) → VideoDecoder
 /// (on the decode queue) → FrameMailbox → the presenter. Feeds the decode
 /// and present times back into StatsReport, and reports frames the decoder
-/// rejected as lost so the host repairs them (gdp-spec.md §7.5).
+/// rejected as lost so the host repairs them (gdp-spec.md §7.5). Plays the
+/// session's audio when SessionAccept describes a format it can decode
+/// (§6.8, §10).
 public final class RemoteSession: @unchecked Sendable {
     public enum State: Sendable {
         case connecting
@@ -33,30 +36,67 @@ public final class RemoteSession: @unchecked Sendable {
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
+    private let audioOutput: SessionAudioPlayer.Output
+    private struct AudioState {
+        var player: SessionAudioPlayer?
+        var unavailable: String?
+        var muted = false
+    }
+    private let audioState = Mutex(AudioState())
+    /// Starts and stops the player in order, off the session queue.
+    private let audioQueue = DispatchQueue(label: "spectre.audio.session", qos: .userInitiated)
     private let decodeQueue = DispatchQueue(label: "spectre.decode", qos: .userInteractive)
     // Decode queue only.
     private var decoder: VideoDecoder?
     // Session queue only.
     private var codec = ""
 
-    public init(mailbox: FrameMailbox, stats: PlaybackStats, onFrame: @escaping @Sendable () -> Void) {
+    public init(mailbox: FrameMailbox, stats: PlaybackStats, audioOutput: SessionAudioPlayer.Output = .device,
+                onFrame: @escaping @Sendable () -> Void) {
         self.mailbox = mailbox
         self.stats = stats
+        self.audioOutput = audioOutput
         self.onFrame = onFrame
     }
 
     deinit {
         stats.setTimingSink(nil)
+        if let player = audioState.withLock({ $0.player }) { audioQueue.async { player.stop() } }
+    }
+
+    /// The session's audio, from SessionAccept on, if it has a format we play.
+    public var audio: SessionAudioPlayer? { audioState.withLock { $0.player } }
+
+    /// Why the session has no audio, once established without it.
+    public var audioUnavailable: String? { audioState.withLock { $0.unavailable } }
+
+    /// Silence the session's audio on this client (the host isn't told).
+    /// Holds for audio that starts later.
+    public var isAudioMuted: Bool {
+        get { audioState.withLock { $0.muted } }
+        set {
+            let player = audioState.withLock {
+                $0.muted = newValue
+                return $0.player
+            }
+            player?.isMuted = newValue
+        }
     }
 
     public func connect(_ config: GDPSession.Configuration) throws(GDPSession.ConnectError) {
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
-        h.closed = { [weak self] ending in self?.onStateChange?(.ended(ending)) }
+        h.closed = { [weak self] ending in
+            self?.stopAudio()
+            self?.onStateChange?(.ended(ending))
+        }
         h.displaysChanged = { [weak self] outputs in self?.outputsChanged(outputs) }
         h.videoFrame = { [weak self] frame in self?.received(frame) ?? false }
         h.cursorShape = { [weak self] shape in self?.onCursorShape?(shape) }
         h.cursorPosition = { [weak self] x, y in self?.onCursorPosition?(CGPoint(x: x, y: y)) }
+        h.audioPacket = { [weak self] sequence, pts, opus in
+            self?.audioState.withLock { $0.player }?.receive(sequence: sequence, pts: pts, opus: opus)
+        }
         let session = GDPSession(handlers: h)
         self.session = session
         stats.setTimingSink { [weak session] decode, present in
@@ -92,7 +132,32 @@ public final class RemoteSession: @unchecked Sendable {
             })
         }
         outputsChanged(accept.outputs)
+        startAudio(accept.audio)
         onStateChange?(.established(accept))
+    }
+
+    private func startAudio(_ config: GDPSession.AudioConfig?) {
+        guard let config else {
+            audioState.withLock { $0.unavailable = "the host sends no audio" }
+            return
+        }
+        // A format we can't play: the session goes on without audio (§6.8).
+        guard let format = OpusFormat(config), let player = SessionAudioPlayer(format: format, output: audioOutput) else {
+            audioState.withLock {
+                $0.unavailable = "unsupported audio: \(config.codec) \(config.sampleRate) Hz, \(config.channels) ch, \(config.frameMilliseconds) ms"
+            }
+            return
+        }
+        audioState.withLock {
+            player.isMuted = $0.muted
+            $0.player = player
+        }
+        audioQueue.async { player.start() }
+    }
+
+    private func stopAudio() {
+        guard let player = audioState.withLock({ $0.player }) else { return }
+        audioQueue.async { player.stop() }
     }
 
     private func outputsChanged(_ outputs: [GDPSession.Output]) {

@@ -334,7 +334,11 @@ typedef struct {
     size_t capability_count;
     uint32_t width;
     uint32_t height;
-    bool audio;
+    bool audio;                      // advertise SessionAccept.audio (§6.8):
+    const char *audio_codec;         //   NULL: "opus"
+    uint32_t audio_sample_rate_hz;   //   0: 48000
+    uint32_t audio_channels;         //   0: 2
+    uint32_t audio_frame_ms;         //   0: 10
     const char *force_codec;         // NULL or a codec to accept regardless
     uint64_t refuse_code;            // 0, or close with this after a good hello
     const char *reject_reason;       // NULL, or send SessionReject
@@ -446,6 +450,8 @@ void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, 
     const uint16_t *drop_slices, size_t drop_count, size_t max_payload);
 void gdpc_test_host_send_audio_packet(gdpc_test_host *host, uint16_t seq, uint32_t pts, const uint8_t *opus,
     size_t len);
+// seq from 0 at SessionAccept and pts from the session clock, as a host does (§10).
+void gdpc_test_host_send_audio(gdpc_test_host *host, const uint8_t *opus, size_t len);
 void gdpc_test_host_send_ping(gdpc_test_host *host, uint64_t nonce);
 void gdpc_test_host_send_cursor_shape(gdpc_test_host *host, uint32_t width, uint32_t height, uint32_t hotspot_x,
     uint32_t hotspot_y, const uint8_t *argb, size_t len);

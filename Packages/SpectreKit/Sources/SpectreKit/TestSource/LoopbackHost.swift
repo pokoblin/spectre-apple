@@ -6,25 +6,36 @@ import GDPKit
 /// real QUIC, so the whole receive path runs as it would against a host.
 /// When the host is asked for a keyframe (a KeyframeRequest or a reported
 /// loss), the stream restarts at its first access unit, its only keyframe.
+///
+/// With `audio`, it also advertises wraith's audio format and sends a test
+/// tone every 10 ms: a 0.1 s, 880 Hz beep once a second, silence between.
 public final class LoopbackHost: @unchecked Sendable {
     public let host: GDPTestHost
     public let stream: TestStream
     private let queue = DispatchQueue(label: "spectre.loopback-host", qos: .userInteractive)
     private var timer: DispatchSourceTimer?
+    private var audioTimer: DispatchSourceTimer?
     private var index = 0 // queue only
+    private let beep: [[UInt8]]
+    private var beepIndex = 0 // queue only
 
-    public init(stream: TestStream) throws(GDPTestHost.Failure) {
+    public init(stream: TestStream, audio: Bool = true) throws(GDPTestHost.Failure) {
         var config = GDPTestHost.Configuration()
         config.codecs = [stream.codec.rawValue]
         config.width = UInt32(stream.width)
         config.height = UInt32(stream.height)
         // Keep a pointer as wraith does, so a captured mouse moves the cursor (§7.4).
         config.simulatePointer = true
+        beep = audio ? Self.encodeBeep() : []
+        config.audio = !beep.isEmpty
         host = try GDPTestHost(config)
         self.stream = stream
     }
 
-    deinit { timer?.cancel() }
+    deinit {
+        timer?.cancel()
+        audioTimer?.cancel()
+    }
 
     /// A configuration that connects a session to this host.
     public func sessionConfiguration() -> GDPSession.Configuration {
@@ -43,6 +54,13 @@ public final class LoopbackHost: @unchecked Sendable {
             t.setEventHandler { [weak self] in self?.tick() }
             timer = t
             t.resume()
+
+            guard !beep.isEmpty else { return }
+            let a = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
+            a.schedule(deadline: .now(), repeating: .milliseconds(OpusFormat.session.frameMilliseconds), leeway: .nanoseconds(0))
+            a.setEventHandler { [weak self] in self?.audioTick() }
+            audioTimer = a
+            a.resume()
         }
     }
 
@@ -50,7 +68,36 @@ public final class LoopbackHost: @unchecked Sendable {
         queue.sync {
             timer?.cancel()
             timer = nil
+            audioTimer?.cancel()
+            audioTimer = nil
         }
+    }
+
+    private func audioTick() {
+        host.sendAudio(opus: beep[beepIndex])
+        beepIndex = (beepIndex + 1) % beep.count
+    }
+
+    /// One second of 10 ms packets: 880 Hz for 0.1 s with 5 ms fades, then
+    /// silence. Empty if the system encoder isn't there.
+    static func encodeBeep() -> [[UInt8]] {
+        let format = OpusFormat.session
+        guard let encoder = OpusEncoder(format) else { return [] }
+        let n = format.framesPerPacket, rate = Double(format.sampleRate)
+        let beepFrames = Int(0.1 * rate), fade = Int(0.005 * rate)
+        var packets: [[UInt8]] = []
+        for p in 0..<(1000 / format.frameMilliseconds) {
+            var samples = [Float](repeating: 0, count: n * format.channels)
+            for i in 0..<n {
+                let t = p * n + i
+                guard t < beepFrames else { break }
+                let gain = Float(min(1, Double(min(t, beepFrames - t)) / Double(fade)))
+                let v = 0.2 * gain * Float(sin(2 * .pi * 880 * Double(t) / rate))
+                for c in 0..<format.channels { samples[i * format.channels + c] = v }
+            }
+            packets += encoder.encode(samples)
+        }
+        return packets.count == 1000 / format.frameMilliseconds ? packets : []
     }
 
     private func tick() {

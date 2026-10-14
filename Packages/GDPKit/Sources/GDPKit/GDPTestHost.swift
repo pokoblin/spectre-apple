@@ -12,7 +12,9 @@ public final class GDPTestHost: @unchecked Sendable {
         public var capabilities: [String] = []
         public var width: UInt32 = 1920
         public var height: UInt32 = 1080
+        /// Advertise `audioFormat` in SessionAccept.audio (gdp-spec.md §6.8).
         public var audio = false
+        public var audioFormat = GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 2, frameMilliseconds: 10)
         /// Accept with this codec whatever was offered (a misbehaving host).
         public var forceCodec: String?
         /// Close with this §12 code after a good hello.
@@ -97,6 +99,7 @@ public final class GDPTestHost: @unchecked Sendable {
             withCStrings(config.capabilities) { caps in
                 config.scratchDirectory.path(percentEncoded: false).withCString { dir in
                     config.token.withCString { token in
+                        withOptionalCString(config.audioFormat.codec) { audioCodec in
                         withOptionalCString(config.forceCodec) { force in
                             withOptionalCString(config.rejectReason) { reject in
                                 var c = gdpc_test_host_config()
@@ -109,6 +112,10 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.width = config.width
                                 c.height = config.height
                                 c.audio = config.audio
+                                c.audio_codec = audioCodec
+                                c.audio_sample_rate_hz = config.audioFormat.sampleRate
+                                c.audio_channels = config.audioFormat.channels
+                                c.audio_frame_ms = config.audioFormat.frameMilliseconds
                                 c.force_codec = force
                                 c.refuse_code = config.refuseCode
                                 c.reject_reason = reject
@@ -117,6 +124,7 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.simulate_pointer = config.simulatePointer
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
+                        }
                         }
                     }
                 }
@@ -151,6 +159,12 @@ public final class GDPTestHost: @unchecked Sendable {
 
     public func sendAudioPacket(sequence: UInt16, pts: UInt32, opus: [UInt8]) {
         opus.withUnsafeBufferPointer { gdpc_test_host_send_audio_packet(handle, sequence, pts, $0.baseAddress, $0.count) }
+    }
+
+    /// As a host does: `seq` counts from 0 at SessionAccept and `pts` is
+    /// the session clock now, the same clock as video's (gdp-spec.md §10).
+    public func sendAudio(opus: [UInt8]) {
+        opus.withUnsafeBufferPointer { gdpc_test_host_send_audio(handle, $0.baseAddress, $0.count) }
     }
 
     public func sendPing(nonce: UInt64) { gdpc_test_host_send_ping(handle, nonce) }

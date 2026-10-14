@@ -459,6 +459,30 @@ struct ControlTests {
         #expect(packet.0 == 7 && packet.1 == 1234 && packet.2 == [1, 2, 3, 4])
     }
 
+    /// The test host stamps audio as a host does (§10): seq from 0, pts from
+    /// the session clock; and advertises the format it is configured with.
+    @Test func hostStampedAudioAndOtherFormats() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.audio = true
+        hc.audioFormat = GDPSession.AudioConfig(codec: "opus", sampleRate: 24000, channels: 1, frameMilliseconds: 20)
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.audio == hc.audioFormat)
+        for i in 0..<3 {
+            host.sendAudio(opus: [UInt8(i)])
+            try await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await eventually { rec.snapshot.audio.count == 3 })
+        let packets = rec.snapshot.audio
+        #expect(packets.map(\.0) == [0, 1, 2])
+        #expect(packets.map(\.2) == [[0], [1], [2]])
+        // Session-clock µs since SessionAccept: small, and increasing.
+        #expect(packets[0].1 < 5_000_000)
+        #expect(Int32(bitPattern: packets[2].1 &- packets[0].1) >= 10_000)
+    }
+
     @Test func hostCloseEndsTheSession() async throws {
         let host = try GDPTestHost()
         let rec = Recorder()

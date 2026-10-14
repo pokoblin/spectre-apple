@@ -137,7 +137,7 @@ struct LoopbackSessionTests {
     func framesFlowAndStatsReachTheHost(codec: VideoCodec) async throws {
         let stream = try TestStreamEncoder.encode(codec: codec, width: 1280, height: 720, frameCount: 60,
                                                   bitrate: 10_000_000)
-        let loopback = try LoopbackHost(stream: stream)
+        let loopback = try LoopbackHost(stream: stream, audio: false)
         let mailbox = FrameMailbox()
         let stats = PlaybackStats(mailbox: mailbox)
         let decoded = Mutex<[UInt32]>([])
