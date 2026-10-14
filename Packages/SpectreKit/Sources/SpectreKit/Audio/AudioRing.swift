@@ -30,6 +30,12 @@ public final class AudioRing: @unchecked Sendable {
     /// Frames ready to read.
     public var available: Int { written.load(ordering: .acquiring) - read.load(ordering: .acquiring) }
 
+    /// Frames written since creation (the index of the next one written).
+    public var writeIndex: Int { written.load(ordering: .acquiring) }
+
+    /// Frames read since creation (the index of the next one read).
+    public var readIndex: Int { read.load(ordering: .acquiring) }
+
     /// Producer: append interleaved samples; returns frames taken (fewer
     /// when full).
     @discardableResult

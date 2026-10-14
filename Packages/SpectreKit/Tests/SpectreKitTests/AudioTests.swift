@@ -337,3 +337,16 @@ struct AudioRingTests {
         #expect(out[0] == [0.25, 0.5] && out[1] == [0.25, 0.5])
     }
 }
+
+extension AudioJitterBufferTests {
+    /// Nobody pulling (the engine stopped): the newest packets are kept, and
+    /// a long run of them is not mistaken for a jump.
+    @Test func overrunWhileBufferingKeepsTheNewest() {
+        var jb = AudioJitterBuffer()
+        insert(&jb, Array(0..<100))
+        #expect(jb.counters.resyncs == 0)
+        let depth = jb.depth
+        #expect((6...12).contains(depth))
+        #expect(pull(&jb, 1) == [100 - depth])
+    }
+}

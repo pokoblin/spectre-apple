@@ -26,7 +26,8 @@ public struct AudioJitterBuffer: Sendable {
         public var targetPackets = 6
         /// Duration of one packet, seconds (`AudioConfig.frame_ms`, §6.8).
         public var packetDuration = 0.010
-        /// More than this many queued: drop the oldest, back to `targetPackets`.
+        /// More than this many queued (playing or not): drop the oldest, back
+        /// to `targetPackets`.
         public var maxPackets = 12
         /// A packet this many or more ahead of where playback is (or of the
         /// buffered ones) starts the buffer over, as does one that far behind
@@ -121,12 +122,17 @@ public struct AudioJitterBuffer: Sendable {
         }
         queue.insert(Packet(sequence: sequence, pts: pts, data: data, arrival: now), at: i)
 
-        if isPlaying && queue.count > configuration.maxPackets {
+        // Too many queued: nobody is pulling (or not fast enough). Keep the
+        // newest; while buffering too, or the queue would span far enough to
+        // look like a jump.
+        if queue.count > configuration.maxPackets {
             let n = queue.count - configuration.targetPackets
             queue.removeFirst(n)
             counters.dropped += n
-            expected = queue[0].sequence
-            resetDrift()
+            if isPlaying {
+                expected = queue[0].sequence
+                resetDrift()
+            }
         }
     }
 
