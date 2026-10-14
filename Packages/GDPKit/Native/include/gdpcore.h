@@ -492,6 +492,9 @@ size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdp
 // the end. Copies at most `cap` bytes of its Opus payload; `*len` is the full size.
 bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, uint16_t *seq, uint32_t *pts,
     uint8_t *opus, size_t cap, size_t *len);
+// The most recent microphone packet (also after the first minute); false before any.
+bool gdpc_test_host_latest_microphone_packet(const gdpc_test_host *host, uint16_t *seq, uint32_t *pts, uint8_t *opus,
+    size_t cap, size_t *len);
 
 // ---------------------------------------------------------------------------
 // Lobby (§4, §5): logging in to a host agent or a broker, ending in a

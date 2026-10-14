@@ -423,6 +423,17 @@ size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdp
 	return n;
 }
 
+bool gdpc_test_host_latest_microphone_packet(const gdpc_test_host *host, uint16_t *seq, uint32_t *pts, uint8_t *opus,
+	size_t cap, size_t *len) {
+	gdpcore::TestHost::MicrophonePacket p;
+	if (!host->host.latest_microphone_packet(&p)) return false;
+	*seq = p.seq;
+	*pts = p.pts;
+	*len = p.opus.size();
+	std::copy(p.opus.begin(), p.opus.begin() + static_cast<ptrdiff_t>(std::min(cap, p.opus.size())), opus);
+	return true;
+}
+
 bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, uint16_t *seq, uint32_t *pts,
 	uint8_t *opus, size_t cap, size_t *len) {
 	gdpcore::TestHost::MicrophonePacket p;

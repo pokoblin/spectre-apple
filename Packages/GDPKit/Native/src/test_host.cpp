@@ -50,6 +50,7 @@ struct TestHost::Impl {
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
 	std::vector<MicrophonePacket> microphone_log;
+	std::optional<MicrophonePacket> latest_microphone;
 	bool keyframe_wanted = false;
 
 	// Loop thread only.
@@ -125,8 +126,9 @@ struct TestHost::Impl {
 		}
 		obs.microphone_packets++;
 		obs.microphone_bytes += len;
-		if (microphone_log.size() < TestHost::kMaxMicrophoneLog)
-			microphone_log.push_back(MicrophonePacket{h.seq, h.pts, std::vector<uint8_t>(payload, payload + plen)});
+		MicrophonePacket packet{h.seq, h.pts, std::vector<uint8_t>(payload, payload + plen)};
+		if (microphone_log.size() < TestHost::kMaxMicrophoneLog) microphone_log.push_back(packet);
+		latest_microphone = std::move(packet);
 	}
 
 	void send(Peer &p, const gdp::session::ControlEnvelope &env) {
@@ -610,6 +612,13 @@ bool TestHost::take_keyframe_wanted() {
 TestHost::Observed TestHost::observed() const {
 	std::lock_guard lock(impl_->mu);
 	return impl_->obs;
+}
+
+bool TestHost::latest_microphone_packet(MicrophonePacket *out) const {
+	std::lock_guard lock(impl_->mu);
+	if (!impl_->latest_microphone) return false;
+	*out = *impl_->latest_microphone;
+	return true;
 }
 
 bool TestHost::microphone_packet(size_t index, MicrophonePacket *out) const {

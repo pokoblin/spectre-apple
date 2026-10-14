@@ -101,6 +101,16 @@ public final class GDPTestHost: @unchecked Sendable {
         public var opus: [UInt8]
     }
 
+    /// The most recent microphone packet, if any (also after the first minute).
+    public var latestMicrophonePacket: MicrophonePacket? {
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        var seq: UInt16 = 0, pts: UInt32 = 0, len = 0
+        let found = buffer.withUnsafeMutableBufferPointer {
+            gdpc_test_host_latest_microphone_packet(handle, &seq, &pts, $0.baseAddress, $0.count, &len)
+        }
+        return found ? MicrophonePacket(sequence: seq, pts: pts, opus: Array(buffer.prefix(min(len, buffer.count)))) : nil
+    }
+
     /// The microphone packets received from index `first` on, in arrival
     /// order (the first minute's are kept).
     public func microphonePackets(from first: Int = 0) -> [MicrophonePacket] {

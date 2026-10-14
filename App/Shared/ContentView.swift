@@ -61,6 +61,12 @@ struct SessionView: View {
             }
         }
         #endif
+        .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
+                                                  set: { if !$0 { model.microphoneError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(model.microphoneError ?? "")
+        }
         .confirmationDialog("Log out of the remote desktop?", isPresented: $confirmLogOut, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) { model.logOut() }
         } message: {
@@ -105,6 +111,17 @@ struct SessionView: View {
             .help("Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad.")
         }
         #endif
+        if model.hasMicrophone {
+            Toggle(isOn: Binding(get: { model.isMicrophoneOn }, set: { _ in model.toggleMicrophone() })) {
+                Label("Microphone", systemImage: model.isMicrophoneOn ? "mic.fill" : "mic.slash")
+            }
+            .help(model.isMicrophoneOn
+                  ? "Stop sending your microphone"
+                  : "Send your microphone to the remote desktop (use headphones, or it hears its own sound)")
+            #if os(iOS)
+            .toggleStyle(.button)
+            #endif
+        }
         if model.hasAudio {
             Button { model.isAudioMuted.toggle() } label: {
                 if model.isAudioMuted {

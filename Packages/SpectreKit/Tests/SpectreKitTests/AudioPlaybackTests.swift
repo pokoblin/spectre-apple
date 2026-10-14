@@ -143,6 +143,30 @@ struct AudioPlaybackTests {
         #expect(pipeline.statistics.counters.underruns == 0)
     }
 
+    /// Large renders for a while (another audio session category): once
+    /// they stop, the lookahead comes back down within two windows.
+    @Test func theLookaheadFollowsRecentRendersOnly() throws {
+        let packets = opusTone(packets: 500) // 5 s: past the end of the test
+        let pipeline = try #require(AudioPipeline(format: .session))
+        var next = 0, now = 0.0
+        func step(render frames: Int) {
+            while next < packets.count && Double(next) * 0.01 <= now + 0.06 {
+                feed(pipeline, packets, from: 0, next..<next + 1, now: now)
+                next += 1
+            }
+            pipeline.pump(now: now)
+            _ = render(pipeline, frames: frames)
+            now += Double(frames) / 48000
+        }
+        for _ in 0..<40 { step(render: 1024) }
+        pipeline.pump(now: now)
+        #expect(pipeline.ring.available >= 1024 + 480)
+        while now < 4.5 { step(render: 480) } // two whole windows of small renders
+        pipeline.pump(now: now)
+        #expect(pipeline.ring.available <= 960 + 480)
+        #expect(pipeline.statistics.counters.underruns == 0)
+    }
+
     @Test func playoutTimeIsMeasuredAgainstPTS() throws {
         let packets = opusTone(packets: 20)
         let pipeline = try #require(AudioPipeline(format: .session))

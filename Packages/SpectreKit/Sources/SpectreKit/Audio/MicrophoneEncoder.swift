@@ -75,7 +75,8 @@ public final class MicrophoneEncoder {
         level = -160
     }
 
-    static func rms(_ x: UnsafeBufferPointer<Float>) -> Float {
+    /// RMS level of `x`, dBFS (−160 for silence).
+    public static func rms(_ x: UnsafeBufferPointer<Float>) -> Float {
         guard !x.isEmpty else { return -160 }
         var sum: Float = 0
         for v in x { sum += v * v }

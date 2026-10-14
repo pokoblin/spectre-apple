@@ -508,6 +508,7 @@ struct ControlTests {
         #expect(packets[0].pts < 5_000_000) // µs since SessionAccept
         #expect(Int32(bitPattern: packets[2].pts &- packets[0].pts) >= 20_000)
         #expect(host.microphonePackets(from: 2).map(\.sequence) == [2])
+        #expect(host.latestMicrophonePacket == packets.last)
         #expect(host.observed.microphoneDropped == 0)
         #expect(session.linkStats()?.microphoneSent == 3)
     }

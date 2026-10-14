@@ -20,10 +20,10 @@ Funciona:
 - **Inicio de sesión**: inicio de sesión en el lobby (§4, §5); el certificado del servidor se confirma en la primera conexión y se recuerda (confianza en el primer uso); autenticación interactiva según las indicaciones del servidor; elección de dispositivo y de sesión de escritorio; toma de control de una sesión en curso. Véase [docs/login.md](docs/login.md).
 - **Vídeo**: H.264 y HEVC, decodificados por hardware con VideoToolbox y entregados a Metal sin copias; estadísticas de pérdida de fotogramas y de latencia enviadas al host (StatsReport). Véanse [docs/session-client.md](docs/session-client.md) y [docs/prototype-findings.md](docs/prototype-findings.md).
 - **Entrada**: teclas enviadas por posición física; ratón con posiciones absolutas, todos los botones y desplazamiento suave, más un modo capturado que envía movimiento relativo; el cursor remoto se dibuja localmente; en iPad, teclados físicos, trackpads y ratones, y los dedos en modo «toque directo» o «trackpad». Véase [docs/input.md](docs/input.md).
-- **Audio**: el sonido del escritorio remoto (Opus, decodificado con el códec del propio sistema) a través de un búfer de jitter de 60 ms que oculta los paquetes perdidos; se puede silenciar desde la barra de herramientas. Véase [docs/audio.md](docs/audio.md).
+- **Audio**: el sonido del escritorio remoto (Opus, decodificado con el códec del propio sistema) a través de un búfer de jitter de 60 ms que oculta los paquetes perdidos; se puede silenciar desde la barra de herramientas. El micrófono, enviado al escritorio remoto mientras lo tengas activado. Véase [docs/audio.md](docs/audio.md).
 - **Control de sesión**: desconectar (la sesión remota sigue abierta) y cerrar sesión (termina la sesión remota).
 
-Pendiente: micrófono, portapapeles, mandos, la capa de refinamiento sin pérdidas (refine), teclado en pantalla, AV1 y PyroWave.
+Pendiente: portapapeles, mandos, la capa de refinamiento sin pérdidas (refine), teclado en pantalla, AV1 y PyroWave.
 
 ## Compilación
 
@@ -100,6 +100,8 @@ La app se abre en la pantalla de inicio de sesión: introduce el servidor (`host
 - **Trackpad**: la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
 
 **Sonido**: el sonido del escritorio remoto se reproduce cuando el host lo envía (wraith lo hace cuando puede capturar el audio de la sesión). El botón **Mute** de la barra de herramientas lo silencia solo en este dispositivo; el ajuste se recuerda. El host de la demo y de loopback emite un pitido cada segundo.
+
+**Micrófono**: el botón **Microphone** de la barra de herramientas envía tu micrófono al escritorio remoto, donde es el dispositivo de grabación predeterminado de la sesión. Empieza desactivado en cada sesión; la primera vez, el sistema pide permiso. Al desactivarlo se libera el dispositivo. Todavía no hay cancelación de eco: usa auriculares, o el escritorio remoto oirá su propio sonido.
 
 ## Desarrollo
 

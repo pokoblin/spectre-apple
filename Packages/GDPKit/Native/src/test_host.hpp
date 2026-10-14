@@ -176,6 +176,8 @@ public:
 	Observed observed() const;
 	// Microphone packet `index` in arrival order (the first kMaxMicrophoneLog); false past the end.
 	bool microphone_packet(size_t index, MicrophonePacket *out) const;
+	// The most recent microphone packet, past the log too; false before any.
+	bool latest_microphone_packet(MicrophonePacket *out) const;
 
 private:
 	struct Impl;

@@ -30,8 +30,10 @@ public final class AudioPipeline: @unchecked Sendable {
     public let format: OpusFormat
     public let ring: AudioRing
     /// Decoded audio the pump keeps ahead of the render callback, frames,
-    /// at least: it also covers the largest render request seen plus a
-    /// packet (iOS renders 4096 frames at a time with the screen locked).
+    /// at least: it also covers the largest render request of the last few
+    /// seconds plus a packet (iOS renders 4096 frames at a time with the
+    /// screen locked). Recent only: a larger request for a while (another
+    /// audio session category, say) mustn't leave the latency up for good.
     public let lookahead: Int
     private let jitter: Mutex<AudioJitterBuffer>
 
@@ -43,7 +45,12 @@ public final class AudioPipeline: @unchecked Sendable {
         var marks: [(index: Int, pts: UInt32)] = []
         var lastPTS: UInt32?
         var playoutMinusPTS: Int32?
+        /// The largest render of the previous window, and when this one began.
+        var previousLargestRender = 0
+        var renderWindowStart: Double?
     }
+    /// How long a render request size counts towards the lookahead, at least.
+    static let renderWindow = 2.0
     private let decoding: Mutex<Decoding>
 
     /// Set by the render callback when it couldn't fill a request.
@@ -86,9 +93,14 @@ public final class AudioPipeline: @unchecked Sendable {
             // pump falling behind, not the network: just top up.
             jitter.withLock { if $0.depth == 0 { $0.underrun() } }
         }
-        let target = min(max(lookahead, largestRender.load(ordering: .relaxed) + format.framesPerPacket),
-                         ring.capacity - 2 * format.framesPerPacket)
         decoding.withLock { d in
+            // The largest render of this window and the last: 2-4 s of history.
+            if d.renderWindowStart.map({ now - $0 >= Self.renderWindow }) ?? true {
+                d.previousLargestRender = largestRender.exchange(0, ordering: .relaxed)
+                d.renderWindowStart = now
+            }
+            let largest = max(d.previousLargestRender, largestRender.load(ordering: .relaxed))
+            let target = min(max(lookahead, largest + format.framesPerPacket), ring.capacity - 2 * format.framesPerPacket)
             measurePlayout(&d)
             while ring.available < target {
                 guard let slot = jitter.withLock({ $0.next(now: now) }) else { break }
@@ -166,6 +178,8 @@ public final class AudioPipeline: @unchecked Sendable {
             d.marks.removeAll()
             d.lastPTS = nil
             d.playoutMinusPTS = nil
+            d.previousLargestRender = 0
+            d.renderWindowStart = nil
         }
         starved.store(false, ordering: .releasing)
         lastRender.store(WordPair(first: 0, second: 0), ordering: .releasing)

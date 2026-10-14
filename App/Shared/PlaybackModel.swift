@@ -63,6 +63,12 @@ final class PlaybackModel {
     private static let audioMutedKey = "audioMuted"
     /// The session plays audio (SessionAccept described a format we decode).
     private(set) var hasAudio = false
+    /// The host takes the microphone (`microphone` in effect, a format we encode).
+    private(set) var hasMicrophone = false
+    /// Off at the start of every session; only the user turns it on (§10.1).
+    private(set) var isMicrophoneOn = false
+    /// Why turning the microphone on failed, for an alert.
+    var microphoneError: String?
 
     let presenter: VideoPresenter?
     /// The session's input, while there is a session to send it to.
@@ -160,6 +166,27 @@ final class PlaybackModel {
         remote?.session?.closeAndWait(timeout: 0.5)
     }
 
+    /// Turns the microphone on or off; the first time on asks for permission.
+    func toggleMicrophone() {
+        guard let remote else { return }
+        let on = !isMicrophoneOn
+        Task {
+            do throws(MicrophoneCapture.Failure) {
+                try await remote.setMicrophone(on)
+                guard remote === self.remote else { return }
+                isMicrophoneOn = on
+                print("session: microphone \(on ? "on" : "off")")
+            } catch {
+                isMicrophoneOn = false
+                if case .permissionDenied = error {
+                    microphoneError = "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone."
+                } else {
+                    microphoneError = "The microphone didn't start: \(error)."
+                }
+            }
+        }
+    }
+
     func disconnect() {
         guard let remote else { return reportEnded("Disconnected.") }
         input?.end() // §8.2: release what is held before detaching
@@ -223,6 +250,8 @@ final class PlaybackModel {
         remote = nil
         loopback = nil
         hasAudio = false
+        hasMicrophone = false
+        isMicrophoneOn = false
         hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
         sessionText = ""
     }
@@ -345,6 +374,8 @@ final class PlaybackModel {
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
             hasAudio = remote.audio != nil
+            hasMicrophone = remote.microphoneFormat != nil
+            if !hasMicrophone { print("session: no microphone: \(remote.microphoneUnavailable ?? "?")") }
             if let a = remote.audio?.format {
                 print("session: audio opus \(a.sampleRate) Hz, \(a.channels) ch, \(a.frameMilliseconds) ms")
             } else {
@@ -410,6 +441,7 @@ final class PlaybackModel {
         text += String(format: "\nfirst-slice delay min %d / avg %d µs (offset unknown), %u reports sent",
                        link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
         text += "\n" + audioOverlay()
+        text += "\n" + microphoneOverlay()
         if let host = testHost?.observed {
             text += String(format: "\nhost saw: %u reports, frame %u acked, decode %u µs, present %u µs, %u lost",
                            host.statsReports, host.lastHighestFrameID, host.lastDecodeMicroseconds,
@@ -434,6 +466,34 @@ final class PlaybackModel {
                           c.played, c.concealed, c.late, c.underruns, c.trimmed, c.dropped, c.inserted)
         if let audio = s.playoutMinusPTS, let video = stats.presentMinusPTS {
             text += String(format: ", A/V %+.0f ms", Double(audio &- video) / 1000)
+        }
+        return text
+    }
+
+    /// The microphone (docs/audio.md): on or off, packets sent and the
+    /// level; with the in-process test host, what it received and heard.
+    private func microphoneOverlay() -> String {
+        guard let remote else { return "" }
+        guard remote.microphoneFormat != nil else { return "mic: none (\(remote.microphoneUnavailable ?? "connecting"))" }
+        var text: String
+        if let s = remote.microphone?.statistics, s.isRunning {
+            text = String(format: "mic on (%.0f Hz, %d ch), %d packets, level %.0f dBFS", s.deviceSampleRate,
+                          s.deviceChannels, s.packets, s.level)
+        } else {
+            text = "mic off"
+        }
+        if let link = remote.linkStats() {
+            text += String(format: ", sent %llu, dropped %llu", link.microphoneSent, link.microphoneDropped)
+        }
+        if let host = testHost {
+            // The level of the latest packet the host got, decoded on its own:
+            // what the remote desktop would be hearing.
+            var level: Float = -160
+            if let packet = host.latestMicrophonePacket, let format = remote.microphoneFormat,
+               let decoder = OpusDecoder(format) {
+                decoder.decode(packet.opus) { level = MicrophoneEncoder.rms($0) }
+            }
+            text += String(format: " | host received %u, latest %.0f dBFS", host.observed.microphonePackets, level)
         }
         return text
     }
