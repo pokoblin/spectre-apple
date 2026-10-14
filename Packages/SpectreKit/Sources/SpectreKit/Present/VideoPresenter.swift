@@ -29,6 +29,16 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         didSet { applyMode() }
     }
 
+    /// Whether decode→present times are measured on-screen times
+    /// (`MTLDrawable.presentedTime`) or, in the simulator, GPU completion.
+    public static let measuresOnScreenTime: Bool = {
+        #if targetEnvironment(simulator)
+        false
+        #else
+        true
+        #endif
+    }()
+
     /// When set, each drawable stays on screen at least this long
     /// (`MTLCommandBuffer.present(_:afterMinimumDuration:)`): even pacing
     /// of a 60 fps stream on a 120 Hz display, at the cost of latency when
@@ -118,6 +128,15 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
 
         // Stats need both the GPU times (completed) and the on-screen time (presented), in either order.
         let record = PresentRecord(frame: frame, zeroCopy: textures.isZeroCopy, stats: stats)
+        #if targetEnvironment(simulator)
+        // The simulator has neither presented handlers nor timed presents:
+        // the GPU finishing the frame stands in for it reaching the screen.
+        commandBuffer.addCompletedHandler { cb in
+            record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime)
+            record.presented(cb.gpuEndTime)
+        }
+        commandBuffer.present(drawable)
+        #else
         drawable.addPresentedHandler { d in record.presented(d.presentedTime) }
         commandBuffer.addCompletedHandler { cb in record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime) }
         if let minimumPresentDuration {
@@ -125,6 +144,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         } else {
             commandBuffer.present(drawable)
         }
+        #endif
         commandBuffer.commit()
     }
 }

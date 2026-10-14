@@ -35,6 +35,7 @@ targets:
       - path: App/iOS
         destinationFilters: [iOS]
     dependencies:
+      - package: GDPKit
       - package: SpectreKit
     settings:
       base:

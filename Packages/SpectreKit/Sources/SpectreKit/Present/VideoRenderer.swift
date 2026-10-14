@@ -1,4 +1,5 @@
 import CoreVideo
+import IOSurface
 import Metal
 import simd
 
@@ -87,8 +88,15 @@ public final class VideoRenderer: @unchecked Sendable {
 
         let (lumaRef, luma) = try planeTexture(pb, plane: 0, format: .r8Unorm)
         let (chromaRef, chroma) = try planeTexture(pb, plane: 1, format: .rg8Unorm)
-        let zeroCopy = luma.iosurface === surface && chroma.iosurface === surface
-            && luma.iosurfacePlane == 0 && chroma.iosurfacePlane == 1
+        // Compare global surface IDs, not wrapper objects: the simulator hands
+        // back a different IOSurfaceRef object for the same surface. It also
+        // reports plane 0 for the chroma texture (whose contents are plane 1),
+        // so the plane is checked only where it is reported faithfully.
+        let id = IOSurfaceGetID(surface)
+        var zeroCopy = luma.iosurface.map(IOSurfaceGetID) == id && chroma.iosurface.map(IOSurfaceGetID) == id
+        #if !targetEnvironment(simulator)
+        zeroCopy = zeroCopy && luma.iosurfacePlane == 0 && chroma.iosurfacePlane == 1
+        #endif
         return VideoTextures(luma: luma, chroma: chroma, lumaRef: lumaRef, chromaRef: chromaRef, frame: frame,
                              isZeroCopy: zeroCopy)
     }

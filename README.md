@@ -106,6 +106,34 @@ SpectreKit 的测试（包括 H.264/HEVC 彩条的端到端色彩校验）：
 swift test --package-path Packages/SpectreKit
 ```
 
+### 6. iOS / iPadOS
+
+`scripts/build-gdpcore.sh` 默认就会编 iOS 和模拟器的 slice。在 iPad 模拟器上跑两个包的测试：
+
+```bash
+(cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
+```
+
+```bash
+(cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
+```
+
+编译 App 并安装到模拟器：
+
+```bash
+xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -configuration Release -derivedDataPath build/DerivedData build
+```
+
+```bash
+xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimulator/Spectre.app
+```
+
+```bash
+xcrun simctl launch --console-pty booted org.ghost.spectre.apple --bench 10 --codec h265
+```
+
+在模拟器里 VideoToolbox 是软件解码，而且没有 `presentedTime`，所以模拟器上的耗时数字不能和真机或 macOS 比较，见 [docs/prototype-findings.md](docs/prototype-findings.md)。在真机上运行需要在 Xcode 里给 target 选一个开发者 Team。
+
 ## 许可证
 
 MIT，见 [LICENSE](LICENSE)。libgdp 为 MIT；ghost 的其余部分（含 spectre 客户端）为 GPL-3.0-only，本项目不复制其代码。

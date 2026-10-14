@@ -135,3 +135,40 @@ Annex B 访问单元（§9.4）
 - **`@Observable` 和 `didSet`**：`@Observable` 把存储属性改成了计算属性，所以在 `init` 里赋值也会触发 `didSet`。原来的代码因此启动了两次播放，bench 被取消后立即结束。
 - 着色器在运行时从源码编译（`makeLibrary(source:)`），这样 `swift test`、Xcode 和 iOS 用的是同一份代码，不依赖 SwiftPM 资源包里预编译的 metallib。代价是启动时多几十毫秒。
 - 测试码流的编码器参数仿照 wraith：不用 B 帧，低延迟码率控制，只有第一帧是 IDR。循环播放时回到第 0 帧正好是 IDR。
+
+## 风险 3：libgdp 交叉编译成 iOS 版——通过
+
+| iPad Pro 13-inch (M5) 模拟器 | iPhone 17 模拟器 |
+|---|---|
+| ![iPad 模拟器](images/ipad-simulator.jpg) | ![iPhone 模拟器](images/iphone-simulator.jpg) |
+
+### 结论
+
+- **交叉编译**：`scripts/build-gdpcore.sh ios ios-simulator` 用 `arm64-ios-spectre` 和 `arm64-ios-simulator-spectre` 两个 triplet 编依赖（各约 50 秒），libgdp 没有改任何代码，交叉编译没有警告。`vtool` 确认目标文件分别是 `platform IOS` 和 `platform IOSSIMULATOR`，`minos 27.0`。xcframework 现在有 `macos-arm64`、`ios-arm64`、`ios-arm64-simulator` 三个 slice。
+- **iPad 模拟器上的单元测试**：GDPKit 的 18 个测试全部通过（`xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0'`），包括真实的 QUIC 回环：握手 44 ms，MTU 探测后最大 datagram 1432 B。SpectreKit 的 8 个测试也全部通过，H.264/HEVC 彩条的色彩校验和零拷贝检查都包括在内。
+- **App**：同一个多平台 target 在 iPad Pro 13-inch (M5) 和 iPhone 17（iOS 27.0）模拟器上运行。启动时通过 GDPKit 调用 libgdp：用 libgdp 的 SHA-256 算 `"abc"` 的指纹，并跑 QUIC 回环自检，都成功了（iPhone 上握手 17–22 ms）。同时播放 1080p60 测试码流，经 VideoToolbox 解码后用 Metal 显示。iPhone 17 模拟器上 HEVC 10 秒的 bench：607/607 帧全部显示，零拷贝 607/607。
+- **真机构建**：`xcodebuild -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` 能链接（用到 `ios-arm64` slice），整个 App 7.9 MB。还没有在真机上运行过，那需要开发者 Team 签名。
+
+### 模拟器和真机的差别（踩过的坑）
+
+- **VideoToolbox**：模拟器里没有硬件解码器，`RequireHardwareAcceleratedVideoDecoder` 会失败，`VideoDecoder` 会退回到让 VideoToolbox 自己选，最后用的是软件解码。HEVC 1080p 软件解码 p50 4.3 ms，进程 CPU 45–66%。编码器也是软件的，不认识低延迟相关的属性，日志里会出现 `unrecognised property key`，但不影响结果。
+- **Metal 呈现计时**：模拟器 SDK 里没有 `MTLDrawable.addPresentedHandler` / `presentedTime`，也没有 `present(_:afterMinimumDuration:)`，都是编译错误。模拟器上"解码 → 上屏"改用 GPU 完成时间近似（`VideoPresenter.measuresOnScreenTime == false`），所以模拟器的显示耗时数字不能和 macOS 直接比较。
+- **零拷贝检查**：模拟器返回的 `MTLTexture.iosurface` 是同一个 IOSurface 的另一个包装对象（用 `===` 判断会失败），而且色度纹理的 `iosurfacePlane` 报的是 0（内容其实是 plane 1）。所以检查改成比较 `IOSurfaceGetID`，plane 下标只在真机和 macOS 上检查。macOS 上两项检查都通过。
+- **CA 根证书**：见风险 1 的已知问题。iOS 真机上没有 `/etc/ssl/cert.pem`，模拟器和宿主机共用文件系统，所以这个问题在模拟器上看不出来。
+
+## 总结
+
+| 风险 | 结论 | 主要依据 |
+|---|---|---|
+| 1. Swift 调 libgdp | 通过 | 18 个 Swift 测试调用 libgdp 的真实代码（指纹、分帧、datagram、QUIC 回环）；Swift/C++ interop 实测不适合直接用，改用 C ABI |
+| 2. VT → Metal 零拷贝 | 通过 | macOS 上 1080p60 两种编码各 60 秒：全部帧都显示；每帧都检查了零拷贝；解码 p50 2–4 ms；解码到上屏 p50 约 13 ms；CPU 9–10%；彩条色彩误差不超过 6/255 |
+| 3. libgdp 上 iOS | 通过 | 3 个 slice 的 xcframework；GDPKit 和 SpectreKit 的测试在 iPad 模拟器上通过；App 在 iPad 和 iPhone 模拟器上调用 libgdp（含 QUIC）并用 Metal 播放；真机版本能链接 |
+
+## 后续工作（按建议顺序）
+
+1. **SessionClient（C++，MIT）**：照 gdp-spec §6–§8 实现，放在 `Packages/GDPKit/Native`，通过 C ABI 暴露。它负责 SessionHello/Accept、证书固定、ack/loss 位图、单程延迟、每 250 ms 一次的 StatsReport（RTT 取 `Connection::rtt_us()`，解码和显示耗时取 `PlaybackStats`）。线程模型：用 `DispatchSourceRead` 监听 `notify_fd()`，在串行队列上调 `dispatch()`，重组好的帧直接交给 `VideoDecoder`，和现在的 `StreamPlayer` 是同一个位置。
+2. **真机验证**：配好开发者 Team 后在 iPad 和 iPhone 上跑 bench，重点看真机上零拷贝的 plane 检查、`presentedTime` 和 ProMotion 下的帧节奏。
+3. **窗口不可见时的处理**：窗口被遮挡时 drawable 不会上屏，应该暂停呈现，或者把这些帧算作丢失上报。
+4. **帧节奏**：评估用 `CAMetalDisplayLink` 配合目标呈现时间，作为可选的平滑模式。
+5. **CA 根证书**：在 iOS 上通过 `CaTrust::extra_file` 提供根证书，见风险 1。
+6. 登录界面（LobbyClient）、音频、麦克风、手柄、剪贴板、会话菜单、统计面板：接口位置已经在 `SpectreKit/Session/SessionComponents.swift` 留好。
