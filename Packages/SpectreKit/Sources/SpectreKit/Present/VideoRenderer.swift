@@ -53,6 +53,7 @@ public final class VideoRenderer: @unchecked Sendable {
     public let commandQueue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
     private let textureCache: CVMetalTextureCache
+    let cursorRenderer: CursorRenderer
 
     public init(device: MTLDevice? = MTLCreateSystemDefaultDevice()) throws(VideoRendererError) {
         guard let device, let queue = device.makeCommandQueue() else { throw .noDevice }
@@ -67,6 +68,7 @@ public final class VideoRenderer: @unchecked Sendable {
             desc.fragmentFunction = library.makeFunction(name: "video_fragment")
             desc.colorAttachments[0].pixelFormat = Self.colorPixelFormat
             pipeline = try device.makeRenderPipelineState(descriptor: desc)
+            cursorRenderer = try CursorRenderer(device: device, library: library)
         } catch {
             throw .shader(String(describing: error))
         }
@@ -127,9 +129,11 @@ public final class VideoRenderer: @unchecked Sendable {
 
     /// Encodes one frame into `pass` (cleared to black outside the viewport).
     /// `displaySize` is the picture's size (gdp-spec.md §7.2); a larger
-    /// coded picture's padding is cropped off.
+    /// coded picture's padding is cropped off. `cursor`, if any, is drawn
+    /// over the picture in the same pass (``encodeCursor(_:videoSize:viewport:targetSize:encoder:)``).
     public func encode(_ textures: VideoTextures, color: ColorDescription, displaySize: CGSize? = nil,
-                       viewport: MTLViewport, pass: MTLRenderPassDescriptor, into commandBuffer: MTLCommandBuffer) {
+                       viewport: MTLViewport, cursor: CursorOverlay? = nil, pass: MTLRenderPassDescriptor,
+                       into commandBuffer: MTLCommandBuffer) {
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         pass.colorAttachments[0].storeAction = .store
@@ -149,6 +153,10 @@ public final class VideoRenderer: @unchecked Sendable {
         encoder.setFragmentTexture(textures.luma, index: 0)
         encoder.setFragmentTexture(textures.chroma, index: 1)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        if let cursor, let target = pass.colorAttachments[0].texture {
+            encodeCursor(cursor, videoSize: display, viewport: viewport,
+                         targetSize: CGSize(width: target.width, height: target.height), encoder: encoder)
+        }
         encoder.endEncoding()
         // Keep the CVMetalTextures (and the pixel buffer) alive until the GPU is done.
         commandBuffer.addCompletedHandler { _ in withExtendedLifetime(textures) {} }

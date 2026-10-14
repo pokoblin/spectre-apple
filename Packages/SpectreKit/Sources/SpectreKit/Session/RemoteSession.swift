@@ -26,7 +26,10 @@ public final class RemoteSession: @unchecked Sendable {
     public var onStateChange: (@Sendable (State) -> Void)?
     /// Called on the session queue: at SessionAccept and every DisplaysChanged (§7.2).
     public var onPictureChange: (@Sendable (Picture) -> Void)?
+    /// Called on the session queue (gdp-spec.md §7.4).
     public var onCursorShape: (@Sendable (GDPSession.CursorShape) -> Void)?
+    /// Called on the session queue: where the host put the pointer, 0...1 (§7.4).
+    public var onCursorPosition: (@Sendable (CGPoint) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -53,6 +56,7 @@ public final class RemoteSession: @unchecked Sendable {
         h.displaysChanged = { [weak self] outputs in self?.outputsChanged(outputs) }
         h.videoFrame = { [weak self] frame in self?.received(frame) ?? false }
         h.cursorShape = { [weak self] shape in self?.onCursorShape?(shape) }
+        h.cursorPosition = { [weak self] x, y in self?.onCursorPosition?(CGPoint(x: x, y: y)) }
         let session = GDPSession(handlers: h)
         self.session = session
         stats.setTimingSink { [weak session] decode, present in

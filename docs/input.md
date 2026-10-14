@@ -7,8 +7,9 @@
 ```
 App/Shared/PlaybackModel           会话建立后创建 SessionInput，结束时先释放按键再断开
   └ SpectreKit/Input
-      ├ MacSessionView (macOS)     MTKView 子类：本地事件监听（键盘）
-      ├ SessionInput               一个会话的输入状态
+      ├ MacSessionView (macOS)     MTKView 子类：本地事件监听（键盘）、cursor rect（光标）
+      ├ SessionInput               一个会话的输入状态：host 光标、画面尺寸
+      ├ PointerMapping             视图坐标 ↔ 画面 0..1（含黑边）
       ├ InputSender                记录已按下的键和鼠标键，releaseAll()；丢掉自动重复
       ├ MacKeyCodes / HIDUsage     kVK → HID usage
       └ LocalShortcut              留在本地的快捷键
@@ -44,3 +45,22 @@ Cmd+Tab、Cmd+Space、Mission Control 等系统快捷键由系统先拦截，到
 - 窗口失去 key 状态、App 失活、view 失去第一响应者；
 - 切换全屏、Cmd+Q 之前；
 - 断开、登出之前（在关闭连接之前发出），会话结束、view 离开窗口时。
+
+## 光标（§7.4）
+
+host 不把指针画进视频，只发 `CursorShape`（BGRA 预乘，最大 384×384，0×0 表示隐藏）；客户端发相对移动时，host 还会发 `CursorPosition`。`CursorImage` 校验并转换形状：任一边超过 384、一边为 0 另一边不为 0、字节数与尺寸不符，都按规范忽略；热点夹到图像内。
+
+**两种画法：**
+
+- **系统光标（macOS，绝对模式）**：把形状做成 `NSCursor`，通过 cursor rect 只用在画面区域，黑边上是普通箭头。由系统绘制，没有延迟，跟随本地指针。隐藏形状用透明的 1×1 光标代替，不用 `NSCursor.hide()`（那是全局计数器）。
+- **Metal 叠加层**：用于捕获模式（本地指针被锁住、隐藏）和 iPadOS（iPadOS 的指针形状只能是路径，不能是位图）。光标和视频在同一个 render pass 里画，预乘混合（source `.one`，destination `.oneMinusSourceAlpha`），并按 viewport 裁剪。
+
+**缩放**：光标随画面缩放，一个 host 像素占 `PointerMapping.pointsPerVideoPixel` 个点，和画面里的内容一样大。系统光标的长边限制在 8–256 点：画面很小时光标不至于消失，画面很大时也不至于盖住画面。Metal 叠加层按整数倍放大时用 nearest 采样，否则用 linear。
+
+**重绘**：光标在两帧之间变化时（形状变了，或捕获模式下位置变了），presenter 用上一帧加新光标再呈现一次，和解码帧共用同一个合并标志（每个主循环最多画一次），也受在途帧上限约束。这次重绘不计入解码和呈现统计。
+
+**坐标映射**：`PointerMapping` 用和渲染器相同的 `VideoRenderer.fitViewport`（在 drawable 像素里计算和取整），所以指针的黑边和画面的黑边完全重合。落在黑边上的点会夹到画面边缘。
+
+**测试 host 的光标**：测试 host 接受会话后发一个 2×2 的白点；loopback 和 demo 的 `LoopbackHost` 在每次接受会话后改发一个 25×25 的十字准星，更容易看清。
+
+macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里）：指针在画面上时，系统光标是 16.7×16.7 点（25 像素 × 0.667），热点在 (8, 8)；移到画面外变回箭头（28×40）。

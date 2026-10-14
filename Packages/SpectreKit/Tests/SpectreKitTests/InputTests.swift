@@ -80,6 +80,73 @@ struct InputSenderTests {
     }
 }
 
+@Suite("Pointer mapping")
+struct PointerMappingTests {
+    /// 1920×1080 in a 1000×1000-point view at 2×: bars above and below.
+    let tall = PointerMapping(viewSize: CGSize(width: 1000, height: 1000), backingScale: 2,
+                              videoSize: CGSize(width: 1920, height: 1080))
+
+    @Test func barsAboveAndBelow() {
+        // 2000×2000 pixels: the picture is 2000×1125, 437.5 px bars rounded like the renderer's.
+        let v = VideoRenderer.fitViewport(video: tall.videoSize, drawable: CGSize(width: 2000, height: 2000))
+        #expect(tall.videoRect == CGRect(x: 0, y: v.originY / 2, width: 1000, height: v.height / 2))
+        let centre = tall.normalized(CGPoint(x: 500, y: 500))
+        // 437.5-pixel bars round to 438: the centre is half a pixel off.
+        #expect(centre.inside && centre.position.x == 0.5 && abs(centre.position.y - 0.5) < 1.0 / 1125)
+        let top = tall.normalized(CGPoint(x: 0, y: tall.videoRect.minY))
+        #expect(top.position == .zero && top.inside)
+        // In a bar: clamped to the picture's edge, flagged outside.
+        let bar = tall.normalized(CGPoint(x: 250, y: 10))
+        #expect(bar.position == CGPoint(x: 0.25, y: 0) && !bar.inside)
+        let below = tall.normalized(CGPoint(x: 1000, y: 999))
+        #expect(below.position == CGPoint(x: 1, y: 1) && !below.inside)
+    }
+
+    @Test func barsLeftAndRight() {
+        let wide = PointerMapping(viewSize: CGSize(width: 1600, height: 600), backingScale: 1,
+                                  videoSize: CGSize(width: 1280, height: 1024))
+        // 750×600 picture centred: 425-point bars.
+        #expect(wide.videoRect == CGRect(x: 425, y: 0, width: 750, height: 600))
+        #expect(wide.normalized(CGPoint(x: 425 + 375, y: 150)).position == CGPoint(x: 0.5, y: 0.25))
+        #expect(wide.normalized(CGPoint(x: 100, y: 300)) == (CGPoint(x: 0, y: 0.5), false))
+        #expect(wide.viewPoint(CGPoint(x: 1, y: 1)) == CGPoint(x: 1175, y: 600))
+        #expect(wide.pointsPerVideoPixel == 750.0 / 1280)
+    }
+
+    @Test func roundTrip() {
+        for p in [CGPoint(x: 0.1, y: 0.9), CGPoint(x: 0.75, y: 0.333)] {
+            let back = tall.normalized(tall.viewPoint(p)).position
+            #expect(abs(back.x - p.x) < 1e-9 && abs(back.y - p.y) < 1e-9)
+        }
+    }
+
+    @Test func noPictureYet() {
+        let none = PointerMapping(viewSize: CGSize(width: 800, height: 600), backingScale: 2, videoSize: .zero)
+        #expect(!none.normalized(CGPoint(x: 10, y: 10)).inside)
+    }
+}
+
+@Suite("Session input state")
+@MainActor
+struct SessionInputStateTests {
+    @Test func cursorShapesAndPictureSize() {
+        let input = SessionInput(sink: RecordingSink())
+        var changes = 0
+        input.onDisplayChange = { changes += 1 }
+        input.hostCursorShape(GDPSession.CursorShape(width: 2, height: 2, hotspotX: 1, hotspotY: 1,
+                                                     bgra: [UInt8](repeating: 0xff, count: 16)))
+        #expect(input.cursor?.width == 2 && changes == 1)
+        input.hostCursorShape(GDPSession.CursorShape(width: 2, height: 2, hotspotX: 1, hotspotY: 1,
+                                                     bgra: [UInt8](repeating: 0xff, count: 16))) // same
+        #expect(changes == 1)
+        input.hostCursorShape(GDPSession.CursorShape(width: 0, height: 0, hotspotX: 0, hotspotY: 0, bgra: []))
+        #expect(input.cursor?.isHidden == true && changes == 2)
+        input.pictureChanged(CGSize(width: 1920, height: 1080))
+        input.pictureChanged(CGSize(width: 1920, height: 1080))
+        #expect(input.videoSize == CGSize(width: 1920, height: 1080) && changes == 3)
+    }
+}
+
 @Suite("Local shortcuts")
 struct LocalShortcutTests {
     @Test func onlyTheReservedCombinationsStayLocal() {

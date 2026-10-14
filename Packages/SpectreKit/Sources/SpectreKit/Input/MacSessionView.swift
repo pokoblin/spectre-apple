@@ -13,9 +13,16 @@ import MetalKit
 public final class MacSessionView: MTKView {
     public var input: SessionInput? {
         didSet {
-            if oldValue !== input { oldValue?.focusLost() }
+            guard oldValue !== input else { return }
+            oldValue?.focusLost()
+            oldValue?.onDisplayChange = nil
+            input?.onDisplayChange = { [weak self] in self?.displayChanged() }
+            displayChanged()
         }
     }
+
+    /// The host's cursor as an NSCursor, for the image and scale it was made for.
+    private var systemCursor: (image: CursorImage, scale: CGFloat, cursor: NSCursor)?
 
     private var keyMonitor: Any?
     private var observers: [NSObjectProtocol] = []
@@ -67,6 +74,51 @@ public final class MacSessionView: MTKView {
 
     isolated deinit {
         removeMonitors()
+    }
+
+    // MARK: - Picture and cursor
+
+    /// Where the picture is in this view, as the renderer letterboxes it.
+    var mapping: PointerMapping {
+        PointerMapping(viewSize: bounds.size, backingScale: window?.backingScaleFactor ?? 2,
+                       videoSize: input?.videoSize ?? .zero)
+    }
+
+    /// The picture's rectangle in this (unflipped) view's coordinates.
+    private var videoRectInView: NSRect {
+        let r = mapping.videoRect
+        return NSRect(x: r.minX, y: bounds.height - r.maxY, width: r.width, height: r.height)
+    }
+
+    private func displayChanged() {
+        window?.invalidateCursorRects(for: self)
+        // Cursor rects are re-evaluated when the pointer moves; a new shape
+        // under a still pointer is set here.
+        if let window, window.isKeyWindow, let cursor = currentSystemCursor() {
+            let p = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+            if videoRectInView.contains(p) { cursor.set() }
+        }
+    }
+
+    /// The host's cursor over the picture (§7.4: the host never draws it into
+    /// the video), scaled with the picture; the arrow over the bars.
+    public override func resetCursorRects() {
+        guard let cursor = currentSystemCursor() else { return }
+        addCursorRect(videoRectInView, cursor: cursor)
+    }
+
+    private func currentSystemCursor() -> NSCursor? {
+        guard let input, let image = input.cursor, !input.drawsCursorOverlay else { return nil }
+        let scale = mapping.pointsPerVideoPixel
+        if let c = systemCursor, c.image == image, c.scale == scale { return c.cursor }
+        let cursor = image.nsCursor(pointsPerPixel: scale)
+        systemCursor = (image, scale, cursor)
+        return cursor
+    }
+
+    public override func setFrameSize(_ newSize: NSSize) {
+        super.setFrameSize(newSize)
+        window?.invalidateCursorRects(for: self)
     }
 
     // MARK: - Keyboard

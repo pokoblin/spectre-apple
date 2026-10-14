@@ -65,6 +65,17 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     private let drawScheduled = Atomic<Bool>(false)
     private let inFlight = Atomic<Int>(0)
 
+    // The cursor overlay (gdp-spec.md §7.4): drawn over every frame, and over
+    // the last one again when it changes between frames.
+    private var cursorImage: CursorImage?
+    private var cursorTexture: CursorTexture?
+    private var cursorPosition: CGPoint?
+    /// The last frame drawn, kept (with its pixel buffer) to redraw the cursor over.
+    private var lastTextures: VideoTextures?
+    /// The cursor changed since the last drawable: present the last frame
+    /// again unless a new one comes first.
+    private let redrawWanted = Atomic<Bool>(false)
+
     public init(renderer: VideoRenderer, mailbox: FrameMailbox, stats: PlaybackStats) {
         self.renderer = renderer
         self.mailbox = mailbox
@@ -91,9 +102,40 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         applyMode()
     }
 
+    /// The host's cursor image to draw over the picture; nil or hidden: none.
+    public func setCursorImage(_ image: CursorImage?) {
+        let image = image?.isHidden == false ? image : nil
+        guard image != cursorImage else { return }
+        let wasDrawn = cursorOverlay != nil
+        cursorImage = image
+        cursorTexture = image.flatMap(renderer.makeCursorTexture)
+        if wasDrawn || cursorOverlay != nil { cursorChanged() }
+    }
+
+    /// Where to draw it: 0...1 over the output (gdp-spec.md §7.4), nil: not drawn.
+    public func setCursorPosition(_ position: CGPoint?) {
+        guard position != cursorPosition else { return }
+        let wasDrawn = cursorOverlay != nil
+        cursorPosition = position
+        if wasDrawn || cursorOverlay != nil { cursorChanged() }
+    }
+
+    private var cursorOverlay: CursorOverlay? {
+        guard let cursorTexture, let cursorPosition else { return nil }
+        return CursorOverlay(texture: cursorTexture, position: cursorPosition)
+    }
+
+    /// Ask for the last frame again with the new cursor. In
+    /// ``Mode/displayLink`` the next refresh picks the request up; on
+    /// arrival it is one coalesced draw, like a frame's.
+    private func cursorChanged() {
+        redrawWanted.store(true, ordering: .releasing)
+        frameAvailable()
+    }
+
     /// Called from any thread when the decoder produced a frame.
     public nonisolated func frameAvailable() {
-        // Coalesce: one pending main-thread draw at a time.
+        // Coalesce: one pending main-thread draw at a time (frames and cursor redraws alike).
         guard drawScheduled.compareExchange(expected: false, desired: true, ordering: .acquiringAndReleasing).exchanged
         else { return }
         DispatchQueue.main.async { [self] in
@@ -108,7 +150,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     /// A drawable reached the screen (or was dropped): draw what waited for it.
     private nonisolated func frameLeftQueue() {
         inFlight.subtract(1, ordering: .acquiringAndReleasing)
-        if mailbox.hasFrame { frameAvailable() }
+        if mailbox.hasFrame || redrawWanted.load(ordering: .acquiring) { frameAvailable() }
     }
 
     private func applyMode() {
@@ -126,41 +168,62 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     public func draw(in view: MTKView) {
+        // At the cap, a frame waits in the mailbox and a redraw in
+        // `redrawWanted`; frameLeftQueue() comes back for either.
         if let limit = maxFramesInFlight, inFlight.load(ordering: .acquiring) >= limit { return }
-        guard let frame = mailbox.take() else { return }
-        let textures: VideoTextures
-        do {
-            textures = try renderer.textures(for: frame)
-        } catch {
-            lastError = String(describing: error)
-            return
+        if let frame = mailbox.take() {
+            let textures: VideoTextures
+            do {
+                textures = try renderer.textures(for: frame)
+            } catch {
+                lastError = String(describing: error)
+                return
+            }
+            lastTextures = textures
+            // The new frame carries the current cursor.
+            redrawWanted.store(false, ordering: .releasing)
+            present(textures, label: "video frame \(frame.sequence)",
+                    record: PresentRecord(frame: frame, zeroCopy: textures.isZeroCopy, stats: stats), in: view)
+        } else if redrawWanted.exchange(false, ordering: .acquiringAndReleasing), let textures = lastTextures {
+            // A cursor change between frames: the last frame again, not
+            // recorded (the stats are the video's), but counted in flight.
+            if !present(textures, label: "cursor redraw", record: nil, in: view) {
+                redrawWanted.store(true, ordering: .releasing)
+            }
         }
+    }
+
+    /// Encodes `textures` (with the cursor) into the view's next drawable
+    /// and commits it. `record`, for a new video frame, collects its stats.
+    @discardableResult
+    private func present(_ textures: VideoTextures, label: String, record: PresentRecord?, in view: MTKView) -> Bool {
         guard let pass = view.currentRenderPassDescriptor, let drawable = view.currentDrawable,
-              let commandBuffer = renderer.commandQueue.makeCommandBuffer() else { return }
-        commandBuffer.label = "video frame \(frame.sequence)"
+              let commandBuffer = renderer.commandQueue.makeCommandBuffer() else { return false }
+        commandBuffer.label = label
         let videoSize = displaySize ?? CGSize(width: textures.luma.width, height: textures.luma.height)
         let viewport = VideoRenderer.fitViewport(video: videoSize, drawable: view.drawableSize)
-        renderer.encode(textures, color: color, displaySize: displaySize, viewport: viewport, pass: pass,
-                        into: commandBuffer)
+        renderer.encode(textures, color: color, displaySize: displaySize, viewport: viewport, cursor: cursorOverlay,
+                        pass: pass, into: commandBuffer)
 
         // Stats need both the GPU times (completed) and the on-screen time (presented), in either order.
-        let record = PresentRecord(frame: frame, zeroCopy: textures.isZeroCopy, stats: stats)
         inFlight.add(1, ordering: .acquiringAndReleasing)
         #if targetEnvironment(simulator)
         // The simulator has neither presented handlers nor timed presents:
         // the GPU finishing the frame stands in for it reaching the screen.
         commandBuffer.addCompletedHandler { [self] cb in
-            record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime)
-            record.presented(cb.gpuEndTime)
+            record?.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime)
+            record?.presented(cb.gpuEndTime)
             frameLeftQueue()
         }
         commandBuffer.present(drawable)
         #else
         drawable.addPresentedHandler { [self] d in
-            record.presented(d.presentedTime)
+            record?.presented(d.presentedTime)
             frameLeftQueue()
         }
-        commandBuffer.addCompletedHandler { cb in record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime) }
+        if let record {
+            commandBuffer.addCompletedHandler { cb in record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime) }
+        }
         if let minimumPresentDuration {
             commandBuffer.present(drawable, afterMinimumDuration: minimumPresentDuration)
         } else {
@@ -168,6 +231,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         }
         #endif
         commandBuffer.commit()
+        return true
     }
 }
 

@@ -130,6 +130,14 @@ public final class GDPSession: @unchecked Sendable {
         public let hotspotY: UInt32
         /// BGRA in memory, premultiplied; empty with 0×0 for "no cursor".
         public let bgra: [UInt8]
+
+        public init(width: UInt32, height: UInt32, hotspotX: UInt32, hotspotY: UInt32, bgra: [UInt8]) {
+            self.width = width
+            self.height = height
+            self.hotspotX = hotspotX
+            self.hotspotY = hotspotY
+            self.bgra = bgra
+        }
     }
 
     public struct LinkStats: Sendable {

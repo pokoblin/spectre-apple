@@ -256,11 +256,18 @@ final class PlaybackModel {
     private func connect(_ config: GDPSession.Configuration) {
         guard let presenter else { return }
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
-        remote.onPictureChange = { [weak presenter] picture in
+        remote.onPictureChange = { [weak presenter, weak self] picture in
             Task { @MainActor in
                 presenter?.displaySize = picture.size
                 presenter?.color = picture.color
+                self?.input?.pictureChanged(picture.size)
             }
+        }
+        remote.onCursorShape = { [weak self] shape in
+            Task { @MainActor in self?.input?.hostCursorShape(shape) }
+        }
+        remote.onCursorPosition = { [weak self] position in
+            Task { @MainActor in self?.input?.hostCursorPosition(position) }
         }
         remote.onStateChange = { [weak self] state in
             Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
@@ -268,7 +275,7 @@ final class PlaybackModel {
         self.remote = remote
         do {
             try remote.connect(config)
-            input = remote.session.map { SessionInput(sink: $0) }
+            input = remote.session.map { SessionInput(sink: $0, presenter: presenter) }
         } catch {
             phase = .failed("connect: \(error)")
         }

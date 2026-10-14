@@ -42,5 +42,33 @@ enum Shaders {
         float3 rgb = (u.yuvToRGB * float4(y, cbcr, 1)).rgb;
         return float4(saturate(rgb), 1);
     }
+
+    // Keep in sync with CursorUniforms in CursorRenderer.swift.
+    struct CursorUniforms {
+        float4 rect;  // left, top, right, bottom in the video viewport's clip space
+    };
+
+    struct CursorVertexOut {
+        float4 position [[position]];
+        float2 uv;
+    };
+
+    // A quad (triangle strip) from the vertex index. Whatever falls outside
+    // the viewport is clipped, so the cursor never covers a letterbox bar.
+    vertex CursorVertexOut cursor_vertex(uint vid [[vertex_id]], constant CursorUniforms &u [[buffer(0)]]) {
+        float2 corner = float2(float(vid & 1), float(vid >> 1));
+        CursorVertexOut out;
+        out.position = float4(mix(u.rect.x, u.rect.z, corner.x), mix(u.rect.y, u.rect.w, corner.y), 0, 1);
+        out.uv = corner;
+        return out;
+    }
+
+    // The host's premultiplied, non-linear sRGB cursor pixels, as they are:
+    // blended (one, one - source alpha) over the picture's non-linear R'G'B'.
+    fragment float4 cursor_fragment(CursorVertexOut in [[stage_in]],
+                                    texture2d<float> image [[texture(0)]],
+                                    sampler s [[sampler(0)]]) {
+        return image.sample(s, in.uv);
+    }
     """
 }
