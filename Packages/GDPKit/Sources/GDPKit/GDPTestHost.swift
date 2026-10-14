@@ -20,6 +20,9 @@ public final class GDPTestHost: @unchecked Sendable {
         public var rejectReason: String?
         public var pingBeforeAccept = false
         public var firstFrameID: UInt32 = 0
+        /// Keep a pointer like a host does and, after input that moved it
+        /// relatively, report it with CursorPosition (gdp-spec.md §7.4).
+        public var simulatePointer = false
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -63,9 +66,14 @@ public final class GDPTestHost: @unchecked Sendable {
         public var lastMotion: (x: Double, y: Double, absolute: Bool)
         public var buttonEvents, lastButton: UInt32
         public var lastButtonPressed: Bool
-        public var axisVerticalSum: Double
+        public var axisVerticalSum, axisHorizontalSum: Double
         public var touches: UInt32
         public var inputBeforeAccept: Bool
+        /// How many events ``GDPTestHost/inputEvents(from:)`` has (at most 8192).
+        public var inputEventCount: Int
+        /// The simulated pointer (``Configuration/simulatePointer``), 0...1.
+        public var pointer: (x: Double, y: Double)
+        public var cursorPositionsSent: UInt32
 
         public var framesSent, nextFrameID: UInt32
         public var maxDatagramSize: UInt16
@@ -102,6 +110,7 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.reject_reason = reject
                                 c.ping_before_accept = config.pingBeforeAccept
                                 c.first_frame_id = config.firstFrameID
+                                c.simulate_pointer = config.simulatePointer
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
                         }
@@ -165,6 +174,38 @@ public final class GDPTestHost: @unchecked Sendable {
     /// reported loss) since the last call: the cue to send one.
     public func takeKeyframeWanted() -> Bool { gdpc_test_host_take_keyframe_wanted(handle) }
 
+    /// One input event as the host received it (gdp-spec.md §8.2, §8.3).
+    public enum InputEvent: Sendable, Equatable {
+        case key(usage: UInt32, pressed: Bool)
+        case motion(x: Double, y: Double, absolute: Bool)
+        case button(UInt32, pressed: Bool)
+        case axis(horizontal: Double, vertical: Double)
+        case touch(id: UInt32, phase: Int32, x: Double, y: Double)
+    }
+
+    /// The input events received so far (the first 8192), oldest first, from index `first`.
+    public func inputEvents(from first: Int = 0) -> [InputEvent] {
+        var out: [InputEvent] = []
+        var buffer = [gdpc_test_input_event](repeating: gdpc_test_input_event(), count: 256)
+        var next = first
+        while true {
+            let n = buffer.withUnsafeMutableBufferPointer {
+                gdpc_test_host_input_events(handle, next, $0.baseAddress, $0.count)
+            }
+            for e in buffer.prefix(n) {
+                switch e.kind {
+                case Int32(GDPC_TEST_INPUT_KEY.rawValue): out.append(.key(usage: e.code, pressed: e.pressed))
+                case Int32(GDPC_TEST_INPUT_MOTION.rawValue): out.append(.motion(x: e.x, y: e.y, absolute: e.absolute))
+                case Int32(GDPC_TEST_INPUT_BUTTON.rawValue): out.append(.button(e.code, pressed: e.pressed))
+                case Int32(GDPC_TEST_INPUT_AXIS.rawValue): out.append(.axis(horizontal: e.x, vertical: e.y))
+                default: out.append(.touch(id: e.code, phase: e.phase, x: e.x, y: e.y))
+                }
+            }
+            next += n
+            if n < buffer.count { return out }
+        }
+    }
+
     public var observed: Observed {
         var o = gdpc_test_host_observed()
         gdpc_test_host_get_observed(handle, &o)
@@ -195,7 +236,9 @@ public final class GDPTestHost: @unchecked Sendable {
             keyEvents: o.key_events, lastKeyUsage: o.last_key_usage, lastKeyPressed: o.last_key_pressed,
             pointerMotions: o.pointer_motions, lastMotion: (o.last_motion_x, o.last_motion_y, o.last_motion_absolute),
             buttonEvents: o.button_events, lastButton: o.last_button, lastButtonPressed: o.last_button_pressed,
-            axisVerticalSum: o.axis_vertical_sum, touches: o.touches, inputBeforeAccept: o.input_before_accept,
+            axisVerticalSum: o.axis_vertical_sum, axisHorizontalSum: o.axis_horizontal_sum, touches: o.touches,
+            inputBeforeAccept: o.input_before_accept, inputEventCount: Int(o.input_event_count),
+            pointer: (o.pointer_x, o.pointer_y), cursorPositionsSent: o.cursor_positions_sent,
             framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size)
     }
 }

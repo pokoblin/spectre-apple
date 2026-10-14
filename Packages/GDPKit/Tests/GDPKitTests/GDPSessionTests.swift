@@ -389,6 +389,45 @@ struct ControlTests {
         #expect(rec.snapshot.ending?.isOrdinaryEnd == true)
     }
 
+    @Test func inputArrivesInOrder() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        session.sendKey(hidUsage: 0xE3, pressed: true)
+        session.sendPointerMotion(dx: 3, dy: -2, absolute: false)
+        session.sendPointerButton(0x111, pressed: true)
+        session.sendPointerAxis(horizontal: -0.5, vertical: 0.25)
+        session.sendTouch(id: 9, phase: .up, x: 0.5, y: 0.5)
+        session.sendKey(hidUsage: 0xE3, pressed: false)
+        #expect(await eventually { host.observed.inputEventCount == 6 })
+        #expect(host.inputEvents() == [
+            .key(usage: 0xE3, pressed: true), .motion(x: 3, y: -2, absolute: false), .button(0x111, pressed: true),
+            .axis(horizontal: -0.5, vertical: 0.25), .touch(id: 9, phase: 3, x: 0.5, y: 0.5),
+            .key(usage: 0xE3, pressed: false),
+        ])
+        #expect(host.inputEvents(from: 5) == [.key(usage: 0xE3, pressed: false)])
+        #expect(host.observed.axisHorizontalSum == -0.5)
+    }
+
+    @Test func simulatedPointerReportsCursorPosition() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.width = 1000
+        hc.height = 500
+        hc.simulatePointer = true
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        session.sendPointerMotion(dx: 0.25, dy: 0.5, absolute: true) // placed: no CursorPosition (§7.4)
+        session.sendPointerMotion(dx: 100, dy: -50, absolute: false)
+        #expect(await eventually { rec.snapshot.positions.count >= 1 && host.observed.pointerMotions == 2 })
+        let last = try #require(rec.snapshot.positions.last)
+        #expect(abs(last.0 - 0.35) < 1e-9 && abs(last.1 - 0.4) < 1e-9)
+        session.sendPointerMotion(dx: -5000, dy: 0, absolute: false) // clamped to the left edge
+        #expect(await eventually { rec.snapshot.positions.last?.0 == 0 })
+    }
+
     @Test func audioPacketsAreHandedUp() async throws {
         var hc = GDPTestHost.Configuration()
         hc.audio = true

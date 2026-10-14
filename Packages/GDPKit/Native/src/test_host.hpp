@@ -33,7 +33,24 @@ public:
 		std::string reject_reason;   // send SessionReject, then close with AUTH_FAILED
 		bool ping_before_accept = false;
 		uint32_t first_frame_id = 0; // §9.1 says 0; tests use others to cross the 2^32 wrap
+		// Keep a pointer the way a host does: absolute motion places it,
+		// relative motion moves it (pixels of the output, clamped to it),
+		// and after a batch of input that moved it relatively, report it
+		// with CursorPosition (§7.4).
+		bool simulate_pointer = false;
 	};
+
+	// One input event as received (§8.2, §8.3), in order.
+	struct InputEvent {
+		enum Kind : uint8_t { Key = 1, Motion, Button, Axis, Touch };
+		Kind kind;
+		uint32_t code = 0;    // HID usage, BTN_* code or touch_id
+		bool pressed = false; // key and button
+		double x = 0, y = 0;  // motion dx/dy, axis horizontal/vertical, touch position
+		bool absolute = false;
+		int32_t phase = 0;    // touch
+	};
+	static constexpr size_t kMaxInputLog = 8192;
 
 	struct Observed {
 		bool connected = false;
@@ -87,7 +104,11 @@ public:
 		bool last_motion_absolute = false;
 		std::vector<std::pair<uint32_t, bool>> buttons;
 		double axis_vertical_sum = 0;
+		double axis_horizontal_sum = 0;
 		uint32_t touches = 0;
+		std::vector<InputEvent> inputs; // the first kMaxInputLog
+		double pointer_x = 0.5, pointer_y = 0.5; // with simulate_pointer
+		uint32_t cursor_positions_sent = 0;
 		bool input_before_accept = false;
 
 		uint32_t frames_sent = 0;

@@ -250,6 +250,7 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	if (c->reject_reason) config.reject_reason = c->reject_reason;
 	config.ping_before_accept = c->ping_before_accept;
 	config.first_frame_id = c->first_frame_id;
+	config.simulate_pointer = c->simulate_pointer;
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -370,12 +371,27 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 		out->last_button_pressed = o.buttons.back().second;
 	}
 	out->axis_vertical_sum = o.axis_vertical_sum;
+	out->axis_horizontal_sum = o.axis_horizontal_sum;
+	out->input_event_count = static_cast<uint32_t>(o.inputs.size());
+	out->pointer_x = o.pointer_x;
+	out->pointer_y = o.pointer_y;
+	out->cursor_positions_sent = o.cursor_positions_sent;
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 
 	out->frames_sent = o.frames_sent;
 	out->next_frame_id = o.next_frame_id;
 	out->max_datagram_size = o.max_datagram_size;
+}
+
+size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdpc_test_input_event *out, size_t cap) {
+	auto o = host->host.observed();
+	size_t n = 0;
+	for (size_t i = first; i < o.inputs.size() && n < cap; i++, n++) {
+		const auto &e = o.inputs[i];
+		out[n] = gdpc_test_input_event{static_cast<int32_t>(e.kind), e.code, e.pressed, e.x, e.y, e.absolute, e.phase};
+	}
+	return n;
 }
 
 } // extern "C"

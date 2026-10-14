@@ -327,37 +327,84 @@ struct TestHost::Impl {
 
 	void on_input(Peer &p, const uint8_t *data, size_t len) {
 		gdp::session::InputEnvelope env;
+		bool moved_relative = false;
 		p.input_reader.feed_and_drain(data, len, &env, [&] {
 			std::lock_guard lock(mu);
 			if (!p.accepted) {
 				obs.input_before_accept = true; // §8.1: must not act on it
 				return true;
 			}
+			TestHost::InputEvent ev{};
 			switch (env.event_case()) {
 			case gdp::session::InputEnvelope::kKey:
 				obs.keys.emplace_back(env.key().hid_usage(), env.key().state() == gdp::session::KEY_STATE_PRESSED);
+				ev.kind = TestHost::InputEvent::Key;
+				ev.code = env.key().hid_usage();
+				ev.pressed = env.key().state() == gdp::session::KEY_STATE_PRESSED;
 				break;
-			case gdp::session::InputEnvelope::kPointerMotion:
+			case gdp::session::InputEnvelope::kPointerMotion: {
+				const auto &m = env.pointer_motion();
 				obs.pointer_motions++;
-				obs.last_motion_x = env.pointer_motion().dx();
-				obs.last_motion_y = env.pointer_motion().dy();
-				obs.last_motion_absolute = env.pointer_motion().absolute();
+				obs.last_motion_x = m.dx();
+				obs.last_motion_y = m.dy();
+				obs.last_motion_absolute = m.absolute();
+				ev.kind = TestHost::InputEvent::Motion;
+				ev.x = m.dx();
+				ev.y = m.dy();
+				ev.absolute = m.absolute();
+				if (cfg.simulate_pointer) {
+					double x = m.absolute() ? m.dx() : obs.pointer_x + m.dx() / std::max<uint32_t>(width, 1);
+					double y = m.absolute() ? m.dy() : obs.pointer_y + m.dy() / std::max<uint32_t>(height, 1);
+					x = std::clamp(x, 0.0, 1.0);
+					y = std::clamp(y, 0.0, 1.0);
+					if (!m.absolute() && (x != obs.pointer_x || y != obs.pointer_y)) moved_relative = true;
+					obs.pointer_x = x;
+					obs.pointer_y = y;
+				}
 				break;
+			}
 			case gdp::session::InputEnvelope::kPointerButton:
 				obs.buttons.emplace_back(env.pointer_button().button(),
 					env.pointer_button().state() == gdp::session::KEY_STATE_PRESSED);
+				ev.kind = TestHost::InputEvent::Button;
+				ev.code = env.pointer_button().button();
+				ev.pressed = env.pointer_button().state() == gdp::session::KEY_STATE_PRESSED;
 				break;
 			case gdp::session::InputEnvelope::kPointerAxis:
 				obs.axis_vertical_sum += env.pointer_axis().vertical();
+				obs.axis_horizontal_sum += env.pointer_axis().horizontal();
+				ev.kind = TestHost::InputEvent::Axis;
+				ev.x = env.pointer_axis().horizontal();
+				ev.y = env.pointer_axis().vertical();
 				break;
 			case gdp::session::InputEnvelope::kTouch:
 				obs.touches++;
+				ev.kind = TestHost::InputEvent::Touch;
+				ev.code = env.touch().touch_id();
+				ev.phase = env.touch().phase();
+				ev.x = env.touch().x();
+				ev.y = env.touch().y();
 				break;
 			default:
-				break;
+				return true;
 			}
+			if (obs.inputs.size() < TestHost::kMaxInputLog) obs.inputs.push_back(ev);
 			return true;
 		});
+		// §7.4: at most one CursorPosition per batch, only when it changed.
+		if (moved_relative && viewer == &p) {
+			double x, y;
+			{
+				std::lock_guard lock(mu);
+				x = obs.pointer_x;
+				y = obs.pointer_y;
+				obs.cursor_positions_sent++;
+			}
+			gdp::session::ControlEnvelope env;
+			env.mutable_cursor_position()->set_x(x);
+			env.mutable_cursor_position()->set_y(y);
+			send(p, env);
+		}
 	}
 
 	void send_displays_changed_now() {

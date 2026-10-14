@@ -340,7 +340,29 @@ typedef struct {
     const char *reject_reason;       // NULL, or send SessionReject
     bool ping_before_accept;
     uint32_t first_frame_id;
+    // Keep a pointer like a host: absolute motion places it, relative motion
+    // moves it (output pixels, clamped), and a batch of input that moved it
+    // relatively is answered with CursorPosition (§7.4).
+    bool simulate_pointer;
 } gdpc_test_host_config;
+
+// One input event the test host received (§8.2, §8.3).
+typedef enum {
+    GDPC_TEST_INPUT_KEY = 1,
+    GDPC_TEST_INPUT_MOTION = 2,
+    GDPC_TEST_INPUT_BUTTON = 3,
+    GDPC_TEST_INPUT_AXIS = 4,
+    GDPC_TEST_INPUT_TOUCH = 5,
+} gdpc_test_input_kind;
+
+typedef struct {
+    int32_t kind;      // gdpc_test_input_kind
+    uint32_t code;     // HID usage, BTN_* code or touch_id
+    bool pressed;      // key, button
+    double x, y;       // motion dx/dy, axis horizontal/vertical, touch position
+    bool absolute;     // motion
+    int32_t phase;     // touch
+} gdpc_test_input_event;
 
 typedef struct {
     bool connected;
@@ -398,8 +420,12 @@ typedef struct {
     uint32_t last_button;
     bool last_button_pressed;
     double axis_vertical_sum;
+    double axis_horizontal_sum;
     uint32_t touches;
     bool input_before_accept;
+    uint32_t input_event_count;      // logged, see gdpc_test_host_input_events
+    double pointer_x, pointer_y;     // with simulate_pointer
+    uint32_t cursor_positions_sent;
 
     uint32_t frames_sent;
     uint32_t next_frame_id;
@@ -430,6 +456,9 @@ void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 // loss) since the last call.
 bool gdpc_test_host_take_keyframe_wanted(gdpc_test_host *host);
 void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_observed *out);
+// Copies up to `cap` of the input events received so far (the first 8192),
+// oldest first, starting at `first`; returns how many were copied.
+size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdpc_test_input_event *out, size_t cap);
 
 // ---------------------------------------------------------------------------
 // Lobby (§4, §5): logging in to a host agent or a broker, ending in a
