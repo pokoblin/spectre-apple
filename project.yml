@@ -17,6 +17,12 @@ settings:
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
 
+packages:
+  GDPKit:
+    path: Packages/GDPKit
+  SpectreKit:
+    path: Packages/SpectreKit
+
 targets:
   Spectre:
     type: application
@@ -28,6 +34,8 @@ targets:
         destinationFilters: [macOS]
       - path: App/iOS
         destinationFilters: [iOS]
+    dependencies:
+      - package: SpectreKit
     settings:
       base:
         PRODUCT_NAME: Spectre

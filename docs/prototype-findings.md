@@ -66,3 +66,72 @@ QUIC 回环自检（`gdpc_selftest_quic_loopback`）：用 OpenSSL API 现场生
 
 - `libgdp/src/transport/tls.cpp` 在 `__APPLE__` 下从 `/etc/ssl/cert.pem` 读系统根证书。iOS 沙盒里没有这个文件，`CaTrust::system` 在 iOS 上不起作用。只影响用 CA 证书的 lobby（§2.3），固定指纹的会话连接不受影响。不改上游的解决办法：把根证书导出成 PEM，通过 `CaTrust::extra_file` 传入。
 - 会话层 `SessionClient` 上游是 GPL-3.0，要照 gdp-spec 用 C++ 重写，放在 `Packages/GDPKit/Native`，通过 C ABI 暴露。
+
+## 风险 2：VideoToolbox 解出的帧零拷贝交给 Metal——通过
+
+![macOS 原型截图](images/macos-prototype.jpg)
+
+### 流程
+
+```
+Annex B 访问单元（§9.4）
+  → VideoDecoder：拆 NAL，参数集建 CMVideoFormatDescription，其余转 4 字节长度前缀装进 CMBlockBuffer（只拷压缩码流）
+  → VTDecompressionSession（要求硬件解码，同步解码，1x 实时播放标志）
+  → CVPixelBuffer：420v（NV12，video range），IOSurface + Metal 兼容
+  → FrameMailbox（单槽，新帧覆盖旧帧）
+  → CVMetalTextureCache：plane 0 → r8Unorm，plane 1 → rg8Unorm（两张纹理都是同一个 IOSurface 的视图）
+  → 片段着色器：BT.601 limited → R'G'B'，cosited-even 色度位置，线性过滤
+  → MTKView（bgra8Unorm，CAMetalLayer 标 sRGB）
+```
+
+代码在 `Packages/SpectreKit/Sources/SpectreKit/`：`Decode/`（Annex B、解码）、`Present/`（色彩、着色器、渲染、MTKView 呈现）、`Playback/`（帧邮箱、统计、送帧）、`TestSource/`（测试图案和编码器）。
+
+### 色彩和上游一致
+
+- 矩阵和范围按 §7.3 的默认值：h264/h265 是 BT.601 limited，和上游 `video_image_source.cpp` 里 `VK_SAMPLER_YCBCR_MODEL_CONVERSION_YCBCR_601` + `VK_SAMPLER_YCBCR_RANGE_ITU_NARROW` 一致。`ColorDescription` 也支持 BT.709/BT.2020 和 full range（PyroWave 的默认值），以后接 `OutputDescriptor.color`。按 spec 的要求，忽略码流里 VUI 的色彩信息。
+- 色度位置：上游两个方向都用 `VK_CHROMA_LOCATION_COSITED_EVEN` 加线性色度过滤。Metal 里等价的做法是色度采样坐标比亮度坐标偏移半个亮度像素（`chromaOffset`）。上游注释说这只是近似（H.264 默认的色度位置在垂直方向是居中的），这里保持一致。
+- 输出：上游 swapchain 是 `B8G8R8A8_UNORM` + `SRGB_NONLINEAR`，着色器写入的是非线性值，不做 sRGB 编码。Metal 端用 `bgra8Unorm`（不是 `_srgb`），并把 CAMetalLayer 的 colorspace 设成 sRGB，让系统按 sRGB 做色彩管理。
+- 验证：`SpectreKitTests` 的端到端测试用 Metal compute 画 75% 彩条（BT.601 limited 写入 NV12），经 VideoToolbox 编码、`VideoDecoder` 解码、零拷贝纹理、视频着色器渲染到离屏纹理，再回读 8 根彩条的中心像素。H.264 和 HEVC 每个分量和期望值的误差都不超过 6/255。
+
+### 零拷贝是怎么确认的
+
+1. **运行时逐帧检查**：`VideoRenderer.textures(for:)` 比较 `MTLTexture.iosurface` 和 `CVPixelBufferGetIOSurface()` 是否是同一个对象，plane 下标是否分别为 0 和 1。统计里的 `zero-copy` 就是这个检查通过的帧数。bench 的结果是全部通过（例如 3655/3655）。
+2. **代码里没有 CPU 访问像素**：`SpectreKit` 和 `App` 里没有 `CVPixelBufferLockBaseAddress`、`GetBaseAddress`、`memcpy` 或 `getBytes`。唯一的 `CMBlockBufferCopyDataBytes` 在测试码流编码器里，拷的是压缩码流。
+3. **CPU 占用低**：1080p60、约 30 Mb/s 时，整个进程 8–10%（单核为 100%）。这包括送帧、解码提交和 Metal 编码，不包括 WindowServer。
+
+### 测量结果（macOS，Release，60 秒）
+
+测试码流：1920×1080@60，600 帧循环，约 30 Mb/s。画面右侧三分之一是逐帧变化的噪点，否则码率只有 1.6 Mb/s，解码压力太小。显示器是 DELL U2725QE，4K 120 Hz。窗口 1280×760。默认 on-arrival 模式：解码出一帧就立即绘制，drawable 在下一次刷新时上屏。
+
+| | H.264 | HEVC |
+|---|---|---|
+| 解码 / 上屏 | 3655 / 3655 帧（60.0 fps） | 3654 / 3654 帧（60.0 fps） |
+| 被覆盖或未上屏 | 0 / 0 | 1 / 0 |
+| 零拷贝检查 | 3655 / 3655 | 3654 / 3654 |
+| 解码耗时（提交 → 输出回调） | p50 4.03 ms，p99 4.94 ms，max 10.79 ms | p50 2.08 ms，p99 3.42 ms，max 7.23 ms |
+| 显示耗时（解码完成 → `presentedTime`） | p50 13.62 ms，p95 21.51 ms，max 38.83 ms | p50 13.15 ms，p95 21.70 ms，max 30.27 ms |
+| GPU（视频 pass） | 平均 0.25 ms | 平均 0.52 ms |
+| 上屏间隔（ms：帧数） | 8：169，17：3328，25：147，33：8，42：2 | 8：181，17：3294，25：173，33：5 |
+| 进程 CPU | 9.6% | 9.0% |
+
+运行方式：`Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h264|h265`，原始输出在 `build/logs/bench-macos*.txt`。另外，解码会话创建后第一帧要 50 ms 左右（硬件解码器初始化），之后稳定。
+
+### 帧节奏的取舍
+
+60 fps 内容放在 120 Hz 屏幕上，约 9% 的帧间隔不是 16.7 ms，而是 8.3 ms 和 25 ms 成对出现。原因是解码完成的时刻落在 vsync 边界附近时，有的帧赶上了这一次刷新，有的要等下一次。试过的对比方案：
+
+| 方案 | 结果 |
+|---|---|
+| on-arrival（默认） | 延迟最低（显示耗时 p50 约 12–14 ms），约 9% 的间隔有一个刷新周期的抖动 |
+| display link 120 Hz 轮询邮箱（`--mode displayLink`） | 抖动差不多，显示耗时多约 4 ms |
+| display link 降到 60 Hz（`--rate 60`） | **更差**：在 120 Hz 屏幕上一半的 drawable 没被显示（只有 31 fps） |
+| `present(_:afterMinimumDuration: 1/60)`（`--min-present-ms 16.6`） | 抖动没改善，显示耗时涨到 55 ms，不可取 |
+
+结论：默认用 on-arrival。远程桌面里网络到达本身就有抖动，延迟比帧间隔绝对均匀更重要，这和上游每帧到了就 FIFO present 的做法一致。以后如果要做更平滑的节奏，方向是 `CAMetalDisplayLink` 配合显式的目标呈现时间，做成可选项。
+
+### 踩过的坑
+
+- **窗口被遮挡时 drawable 不会上屏**（`presentedTime == 0`），帧会"静默丢失"。从终端启动的 App 不会成为前台应用，窗口在别的窗口后面，第一次 60 秒 bench 因此作废。现在 bench 模式会激活 App 并把窗口置顶，每秒打印窗口的可见状态。以后正式客户端也要处理这种情况：窗口不可见时可以暂停呈现，或请求降低码率。
+- **`@Observable` 和 `didSet`**：`@Observable` 把存储属性改成了计算属性，所以在 `init` 里赋值也会触发 `didSet`。原来的代码因此启动了两次播放，bench 被取消后立即结束。
+- 着色器在运行时从源码编译（`makeLibrary(source:)`），这样 `swift test`、Xcode 和 iOS 用的是同一份代码，不依赖 SwiftPM 资源包里预编译的 metallib。代价是启动时多几十毫秒。
+- 测试码流的编码器参数仿照 wraith：不用 B 帧，低延迟码率控制，只有第一帧是 IDR。循环播放时回到第 0 帧正好是 IDR。

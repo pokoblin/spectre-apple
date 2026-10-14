@@ -37,17 +37,22 @@ public struct CertificateFingerprint: Hashable, Sendable, CustomStringConvertibl
         der.withContiguousBytes { buf in
             gdpc_sha256_hex(buf.baseAddress, buf.count, &out)
         }
-        hex = String(cString: out)
+        hex = string(fromNulTerminated: out)
     }
 
     /// The form shown to a person: `AB:CD:...`, as `openssl x509 -fingerprint` prints it.
     public var displayString: String {
         var out = [CChar](repeating: 0, count: Int(GDPC_FINGERPRINT_DISPLAY_LEN) + 1)
         _ = gdpc_format_fingerprint(hex, &out)
-        return String(cString: out)
+        return string(fromNulTerminated: out)
     }
 
     public var description: String { hex }
+}
+
+/// A C string filled into a `[CChar]` buffer.
+func string(fromNulTerminated buffer: [CChar]) -> String {
+    buffer.withUnsafeBufferPointer { String(cString: $0.baseAddress!) }
 }
 
 extension Collection<UInt8> {

@@ -82,6 +82,30 @@ swift test --package-path Packages/GDPKit
 xcodegen generate
 ```
 
+然后打开 `Spectre.xcodeproj`，选 `Spectre` scheme 运行。也可以在命令行编译 macOS 版：
+
+```bash
+xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
+```
+
+### 5. 运行原型
+
+App 启动后先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放：解码 → 零拷贝交给 Metal 显示，左上角每秒更新解码和显示耗时。工具栏可以切换 H.264/HEVC 和呈现节奏。
+
+测量模式（预热 2 秒后测 N 秒，打印统计后退出）：
+
+```bash
+build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
+```
+
+可选参数：`--codec h264|h265`、`--mode onArrival|displayLink`、`--rate <display link Hz>`、`--min-present-ms <ms>`。
+
+SpectreKit 的测试（包括 H.264/HEVC 彩条的端到端色彩校验）：
+
+```bash
+swift test --package-path Packages/SpectreKit
+```
+
 ## 许可证
 
 MIT，见 [LICENSE](LICENSE)。libgdp 为 MIT；ghost 的其余部分（含 spectre 客户端）为 GPL-3.0-only，本项目不复制其代码。
