@@ -34,7 +34,7 @@ public final class StreamPlayer: @unchecked Sendable {
                 stats.recordDecoded(frame)
                 mailbox.put(frame)
                 onFrame()
-            }, onError: { _ in stats.recordDecodeError() })
+            }, onError: { _, _ in stats.recordDecodeError() })
             index = 0
             let t = DispatchSource.makeTimerSource(flags: .strict, queue: queue)
             let interval = DispatchTimeInterval.nanoseconds(1_000_000_000 / stream.framesPerSecond)
@@ -58,7 +58,7 @@ public final class StreamPlayer: @unchecked Sendable {
         let au = stream.accessUnits[index]
         let pts = UInt32(truncatingIfNeeded: UInt64(index) * 1_000_000 / UInt64(stream.framesPerSecond))
         do {
-            try au.bytes.withUnsafeBytes { try decoder.decode($0, pts: pts) }
+            try au.bytes.withUnsafeBytes { try decoder.decode($0, pts: pts, frameID: UInt32(index)) }
             stats.setHardwareDecoder(decoder.isHardwareAccelerated)
         } catch {
             stats.recordDecodeError()

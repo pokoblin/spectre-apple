@@ -1,12 +1,9 @@
-// Where the parts the prototype leaves out plug into a session. Nothing here
-// is implemented yet; the shapes record the intended seams so the video path
-// built now doesn't have to be reworked for them.
-//
-// Session (to come): a C++ SessionClient in Packages/GDPKit/Native, written
-// from gdp-spec.md §6-§8 (upstream's is GPL), behind the C ABI. Its receive
-// queue hands reassembled frames to VideoDecoder (as StreamPlayer does
-// today) and calls the components below; it sends StatsReport every 250 ms
-// with the decode and present times PlaybackStats measures.
+// Where the parts not built yet plug into a session. The session itself is
+// GDPKit's GDPSession (a C++ SessionClient written from gdp-spec.md §6-§11,
+// behind the C ABI) and RemoteSession here, which runs its video path; the
+// shapes below record the remaining seams so that path doesn't have to be
+// reworked for them. Each capability (§6.7) is offered in SessionHello only
+// once it is implemented.
 
 /// Session audio out (gdp-spec.md §10): Opus packets through a jitter
 /// buffer into AVAudioEngine.

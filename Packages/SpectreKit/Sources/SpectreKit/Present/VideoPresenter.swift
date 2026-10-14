@@ -52,8 +52,18 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         didSet { view?.preferredFramesPerSecond = displayLinkRate }
     }
 
+    /// The most drawables committed but not yet on screen. Past it, a new
+    /// frame waits in the mailbox (where a newer one replaces it) until one
+    /// is presented. Without a cap, a stream at exactly the display's rate
+    /// builds a queue that never drains: three frames of latency on a 60 Hz
+    /// display. 1 halves the frame rate (a presented handler fires too late
+    /// to make the next refresh); 2 keeps 60 fps at about half the latency.
+    /// nil: no cap (CAMetalLayer's own three drawables).
+    public var maxFramesInFlight: Int? = 2
+
     private weak var view: MTKView?
     private let drawScheduled = Atomic<Bool>(false)
+    private let inFlight = Atomic<Int>(0)
 
     public init(renderer: VideoRenderer, mailbox: FrameMailbox, stats: PlaybackStats) {
         self.renderer = renderer
@@ -95,6 +105,12 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         }
     }
 
+    /// A drawable reached the screen (or was dropped): draw what waited for it.
+    private nonisolated func frameLeftQueue() {
+        inFlight.subtract(1, ordering: .acquiringAndReleasing)
+        if mailbox.hasFrame { frameAvailable() }
+    }
+
     private func applyMode() {
         guard let view else { return }
         switch mode {
@@ -110,6 +126,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     public func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     public func draw(in view: MTKView) {
+        if let limit = maxFramesInFlight, inFlight.load(ordering: .acquiring) >= limit { return }
         guard let frame = mailbox.take() else { return }
         let textures: VideoTextures
         do {
@@ -128,16 +145,21 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
 
         // Stats need both the GPU times (completed) and the on-screen time (presented), in either order.
         let record = PresentRecord(frame: frame, zeroCopy: textures.isZeroCopy, stats: stats)
+        inFlight.add(1, ordering: .acquiringAndReleasing)
         #if targetEnvironment(simulator)
         // The simulator has neither presented handlers nor timed presents:
         // the GPU finishing the frame stands in for it reaching the screen.
-        commandBuffer.addCompletedHandler { cb in
+        commandBuffer.addCompletedHandler { [self] cb in
             record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime)
             record.presented(cb.gpuEndTime)
+            frameLeftQueue()
         }
         commandBuffer.present(drawable)
         #else
-        drawable.addPresentedHandler { d in record.presented(d.presentedTime) }
+        drawable.addPresentedHandler { [self] d in
+            record.presented(d.presentedTime)
+            frameLeftQueue()
+        }
         commandBuffer.addCompletedHandler { cb in record.completed(gpuStart: cb.gpuStartTime, gpuEnd: cb.gpuEndTime) }
         if let minimumPresentDuration {
             commandBuffer.present(drawable, afterMinimumDuration: minimumPresentDuration)

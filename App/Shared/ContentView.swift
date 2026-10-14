@@ -25,6 +25,11 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var controls: some View {
+        Picker("Source", selection: $model.source) {
+            Text("Loopback").tag(PlaybackModel.Source.loopback)
+            Text("Direct").tag(PlaybackModel.Source.direct)
+            Text("Remote").tag(PlaybackModel.Source.remote)
+        }
         Picker("Codec", selection: $model.codec) {
             ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
         }
@@ -39,7 +44,7 @@ struct ContentView: View {
             #if os(iOS)
             HStack { controls }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 360)
+                .frame(maxWidth: 640)
             #endif
             switch model.phase {
             case .idle:
@@ -47,9 +52,12 @@ struct ContentView: View {
             case let .encoding(codec, progress):
                 ProgressView("Encoding \(codec.displayName) test stream…", value: progress)
                     .frame(width: 280)
+            case let .connecting(target):
+                ProgressView("Connecting to \(target)…")
             case .playing:
                 Text(model.streamInfo)
                 Text(model.statsText)
+                if !model.sessionText.isEmpty { Text(model.sessionText) }
             case let .failed(message):
                 Text(message).foregroundStyle(.red)
             }

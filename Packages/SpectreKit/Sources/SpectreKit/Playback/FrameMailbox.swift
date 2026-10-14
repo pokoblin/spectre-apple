@@ -29,6 +29,8 @@ public final class FrameMailbox: Sendable {
         }
     }
 
+    public var hasFrame: Bool { state.withLock { $0.frame != nil } }
+
     /// Frames replaced in the slot before anyone took them.
     public var replacedCount: UInt64 { state.withLock { $0.replaced } }
 }

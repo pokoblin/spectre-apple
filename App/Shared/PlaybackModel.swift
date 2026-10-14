@@ -2,19 +2,38 @@ import Foundation
 #if os(macOS)
 import AppKit
 #endif
+import GDPKit
 import Observation
 import SpectreKit
 
-/// Drives the prototype's video path: encodes a test stream, plays it
-/// through VideoToolbox into the Metal view, and reports timings once a
-/// second (and, with `--bench`, a summary over a fixed run before exiting).
+/// Drives the video path from one of three sources and reports timings once
+/// a second (and, with `--bench`, a summary over a fixed run before exiting):
+///
+/// - loopback (default): a test stream served by GDPKit's test host in this
+///   process and received through a real GDP session over QUIC loopback;
+/// - direct: the test stream fed straight to the decoder, no network;
+/// - remote: a real host, `--connect HOST:PORT --token TOKEN --fingerprint SHA256`
+///   (a wraith started with a static token, gdp-spec.md §6.11).
 @MainActor
 @Observable
 final class PlaybackModel {
+    enum Source: String, CaseIterable, Identifiable {
+        case loopback, direct, remote
+        var id: String { rawValue }
+    }
+
+    struct RemoteTarget {
+        var host: String
+        var port: UInt16
+        var token: String
+        var fingerprint: CertificateFingerprint
+    }
+
     enum Phase: Equatable {
         case idle
         case encoding(VideoCodec, Double)
-        case playing(VideoCodec)
+        case connecting(String)
+        case playing
         case failed(String)
     }
 
@@ -25,10 +44,14 @@ final class PlaybackModel {
 
     private(set) var phase = Phase.idle
     private(set) var statsText = ""
+    private(set) var sessionText = ""
     private(set) var streamInfo = ""
     var codec: VideoCodec = .h264 {
         // Only a user's change replays; init's assignment comes before start().
-        didSet { if codec != oldValue, phase != .idle { Task { await play(codec) } } }
+        didSet { if codec != oldValue, phase != .idle { Task { await play() } } }
+    }
+    var source: Source = .loopback {
+        didSet { if source != oldValue, phase != .idle { Task { await play() } } }
     }
     var mode: VideoPresenter.Mode = .onArrival {
         didSet { presenter?.mode = mode; stats.reset() }
@@ -38,9 +61,13 @@ final class PlaybackModel {
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
+    private var loopback: LoopbackHost?
+    private var remote: RemoteSession?
+    private var remoteTarget: RemoteTarget?
     private var streams: [VideoCodec: TestStream] = [:]
     private var ticker: Task<Void, Never>?
     private let bench: BenchOptions?
+    private var benchScreen: Int?
 
     init(arguments: [String] = CommandLine.arguments) {
         stats = PlaybackStats(mailbox: mailbox)
@@ -58,12 +85,25 @@ final class PlaybackModel {
         }
         bench = value("--bench").flatMap(Double.init).map { BenchOptions(seconds: $0) }
         if let c = value("--codec").flatMap(VideoCodec.init(rawValue:)) { codec = c }
+        if let s = value("--source").flatMap(Source.init(rawValue:)) { source = s }
         if let m = value("--mode").flatMap(VideoPresenter.Mode.init(rawValue:)) {
             mode = m
             presenter?.mode = m
         }
         if let rate = value("--rate").flatMap(Int.init) { presenter?.displayLinkRate = rate }
         if let ms = value("--min-present-ms").flatMap(Double.init) { presenter?.minimumPresentDuration = ms / 1000 }
+        if let n = value("--in-flight").flatMap(Int.init) { presenter?.maxFramesInFlight = n > 0 ? n : nil }
+        benchScreen = value("--screen").flatMap(Int.init)
+        if let target = value("--connect") {
+            let parts = target.split(separator: ":")
+            if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
+               let fp = value("--fingerprint").flatMap({ CertificateFingerprint(hex: $0.lowercased()) }) {
+                remoteTarget = RemoteTarget(host: String(parts[0]), port: port, token: token, fingerprint: fp)
+                source = .remote
+            } else {
+                failure = "--connect HOST:PORT needs --token and --fingerprint (64 hex digits)"
+            }
+        }
         if let failure { phase = .failed(failure) }
     }
 
@@ -74,48 +114,140 @@ final class PlaybackModel {
             // A run started from a terminal opens behind it; an occluded
             // window's drawables are never presented, which would void the run.
             NSApplication.shared.activate()
-            NSApplication.shared.windows.first?.level = .floating
-        }
-        #endif
-        await play(codec)
-    }
-
-    private func play(_ codec: VideoCodec) async {
-        player?.stop()
-        player = nil
-        let stream: TestStream
-        if let cached = streams[codec] {
-            stream = cached
-        } else {
-            phase = .encoding(codec, 0)
-            let progress: @Sendable (Double) -> Void = { [weak self] p in
-                Task { @MainActor in
-                    if case .encoding = self?.phase { self?.phase = .encoding(codec, p) }
+            if let window = NSApplication.shared.windows.first {
+                window.level = .floating
+                // `--screen N`: run on that display (NSScreen.screens order; 0 has the menu bar).
+                // After a moment: SwiftUI places the window itself once it appears.
+                if let n = benchScreen, NSScreen.screens.indices.contains(n) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        let visible = NSScreen.screens[n].visibleFrame
+                        window.setFrame(NSRect(x: visible.midX - window.frame.width / 2,
+                                               y: visible.midY - window.frame.height / 2,
+                                               width: window.frame.width, height: window.frame.height), display: true)
+                    }
                 }
             }
-            do {
-                stream = try await Task.detached(priority: .userInitiated) {
-                    try TestStreamEncoder.encode(codec: codec, progress: progress)
-                }.value
-            } catch {
-                phase = .failed("encode \(codec.displayName): \(error)")
+        }
+        #endif
+        await play()
+    }
+
+    private func stopAll() {
+        player?.stop()
+        player = nil
+        loopback?.stop()
+        remote?.close()
+        remote = nil
+        loopback = nil
+        sessionText = ""
+    }
+
+    private func play() async {
+        stopAll()
+        guard presenter != nil else { return }
+        switch source {
+        case .remote:
+            guard let target = remoteTarget else {
+                phase = .failed("no remote host: start with --connect HOST:PORT --token TOKEN --fingerprint SHA256")
                 return
             }
-            streams[codec] = stream
+            var config = GDPSession.Configuration(host: target.host, port: target.port, token: target.token,
+                                                  certificate: target.fingerprint, codecs: ["h265", "h264"])
+            config.decoders = ["videotoolbox"]
+            streamInfo = "\(target.host):\(target.port)"
+            connect(config)
+        case .loopback, .direct:
+            guard let stream = await testStream(codec) else { return }
+            guard codec == self.codec else { return }
+            streamInfo = String(format: "%@ %d×%d@%d, %d frames, %.1f Mb/s", codec.displayName, stream.width,
+                                stream.height, stream.framesPerSecond, stream.accessUnits.count,
+                                stream.averageBitrate / 1e6)
+            print("stream: \(streamInfo), source \(source.rawValue)")
+            if source == .direct {
+                playDirect(stream)
+            } else {
+                do {
+                    let host = try LoopbackHost(stream: stream)
+                    loopback = host
+                    connect(host.sessionConfiguration())
+                    host.start()
+                } catch {
+                    phase = .failed("loopback host: \(error)")
+                }
+            }
         }
-        guard codec == self.codec, let presenter else { return }
-        streamInfo = String(format: "%@ %d×%d@%d, %d frames, %.1f Mb/s", codec.displayName, stream.width, stream.height,
-                            stream.framesPerSecond, stream.accessUnits.count, stream.averageBitrate / 1e6)
-        print("stream: \(streamInfo)")
+    }
+
+    private func testStream(_ codec: VideoCodec) async -> TestStream? {
+        if let cached = streams[codec] { return cached }
+        phase = .encoding(codec, 0)
+        let progress: @Sendable (Double) -> Void = { [weak self] p in
+            Task { @MainActor in
+                if case .encoding = self?.phase { self?.phase = .encoding(codec, p) }
+            }
+        }
+        do {
+            let stream = try await Task.detached(priority: .userInitiated) {
+                try TestStreamEncoder.encode(codec: codec, progress: progress)
+            }.value
+            streams[codec] = stream
+            return stream
+        } catch {
+            phase = .failed("encode \(codec.displayName): \(error)")
+            return nil
+        }
+    }
+
+    private func playDirect(_ stream: TestStream) {
+        guard let presenter else { return }
         presenter.displaySize = CGSize(width: stream.width, height: stream.height)
+        presenter.color = .blockCodecDefault
         let player = StreamPlayer(stream: stream, mailbox: mailbox, stats: stats) { [presenter] in
             presenter.frameAvailable()
         }
         self.player = player
         stats.reset()
         player.start()
-        phase = .playing(codec)
+        phase = .playing
         startTicker()
+    }
+
+    private func connect(_ config: GDPSession.Configuration) {
+        guard let presenter else { return }
+        let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
+        remote.onPictureChange = { [weak presenter] picture in
+            Task { @MainActor in
+                presenter?.displaySize = picture.size
+                presenter?.color = picture.color
+            }
+        }
+        remote.onStateChange = { [weak self] state in
+            Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
+        }
+        self.remote = remote
+        do {
+            try remote.connect(config)
+        } catch {
+            phase = .failed("connect: \(error)")
+        }
+    }
+
+    private func sessionStateChanged(_ state: RemoteSession.State, remote: RemoteSession) {
+        guard remote === self.remote else { return } // a session we already replaced
+        switch state {
+        case .connecting:
+            phase = .connecting(streamInfo)
+        case let .established(accept):
+            let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
+            print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
+            if source == .remote { streamInfo = "\(streamInfo) — \(accept.codec) \(size), \(accept.encoder)" }
+            stats.reset()
+            phase = .playing
+            startTicker()
+        case let .ended(ending):
+            print("session: ended: \(ending)")
+            if !(phase == .idle) { phase = .failed("session ended: \(ending)") }
+        }
     }
 
     private func startTicker() {
@@ -141,13 +273,31 @@ final class PlaybackModel {
                 let summary = stats.summary()
                 stats.reset()
                 statsText = Self.overlay(summary, mode: mode)
+                sessionText = sessionOverlay()
                 print(String(format: "decode p50 %.2f / max %.2f ms, decode→present p50 %.2f / max %.2f ms, "
                     + "gpu %.2f ms, %.1f fps shown, replaced %llu, zero-copy %d/%d, cpu %.1f%%",
                     summary.decode.p50, summary.decode.max, summary.present.p50, summary.present.max,
                     summary.gpu.mean, summary.presentedFPS, summary.replacedFrames, summary.zeroCopyFrames,
                     summary.presentedFrames + summary.unpresentedFrames, summary.cpuPercent))
+                if !sessionText.isEmpty { print(sessionText.replacingOccurrences(of: "\n", with: " | ")) }
             }
         }
+    }
+
+    /// The session's side: what the transport measures and what goes into StatsReport.
+    private func sessionOverlay() -> String {
+        guard let link = remote?.linkStats() else { return "" }
+        var text = String(format: "QUIC RTT %.2f ms, MTU %u, %.1f Mb/s, lost %d of last %u frames",
+                          Double(link.rttMicroseconds) / 1000, link.pathMTU, link.megabitsPerSecond,
+                          link.recentLosses, link.windowSpan)
+        text += String(format: "\nfirst-slice delay min %d / avg %d µs (offset unknown), %u reports sent",
+                       link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
+        if let host = loopback?.host.observed {
+            text += String(format: "\nhost saw: %u reports, frame %u acked, decode %u µs, present %u µs, %u lost",
+                           host.statsReports, host.lastHighestFrameID, host.lastDecodeMicroseconds,
+                           host.lastPresentMicroseconds, host.lostFrameIDs.count)
+        }
+        return text
     }
 
     private func benchProgress(_ second: Int) {
@@ -156,6 +306,9 @@ final class PlaybackModel {
         #if os(macOS)
         if let window = NSApplication.shared.windows.first {
             visibility = window.occlusionState.contains(.visible) ? ", window visible" : ", window OCCLUDED"
+            if let screen = window.screen {
+                visibility += " on \(screen.localizedName) (\(screen.maximumFramesPerSecond) Hz)"
+            }
         }
         #endif
         print(String(format: "  [%2d s] decoded %d, presented %d, not presented %d%@", second, s.decodedFrames,
@@ -164,8 +317,10 @@ final class PlaybackModel {
 
     private func finishBench() {
         let summary = stats.summary()
-        print("=== bench: \(streamInfo), mode \(mode.rawValue), display link \(presenter?.displayLinkRate ?? 0) Hz, min present \(presenter?.minimumPresentDuration.map { "\($0 * 1000) ms" } ?? "-") ===")
+        print("=== bench: \(streamInfo), source \(source.rawValue), mode \(mode.rawValue), display link \(presenter?.displayLinkRate ?? 0) Hz, in flight \(presenter?.maxFramesInFlight.map(String.init) ?? "∞"), min present \(presenter?.minimumPresentDuration.map { "\($0 * 1000) ms" } ?? "-") ===")
         print(summary)
+        let session = sessionOverlay()
+        if !session.isEmpty { print("  " + session.replacingOccurrences(of: "\n", with: "\n  ")) }
         fflush(stdout)
         exit(0)
     }

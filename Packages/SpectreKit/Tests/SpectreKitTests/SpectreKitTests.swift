@@ -128,3 +128,58 @@ struct PipelineTests {
         }
     }
 }
+
+/// The real receive path: TestStream → GDP test host → QUIC loopback →
+/// GDPSession → RemoteSession → VideoDecoder → mailbox, and StatsReport back.
+@Suite("Loopback session", .serialized)
+struct LoopbackSessionTests {
+    @Test(arguments: VideoCodec.allCases)
+    func framesFlowAndStatsReachTheHost(codec: VideoCodec) async throws {
+        let stream = try TestStreamEncoder.encode(codec: codec, width: 1280, height: 720, frameCount: 60,
+                                                  bitrate: 10_000_000)
+        let loopback = try LoopbackHost(stream: stream)
+        let mailbox = FrameMailbox()
+        let stats = PlaybackStats(mailbox: mailbox)
+        let decoded = Mutex<[UInt32]>([])
+        let pictures = Mutex<[RemoteSession.Picture]>([])
+        let remote = RemoteSession(mailbox: mailbox, stats: stats) {
+            if let f = mailbox.take() {
+                decoded.withLock { $0.append(f.frameID) }
+                // Stand in for the presenter: report the frame as shown.
+                stats.recordPresented(frame: f, presentedTime: f.decodedTime + 0.008, gpuStart: 0, gpuEnd: 0,
+                                      zeroCopy: true)
+            }
+        }
+        remote.onPictureChange = { p in pictures.withLock { $0.append(p) } }
+        try remote.connect(loopback.sessionConfiguration())
+        loopback.start()
+        defer { loopback.stop() }
+
+        func until(_ condition: () -> Bool) async -> Bool {
+            for _ in 0..<500 {
+                if condition() { return true }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            return condition()
+        }
+        #expect(await until { decoded.withLock { $0.count } >= 45 })
+        let ids = decoded.withLock { $0 }
+        #expect(ids.first == 0)
+        #expect(zip(ids, ids.dropFirst()).allSatisfy { $1 == $0 &+ 1 }, "frames out of order or missing: \(ids)")
+        #expect(pictures.withLock { $0.first }?.size == CGSize(width: 1280, height: 720))
+        #expect(pictures.withLock { $0.first }?.color == .blockCodecDefault)
+
+        // The host sees what the client measured (§7.5).
+        #expect(await until { loopback.host.observed.lastHighestFrameID >= 30 && loopback.host.observed.lastPresentMicroseconds > 0 })
+        let o = loopback.host.observed
+        #expect(o.acceptedCodec == codec.rawValue)
+        #expect(o.decoders == ["videotoolbox"])
+        #expect(o.lostFrameIDs.isEmpty)
+        #expect(o.lastDecodeMicroseconds > 0)
+        #expect((7_000...9_000).contains(o.lastPresentMicroseconds))
+        #expect(stats.summary().decodeErrors == 0)
+        let link = try #require(remote.linkStats())
+        #expect(link.rttMicroseconds > 0 && link.recentLosses == 0)
+        remote.close()
+    }
+}

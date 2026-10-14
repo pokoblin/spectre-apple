@@ -1,3 +1,4 @@
+import GDPKit
 import simd
 
 /// How to turn decoded pictures back into RGB (gdp-spec.md §7.3,
@@ -87,5 +88,25 @@ public struct ColorDescription: Equatable, Sendable {
         let v = yuvToRGB * SIMD4(Float(y) / 255, Float(cb) / 255, Float(cr) / 255, 1)
         let c = simd_clamp(SIMD3(v.x, v.y, v.z), SIMD3(repeating: 0), SIMD3(repeating: 1)) * 255
         return SIMD3(UInt8(c.x.rounded()), UInt8(c.y.rounded()), UInt8(c.z.rounded()))
+    }
+}
+
+extension ColorDescription {
+    /// An output's colour description (gdp-spec.md §7.3, `OutputDescriptor.color`):
+    /// unspecified fields take the codec's default.
+    public init(output: GDPSession.Output, codec: String) {
+        let base: ColorDescription = codec == "pyrowave" ? .pyrowaveDefault : .blockCodecDefault
+        self = base
+        switch output.matrix {
+        case 1: matrix = .bt601
+        case 2: matrix = .bt709
+        case 3: matrix = .bt2020
+        default: break
+        }
+        switch output.range {
+        case 1: range = .limited
+        case 2: range = .full
+        default: break
+        }
     }
 }

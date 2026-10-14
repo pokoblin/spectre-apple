@@ -127,6 +127,8 @@ Annex B 访问单元（§9.4）
 | display link 降到 60 Hz（`--rate 60`） | **更差**：在 120 Hz 屏幕上一半的 drawable 没被显示（只有 31 fps） |
 | `present(_:afterMinimumDuration: 1/60)`（`--min-present-ms 16.6`） | 抖动没改善，显示耗时涨到 55 ms，不可取 |
 
+（补充：做会话层时发现，在 **60 Hz** 屏幕上不限制在途 drawable 数量，延迟会稳定在约 3 帧。现在默认最多 2 个在途，见 [session-client.md](session-client.md#发现60-hz-屏幕上的呈现延迟)。）
+
 结论：默认用 on-arrival。远程桌面里网络到达本身就有抖动，延迟比帧间隔绝对均匀更重要，这和上游每帧到了就 FIFO present 的做法一致。以后如果要做更平滑的节奏，方向是 `CAMetalDisplayLink` 配合显式的目标呈现时间，做成可选项。
 
 ### 踩过的坑
@@ -166,7 +168,7 @@ Annex B 访问单元（§9.4）
 
 ## 后续工作（按建议顺序）
 
-1. **SessionClient（C++，MIT）**：照 gdp-spec §6–§8 实现，放在 `Packages/GDPKit/Native`，通过 C ABI 暴露。它负责 SessionHello/Accept、证书固定、ack/loss 位图、单程延迟、每 250 ms 一次的 StatsReport（RTT 取 `Connection::rtt_us()`，解码和显示耗时取 `PlaybackStats`）。线程模型：用 `DispatchSourceRead` 监听 `notify_fd()`，在串行队列上调 `dispatch()`，重组好的帧直接交给 `VideoDecoder`，和现在的 `StreamPlayer` 是同一个位置。
+1. ~~**SessionClient（C++，MIT）**~~（已完成，见 [session-client.md](session-client.md)）：照 gdp-spec §6–§8 实现，放在 `Packages/GDPKit/Native`，通过 C ABI 暴露。它负责 SessionHello/Accept、证书固定、ack/loss 位图、单程延迟、每 250 ms 一次的 StatsReport（RTT 取 `Connection::rtt_us()`，解码和显示耗时取 `PlaybackStats`）。线程模型：用 `DispatchSourceRead` 监听 `notify_fd()`，在串行队列上调 `dispatch()`，重组好的帧直接交给 `VideoDecoder`，和现在的 `StreamPlayer` 是同一个位置。
 2. **真机验证**：配好开发者 Team 后在 iPad 和 iPhone 上跑 bench，重点看真机上零拷贝的 plane 检查、`presentedTime` 和 ProMotion 下的帧节奏。
 3. **窗口不可见时的处理**：窗口被遮挡时 drawable 不会上屏，应该暂停呈现，或者把这些帧算作丢失上报。
 4. **帧节奏**：评估用 `CAMetalDisplayLink` 配合目标呈现时间，作为可选的平滑模式。

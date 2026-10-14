@@ -5,7 +5,7 @@
 - 协议层：上游的 C++ libgdp（ngtcp2 + OpenSSL + protobuf + zstd），编译成静态库打包为 xcframework，通过一层 C ABI 暴露给 Swift。
 - 平台层：Swift、SwiftUI、Metal、VideoToolbox。
 
-当前处于**原型阶段**，验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)。
+原型的验证结论见 [docs/prototype-findings.md](docs/prototype-findings.md)；会话层（SessionClient）见 [docs/session-client.md](docs/session-client.md)。
 
 ## 目录
 
@@ -88,9 +88,17 @@ xcodegen generate
 xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
 ```
 
-### 5. 运行原型
+### 5. 运行
 
-App 启动后先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放：解码 → 零拷贝交给 Metal 显示，左上角每秒更新解码和显示耗时。工具栏可以切换 H.264/HEVC 和呈现节奏。
+App 启动后先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（约 3 秒），然后循环播放，左上角每秒更新一次解码、显示和会话的统计。工具栏可以切换来源、H.264/HEVC 和呈现节奏。来源有三种：
+
+- **Loopback**（默认）：App 内的测试 host 通过真实的 GDP 会话（QUIC，127.0.0.1）发送测试码流，经 SessionClient 收下后解码显示，StatsReport 再回到 host。见 [docs/session-client.md](docs/session-client.md)。
+- **Direct**：测试码流直接交给解码器，不经过网络。
+- **Remote**：连接真实的 host（用静态 token 启动的 wraith，§6.11）：
+
+```bash
+build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
+```
 
 测量模式（预热 2 秒后测 N 秒，打印统计后退出）：
 
@@ -98,7 +106,7 @@ App 启动后先用 VideoToolbox 现编一段 10 秒的 1080p60 测试码流（�
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-可选参数：`--codec h264|h265`、`--mode onArrival|displayLink`、`--rate <display link Hz>`、`--min-present-ms <ms>`。
+可选参数：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N，0 为不限>`、`--screen <屏幕序号>`、`--rate <display link Hz>`、`--min-present-ms <ms>`。
 
 SpectreKit 的测试（包括 H.264/HEVC 彩条的端到端色彩校验）：
 

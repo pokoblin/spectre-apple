@@ -9,6 +9,8 @@ public struct DecodedFrame: @unchecked Sendable {
     public let pixelBuffer: CVPixelBuffer
     /// The frame's pts on the host's session clock (gdp-spec.md §11).
     public let pts: UInt32
+    /// The GDP frame_id it was decoded from (gdp-spec.md §9.1).
+    public let frameID: UInt32
     public let sequence: UInt64
     /// `CACurrentMediaTime()` when the access unit went into the decoder and when the picture came out.
     public let submitTime: CFTimeInterval
@@ -52,14 +54,14 @@ public final class VideoDecoder {
     public private(set) var isHardwareAccelerated = false
 
     private let onFrame: @Sendable (DecodedFrame) -> Void
-    private let onError: @Sendable (OSStatus) -> Void
+    private let onError: @Sendable (_ status: OSStatus, _ frameID: UInt32) -> Void
     private var session: VTDecompressionSession?
     private var formatDescription: CMVideoFormatDescription?
     private var parameterSets: [[UInt8]] = []
     private var sequence: UInt64 = 0
 
     public init(codec: VideoCodec, onFrame: @escaping @Sendable (DecodedFrame) -> Void,
-                onError: @escaping @Sendable (OSStatus) -> Void = { _ in }) {
+                onError: @escaping @Sendable (_ status: OSStatus, _ frameID: UInt32) -> Void = { _, _ in }) {
         self.codec = codec
         self.onFrame = onFrame
         self.onError = onError
@@ -75,7 +77,7 @@ public final class VideoDecoder {
     /// Decodes one access unit. The bytes are copied into a CMBlockBuffer
     /// (compressed data only, length-prefixed instead of start codes), so
     /// they need only live for the call.
-    public func decode(_ accessUnit: UnsafeRawBufferPointer, pts: UInt32) throws(VideoDecoderError) {
+    public func decode(_ accessUnit: UnsafeRawBufferPointer, pts: UInt32, frameID: UInt32 = 0) throws(VideoDecoderError) {
         let submitTime = CACurrentMediaTime()
         let units = AnnexB.nalUnits(in: accessUnit)
         guard !units.isEmpty else { throw .malformedAccessUnit }
@@ -143,11 +145,11 @@ public final class VideoDecoder {
             session, sampleBuffer: sample, flags: [._1xRealTimePlayback], infoFlagsOut: nil
         ) { status, _, imageBuffer, _, _ in
             guard status == noErr, let imageBuffer else {
-                onError(status)
+                onError(status, frameID)
                 return
             }
-            onFrame(DecodedFrame(pixelBuffer: imageBuffer, pts: pts, sequence: seq, submitTime: submitTime,
-                                 decodedTime: CACurrentMediaTime()))
+            onFrame(DecodedFrame(pixelBuffer: imageBuffer, pts: pts, frameID: frameID, sequence: seq,
+                                 submitTime: submitTime, decodedTime: CACurrentMediaTime()))
         }
         guard status == noErr else { throw .decode(status) }
     }

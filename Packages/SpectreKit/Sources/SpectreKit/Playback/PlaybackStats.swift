@@ -94,6 +94,13 @@ public final class PlaybackStats: Sendable {
 
     private let state = Mutex(State())
     private let mailbox: FrameMailbox?
+    private let timingSink = Mutex<(@Sendable (_ decodeMicroseconds: UInt32, _ presentMicroseconds: UInt32) -> Void)?>(nil)
+
+    /// Called with each on-screen frame's decode and decode→present times:
+    /// what a session's StatsReport carries (gdp-spec.md §7.5).
+    public func setTimingSink(_ sink: (@Sendable (_ decodeMicroseconds: UInt32, _ presentMicroseconds: UInt32) -> Void)?) {
+        timingSink.withLock { $0 = sink }
+    }
 
     public init(mailbox: FrameMailbox? = nil) {
         self.mailbox = mailbox
@@ -133,6 +140,9 @@ public final class PlaybackStats: Sendable {
             if $0.lastPresented > 0 { $0.intervals.append((presentedTime - $0.lastPresented) * 1000) }
             $0.lastPresented = presentedTime
         }
+        guard presentedTime > 0, let sink = timingSink.withLock({ $0 }) else { return }
+        func us(_ seconds: CFTimeInterval) -> UInt32 { UInt32(clamping: Int64((max(seconds, 0) * 1_000_000).rounded())) }
+        sink(us(frame.decodeDuration), us(presentedTime - frame.decodedTime))
     }
 
     public func summary() -> Summary {
