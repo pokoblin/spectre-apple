@@ -176,6 +176,261 @@ typedef struct {
 
 void gdpc_selftest_quic_loopback(const char *scratch_dir, int timeout_ms, gdpc_selftest_result *out);
 
+// ---------------------------------------------------------------------------
+// Session (§6-§11): the client end of a session connection.
+//
+// Not thread-safe: create, call and destroy a session from one serial queue,
+// and call gdpc_session_dispatch() on it whenever gdpc_session_notify_fd()
+// becomes readable (and periodically). Every callback fires from
+// gdpc_session_dispatch() on that queue. Don't destroy the session from
+// inside a callback. Pointers passed to callbacks are valid only during them.
+
+typedef struct gdpc_session gdpc_session;
+
+typedef enum {
+    GDPC_NETWORK_PROFILE_AUTO = 0,
+    GDPC_NETWORK_PROFILE_LAN = 1,
+    GDPC_NETWORK_PROFILE_INTERNET = 2,
+    GDPC_NETWORK_PROFILE_MOBILE = 3,
+} gdpc_network_profile;
+
+typedef struct {
+    const char *host;
+    uint16_t port;
+    const char *token;
+    const char *cert_sha256;           // the only certificate accepted (§2.3)
+    const char *const *codecs;         // preference order (§6.6)
+    size_t codec_count;
+    const char *const *capabilities;   // §6.7; only what the client implements
+    size_t capability_count;
+    const char *const *decoders;       // informational
+    size_t decoder_count;
+    uint32_t display_width;            // 0x0: keep the session's size
+    uint32_t display_height;
+    uint32_t display_refresh_mhz;
+    double display_scale;
+    bool take_over;                    // §6.4
+    int32_t network_profile;           // gdpc_network_profile
+    bool drop_until_keyframe_after_loss; // §9.3
+} gdpc_session_config;
+
+// One output (§7.2). Colour fields hold session.proto's enum values; 0 is
+// "unspecified", i.e. the codec's default (§7.3).
+typedef struct {
+    uint32_t stream_id;
+    uint32_t width;
+    uint32_t height;
+    uint32_t refresh_mhz;
+    double scale;
+    int32_t matrix;    // 1 BT.601, 2 BT.709, 3 BT.2020
+    int32_t range;     // 1 limited, 2 full
+    int32_t primaries; // 1 BT.709, 2 BT.2020
+    int32_t transfer;  // 1 sRGB, 2 PQ, 3 HLG
+    uint32_t bit_depth;
+    int32_t chroma;    // 1 4:2:0, 2 4:2:2, 3 4:4:4
+} gdpc_output;
+
+typedef struct {
+    const char *codec;
+    const gdpc_output *outputs;
+    size_t output_count;
+    uint32_t bitrate_ceiling_bps;
+    bool has_audio;
+    const char *audio_codec;
+    uint32_t audio_sample_rate_hz;
+    uint32_t audio_channels;
+    uint32_t audio_frame_ms;
+    const char *const *capabilities;   // in effect
+    size_t capability_count;
+    int32_t network_profile;
+    bool via_gateway;
+    const char *encoder;
+    const char *host_user;
+    const char *host_name;
+} gdpc_session_accept;
+
+typedef struct {
+    void *ctx;
+    void (*accepted)(void *ctx, const gdpc_session_accept *accept);
+    // Exactly once. `code` is the §12 code (the host's close code, or the
+    // one this client closed with), 0 for a plain close.
+    void (*closed)(void *ctx, uint64_t code, const char *reason, bool certificate_rejected);
+    void (*displays_changed)(void *ctx, const gdpc_output *outputs, size_t count);
+    // Return false if the frame can't be used now: it counts as lost (§7.5)
+    // and frames are dropped until the next keyframe.
+    bool (*video_frame)(void *ctx, const gdpc_video_frame *frame);
+    void (*audio_packet)(void *ctx, uint16_t seq, uint32_t pts, const uint8_t *opus, size_t len);
+    // `bgra`: width*height*4 bytes, B G R A in memory, premultiplied; 0x0 = no cursor (§7.4).
+    void (*cursor_shape)(void *ctx, uint32_t width, uint32_t height, uint32_t hotspot_x, uint32_t hotspot_y,
+        const uint8_t *bgra);
+    void (*cursor_position)(void *ctx, double x, double y);
+    void (*network_profile_changed)(void *ctx, int32_t profile);
+    // Answer with gdpc_session_send_diagnostics_report().
+    void (*diagnostics_requested)(void *ctx);
+} gdpc_session_callbacks;
+
+typedef struct {
+    uint32_t rtt_us;            // QUIC smoothed RTT plus any gateway leg (§6.10)
+    uint32_t upstream_rtt_us;
+    uint16_t path_mtu;
+    uint16_t max_datagram_size;
+    uint32_t stats_reports_sent;
+    uint64_t frames_delivered;
+    uint64_t frames_dropped;    // completed but dropped while waiting for a keyframe
+    bool has_frames;
+    uint32_t highest_frame_id;
+    uint64_t loss_bitmap;       // as the next StatsReport would carry it
+    uint32_t window_span;       // how many of its 64 bits refer to real frames
+    int32_t delay_min_us;       // what the last StatsReport carried
+    int32_t delay_avg_us;
+    uint32_t delay_samples;
+    uint64_t bytes_last_window;
+    uint32_t last_window_us;
+} gdpc_session_link_stats;
+
+gdpc_session *gdpc_session_create(const gdpc_session_callbacks *callbacks);
+void gdpc_session_destroy(gdpc_session *session);
+// Starts connecting. Returns false (with `error`) on bad configuration or
+// immediate local failure; the outcome arrives through the callbacks.
+bool gdpc_session_connect(gdpc_session *session, const gdpc_session_config *config, char *error, size_t error_cap);
+int gdpc_session_notify_fd(const gdpc_session *session);
+void gdpc_session_dispatch(gdpc_session *session);
+// Detach (close with code 0); the desktop session keeps running (§7.10).
+void gdpc_session_close(gdpc_session *session);
+bool gdpc_session_established(const gdpc_session *session);
+
+// Every 250 ms while established (§7.5).
+void gdpc_session_send_stats_report(gdpc_session *session);
+void gdpc_session_record_frame_timing(gdpc_session *session, uint32_t decode_us, uint32_t present_us);
+// A frame video_frame accepted turned out unusable (the decoder rejected it).
+void gdpc_session_mark_frame_discarded(gdpc_session *session, uint8_t stream_id, uint32_t frame_id);
+void gdpc_session_request_keyframe(gdpc_session *session, uint32_t stream_id);
+void gdpc_session_request_resolution(gdpc_session *session, uint32_t stream_id, uint32_t width, uint32_t height);
+void gdpc_session_send_logout(gdpc_session *session);
+void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *text, size_t len);
+
+void gdpc_session_send_key(gdpc_session *session, uint32_t hid_usage, bool pressed);
+void gdpc_session_send_pointer_motion(gdpc_session *session, double dx, double dy, bool absolute);
+void gdpc_session_send_pointer_button(gdpc_session *session, uint32_t button, bool pressed);
+void gdpc_session_send_pointer_axis(gdpc_session *session, double horizontal, double vertical);
+// `phase`: 1 down, 2 move, 3 up, 4 cancel (§8.3).
+void gdpc_session_send_touch(gdpc_session *session, uint32_t touch_id, int32_t phase, double x, double y);
+
+void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_stats *out);
+
+// ---------------------------------------------------------------------------
+// Test host: a minimal session host on 127.0.0.1 (static token, §6.11), for
+// tests and the app's loopback demo. Runs its own thread; every function is
+// thread-safe.
+
+typedef struct gdpc_test_host gdpc_test_host;
+
+typedef struct {
+    const char *scratch_dir;         // writable, for the certificate files
+    const char *token;
+    const char *const *codecs;       // what it "encodes"
+    size_t codec_count;
+    const char *const *capabilities; // what it supports
+    size_t capability_count;
+    uint32_t width;
+    uint32_t height;
+    bool audio;
+    const char *force_codec;         // NULL or a codec to accept regardless
+    uint64_t refuse_code;            // 0, or close with this after a good hello
+    const char *reject_reason;       // NULL, or send SessionReject
+    bool ping_before_accept;
+    uint32_t first_frame_id;
+} gdpc_test_host_config;
+
+typedef struct {
+    bool connected;
+    bool hello_received;
+    char token[128];
+    char codecs[128];                // comma-separated, as offered
+    char capabilities[128];
+    char decoders[128];
+    bool take_over;
+    bool via_gateway;
+    int32_t network_profile;
+    uint32_t requested_width;
+    uint32_t requested_height;
+    bool accepted;
+    char accepted_codec[16];
+    bool closed;
+    uint64_t close_code;
+
+    uint32_t stats_reports;
+    uint32_t last_rtt_us;
+    bool last_has_stream;
+    uint32_t last_highest_frame_id;
+    uint64_t last_loss_bitmap;
+    uint32_t last_decode_us;
+    uint32_t last_present_us;
+    uint32_t last_interval_us;
+    uint64_t last_bytes_received;
+    int32_t last_delay_min_us;
+    int32_t last_delay_avg_us;
+    uint32_t last_delay_samples;
+    uint32_t last_trains;
+    uint32_t last_train_datagrams;
+    uint32_t last_train_bytes;
+    uint64_t bytes_reported;
+    uint32_t lost_frame_count;
+    uint32_t lost_frame_ids[64];     // the first 64 frames ever reported lost
+
+    uint32_t keyframe_requests;
+    uint32_t resolution_requests;
+    uint32_t last_resolution_width;
+    uint32_t last_resolution_height;
+    bool logout_requested;
+    uint32_t pongs;
+    uint64_t last_pong_nonce;
+    size_t diagnostics_report_len;
+
+    uint32_t key_events;
+    uint32_t last_key_usage;
+    bool last_key_pressed;
+    uint32_t pointer_motions;
+    double last_motion_x;
+    double last_motion_y;
+    bool last_motion_absolute;
+    uint32_t button_events;
+    uint32_t last_button;
+    bool last_button_pressed;
+    double axis_vertical_sum;
+    uint32_t touches;
+    bool input_before_accept;
+
+    uint32_t frames_sent;
+    uint32_t next_frame_id;
+    uint16_t max_datagram_size;
+} gdpc_test_host_observed;
+
+gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
+void gdpc_test_host_destroy(gdpc_test_host *host);
+uint16_t gdpc_test_host_port(const gdpc_test_host *host);
+// Writes GDPC_SHA256_HEX_LEN digits and a NUL.
+void gdpc_test_host_cert_sha256(const gdpc_test_host *host, char out[GDPC_SHA256_HEX_LEN + 1]);
+// Sends one coded frame (copied) as video datagrams with the next frame_id.
+// Slices listed in `drop_slices` are not sent. `max_payload` 0: what the path allows.
+void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
+    const uint16_t *drop_slices, size_t drop_count, size_t max_payload);
+void gdpc_test_host_send_audio_packet(gdpc_test_host *host, uint16_t seq, uint32_t pts, const uint8_t *opus,
+    size_t len);
+void gdpc_test_host_send_ping(gdpc_test_host *host, uint64_t nonce);
+void gdpc_test_host_send_cursor_shape(gdpc_test_host *host, uint32_t width, uint32_t height, uint32_t hotspot_x,
+    uint32_t hotspot_y, const uint8_t *argb, size_t len);
+void gdpc_test_host_send_cursor_position(gdpc_test_host *host, double x, double y);
+void gdpc_test_host_send_displays_changed(gdpc_test_host *host, uint32_t width, uint32_t height);
+void gdpc_test_host_send_network_profile(gdpc_test_host *host, int32_t profile);
+void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rtt_us);
+void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host);
+void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
+// Whether a keyframe was asked for (KeyframeRequest or a newly reported
+// loss) since the last call.
+bool gdpc_test_host_take_keyframe_wanted(gdpc_test_host *host);
+void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_observed *out);
+
 #ifdef __cplusplus
 }
 #endif

@@ -23,7 +23,12 @@ find_package(OpenSSL REQUIRED)
 
 add_library(gdpcore STATIC
   src/gdpcore.cpp
+  src/cert_util.cpp
   src/selftest.cpp
+  src/receive_stats.cpp
+  src/session_client.cpp
+  src/session_api.cpp
+  src/test_host.cpp
 )
 target_include_directories(gdpcore PUBLIC include)
 target_link_libraries(gdpcore PRIVATE gdp OpenSSL::Crypto)

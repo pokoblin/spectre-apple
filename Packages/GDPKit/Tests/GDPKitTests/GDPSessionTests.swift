@@ -1,0 +1,417 @@
+import Foundation
+import Synchronization
+import Testing
+@testable import GDPKit
+
+/// What a session reported, collected from its handlers (on the session queue).
+final class Recorder: Sendable {
+    struct Frame: Sendable {
+        let id: UInt32
+        let keyframe: Bool
+        let pts: UInt32
+        let data: [UInt8]
+    }
+
+    struct State: Sendable {
+        var accept: GDPSession.Accept?
+        var ending: GDPSession.Ending?
+        var frames: [Frame] = []
+        var displays: [[GDPSession.Output]] = []
+        var cursors: [GDPSession.CursorShape] = []
+        var positions: [(Double, Double)] = []
+        var profiles: [GDPSession.NetworkProfile] = []
+        var diagnosticsRequests = 0
+        var audio: [(UInt16, UInt32, [UInt8])] = []
+    }
+
+    let state = Mutex(State())
+    var snapshot: State { state.withLock { $0 } }
+
+    func handlers(acceptFrames: Bool = true, onDiagnostics: (@Sendable () -> Void)? = nil) -> GDPSession.Handlers {
+        var h = GDPSession.Handlers()
+        h.accepted = { a in self.state.withLock { $0.accept = a } }
+        h.closed = { e in self.state.withLock { $0.ending = e } }
+        h.displaysChanged = { o in self.state.withLock { $0.displays.append(o) } }
+        h.videoFrame = { f in
+            let frame = Frame(id: f.frameID, keyframe: f.keyframe, pts: f.pts, data: Array(f.data))
+            self.state.withLock { $0.frames.append(frame) }
+            return acceptFrames
+        }
+        h.audioPacket = { seq, pts, opus in
+            let bytes = Array(opus)
+            self.state.withLock { $0.audio.append((seq, pts, bytes)) }
+        }
+        h.cursorShape = { c in self.state.withLock { $0.cursors.append(c) } }
+        h.cursorPosition = { x, y in self.state.withLock { $0.positions.append((x, y)) } }
+        h.networkProfileChanged = { p in self.state.withLock { $0.profiles.append(p) } }
+        h.diagnosticsRequested = {
+            self.state.withLock { $0.diagnosticsRequests += 1 }
+            onDiagnostics?()
+        }
+        return h
+    }
+}
+
+/// Polls `condition` until it holds or `timeout` passes.
+func eventually(_ timeout: Duration = .seconds(5), _ condition: () -> Bool) async -> Bool {
+    let deadline = ContinuousClock.now + timeout
+    while ContinuousClock.now < deadline {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return condition()
+}
+
+func randomFrame(_ size: Int) -> [UInt8] {
+    var rng = SystemRandomNumberGenerator()
+    return (0..<size).map { _ in UInt8.random(in: 0...255, using: &rng) }
+}
+
+/// Connects a session to `host` and waits for SessionAccept.
+func connected(_ host: GDPTestHost, _ rec: Recorder, codecs: [String] = ["h264"], acceptFrames: Bool = true,
+               configure: (inout GDPSession.Configuration) -> Void = { _ in }) async throws -> GDPSession {
+    let session = GDPSession(handlers: rec.handlers(acceptFrames: acceptFrames))
+    var config = host.sessionConfiguration(codecs: codecs)
+    configure(&config)
+    try session.connect(config)
+    #expect(await eventually { rec.snapshot.accept != nil || rec.snapshot.ending != nil })
+    try #require(rec.snapshot.accept != nil, "not accepted: \(rec.snapshot.ending.map(String.init(describing:)) ?? "timeout")")
+    return session
+}
+
+@Suite("Session establishment (§6)")
+struct EstablishmentTests {
+    @Test func helloAndAcceptCarryTheNegotiation() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.codecs = ["h264"]
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec, codecs: ["h265", "h264"]) {
+            $0.capabilities = ["clipboard"]
+            $0.decoders = ["videotoolbox"]
+            $0.display = .init(width: 2560, height: 1440, refreshMillihertz: 120_000, scale: 2)
+            $0.networkProfile = .lan
+        }
+        let seen = host.observed
+        #expect(seen.token == "test-token")
+        #expect(seen.codecs == ["h265", "h264"])
+        #expect(seen.capabilities == ["clipboard"])
+        #expect(seen.decoders == ["videotoolbox"])
+        #expect(!seen.takeOver && !seen.viaGateway)
+        #expect(seen.networkProfile == 1)
+        #expect(seen.requestedWidth == 2560 && seen.requestedHeight == 1440)
+
+        let accept = try #require(rec.snapshot.accept)
+        #expect(accept.codec == "h264") // the first offered codec the host can encode
+        #expect(accept.capabilities.isEmpty) // the host supports none of them
+        #expect(accept.outputs.count == 1)
+        #expect(accept.outputs.first.map { ($0.width, $0.height, $0.matrix, $0.range) } ?? (0, 0, 0, 0) == (1920, 1080, 1, 1))
+        #expect(accept.audio == nil)
+        #expect(accept.networkProfile == .lan)
+        #expect(accept.encoder == "test" && accept.hostUser == "tester" && accept.hostName == "loopback")
+        // §6.5: the host's cursor right after accepting.
+        #expect(await eventually { rec.snapshot.cursors.count == 1 })
+        session.close()
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == 0)
+    }
+
+    @Test func wrongCertificateIsRefusedBeforeTheToken() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        var config = host.sessionConfiguration()
+        config.certificate = CertificateFingerprint(certificateDER: Array("someone else".utf8))
+        try session.connect(config)
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.certificateRejected == true)
+        #expect(rec.snapshot.accept == nil)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!host.observed.helloReceived, "the token must never reach an unpinned host")
+    }
+
+    @Test func badTokenIsAuthFailed() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(host.sessionConfiguration(token: "wrong"))
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == 20)
+        #expect(rec.snapshot.ending?.reason == "authentication failed")
+        withExtendedLifetime(session) {}
+    }
+
+    @Test(arguments: [(UInt64(24), false), (UInt64(41), true)])
+    func refusalsCarryTheHostsCode(code: UInt64, ordinary: Bool) async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.refuseCode = code
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(host.sessionConfiguration())
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == code)
+        #expect(rec.snapshot.ending?.isOrdinaryEnd == ordinary)
+        withExtendedLifetime(session) {}
+    }
+
+    @Test func unofferedCodecIsNoCommonCodec() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.forceCodec = "av1"
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(host.sessionConfiguration(codecs: ["h264"]))
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == 13)
+        #expect(rec.snapshot.accept == nil, "an accept with an unoffered codec must not establish the session")
+        withExtendedLifetime(session) {}
+    }
+
+    @Test func sessionRejectEndsWithItsReason() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.rejectReason = "maintenance"
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(host.sessionConfiguration())
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.reason.contains("maintenance") == true)
+        withExtendedLifetime(session) {}
+    }
+
+    @Test func pingBeforeAcceptIsIgnoredAfterIsAnswered() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.pingBeforeAccept = true
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(host.observed.pongs == 0) // §7.1: nothing counts before establishment
+        host.sendPing(nonce: 0xfeed)
+        #expect(await eventually { host.observed.pongs == 1 })
+        #expect(host.observed.lastPongNonce == 0xfeed)
+        withExtendedLifetime(session) {}
+    }
+
+    @Test func badConfigurationFailsToConnect() throws {
+        let host = try GDPTestHost()
+        let session = GDPSession(handlers: .init())
+        #expect(throws: GDPSession.ConnectError.self) { try session.connect(host.sessionConfiguration(codecs: [])) }
+    }
+
+    @Test func inputBeforeAcceptIsNotSent() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(host.sessionConfiguration())
+        session.sendKey(hidUsage: 4, pressed: true) // racing the handshake
+        #expect(await eventually { rec.snapshot.accept != nil })
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(!host.observed.inputBeforeAccept)
+        #expect(host.observed.keyEvents == 0)
+    }
+}
+
+@Suite("Video and StatsReport (§7.5, §9)")
+struct VideoTests {
+    @Test func framesArriveIntactAndAreAcked() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        var sent: [[UInt8]] = []
+        for i in 0..<30 {
+            let frame = randomFrame(i == 0 ? 80_000 : Int.random(in: 20_000...60_000))
+            sent.append(frame)
+            host.sendVideoFrame(frame, keyframe: i == 0)
+        }
+        #expect(await eventually { rec.snapshot.frames.count == 30 })
+        let frames = rec.snapshot.frames
+        #expect(frames.map(\.id) == Array(0..<30))
+        #expect(frames.map(\.data) == sent)
+        #expect(frames.map(\.keyframe) == [true] + Array(repeating: false, count: 29))
+        #expect(zip(frames, frames.dropFirst()).allSatisfy { Int32(bitPattern: $1.pts &- $0.pts) >= 0 })
+
+        session.recordFrameTiming(decodeMicroseconds: 3000, presentMicroseconds: 12_000)
+        var maxTrains: UInt32 = 0
+        #expect(await eventually {
+            let o = host.observed
+            maxTrains = max(maxTrains, o.lastTrains)
+            return o.lastHighestFrameID == 29 && o.lastDecodeMicroseconds == 3000 && o.bytesReported >= UInt64(sent.joined().count)
+        })
+        let o = host.observed
+        #expect(o.lastHasStream && o.lastLossBitmap == 0 && o.lostFrameIDs.isEmpty)
+        #expect(o.lastPresentMicroseconds == 12_000)
+        #expect((150_000...600_000).contains(o.lastIntervalMicroseconds), "interval \(o.lastIntervalMicroseconds)")
+        #expect(o.lastRTT > 0)
+        // Every 64 KB-ish frame is > 16 datagrams: trains were measured.
+        #expect(maxTrains > 0 || o.lastTrains > 0)
+        let link = try #require(session.linkStats())
+        #expect(link.framesDelivered == 30 && link.framesDropped == 0)
+        #expect(link.statsReportsSent >= 1)
+        #expect(link.maxDatagramSize >= 1100)
+    }
+
+    @Test func delayAndTrainsAreMeasured() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        host.sendVideoFrame(randomFrame(40_000), keyframe: true, maxPayload: 1000) // 40 datagrams
+        #expect(await eventually { host.observed.lastTrains > 0 })
+        let o = host.observed
+        #expect(o.lastTrainDatagrams == 40)
+        #expect(o.lastTrainBytes == 39 * (1000 + 17)) // every datagram after the first, headers included
+        #expect(o.lastDelaySamples >= 1)
+        #expect(o.lastDelayMin <= o.lastDelayAvg)
+    }
+
+    @Test func lossIsReportedAndFramesDropUntilKeyframe() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        // 0 key, 1, 2 (a slice lost), 3, 4, 5 key, 6
+        for i in 0..<7 {
+            host.sendVideoFrame(randomFrame(5000), keyframe: i == 0 || i == 5, dropSlices: i == 2 ? [1] : [],
+                                maxPayload: 1000)
+            try? await Task.sleep(for: .milliseconds(5))
+        }
+        #expect(await eventually { rec.snapshot.frames.map(\.id) == [0, 1, 5, 6] })
+        #expect(await eventually { Set(host.observed.lostFrameIDs) == [2, 3, 4] })
+        #expect(host.takeKeyframeWanted())
+        let link = try #require(session.linkStats())
+        #expect(link.framesDropped == 2) // 3 and 4 completed but waited for the keyframe
+    }
+
+    @Test func decoderRejectionCountsAsLoss() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec, acceptFrames: false)
+        host.sendVideoFrame(randomFrame(3000), keyframe: true)
+        #expect(await eventually { host.observed.lostFrameIDs == [0] })
+        // A rejected frame also asks for a keyframe (§7.6).
+        #expect(await eventually { host.observed.keyframeRequests >= 1 })
+        withExtendedLifetime(session) {}
+    }
+
+    @Test func frameIDsWrapAround() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.firstFrameID = 0xFFFF_FFFE
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        // 0xFFFFFFFE key, 0xFFFFFFFF lost entirely, 0 key, 1
+        host.sendVideoFrame(randomFrame(3000), keyframe: true, maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(3000), keyframe: false, dropSlices: [0, 1, 2], maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(3000), keyframe: true, maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(3000), keyframe: false, maxPayload: 1000)
+        #expect(await eventually { rec.snapshot.frames.map(\.id) == [0xFFFF_FFFE, 0, 1] })
+        #expect(await eventually { host.observed.lastHighestFrameID == 1 })
+        #expect(host.observed.lastLossBitmap == 0b100) // frame 1 - 2 = 0xFFFFFFFF
+        #expect(host.observed.lostFrameIDs == [0xFFFF_FFFF])
+    }
+}
+
+@Suite("Session control and input (§7, §8)")
+struct ControlTests {
+    @Test func hostMessagesReachTheHandlers() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        #expect(await eventually { rec.snapshot.cursors.count == 1 })
+        host.sendCursorShape(width: 4, height: 4, hotspotX: 1, hotspotY: 2, argb: [UInt8](repeating: 0x7f, count: 64))
+        host.sendCursorShape(width: 4, height: 4, hotspotX: 0, hotspotY: 0, argb: [UInt8](repeating: 0, count: 10)) // bad length
+        host.sendCursorShape(width: 0, height: 0, hotspotX: 0, hotspotY: 0, argb: []) // hidden
+        host.sendCursorPosition(x: 0.25, y: 0.75)
+        host.sendNetworkProfile(.mobile)
+        host.sendDisplaysChanged(width: 2560, height: 1440)
+        host.sendGatewayPath(upstreamRTTMicroseconds: 40_000)
+        #expect(await eventually { rec.snapshot.cursors.count == 3 && !rec.snapshot.displays.isEmpty })
+        let s = rec.snapshot
+        #expect(s.cursors[1] == GDPSession.CursorShape(width: 4, height: 4, hotspotX: 1, hotspotY: 2,
+                                                         bgra: [UInt8](repeating: 0x7f, count: 64)))
+        #expect(s.cursors[2].width == 0 && s.cursors[2].bgra.isEmpty)
+        #expect(s.positions.first.map { $0 == (0.25, 0.75) } == true)
+        #expect(s.profiles == [.mobile])
+        #expect(s.displays.last?.first?.width == 2560)
+        // §6.10: the gateway leg is added to the RTT reported to the host.
+        #expect(await eventually { host.observed.lastRTT >= 40_000 })
+        #expect(session.linkStats()?.upstreamRTTMicroseconds == 40_000)
+    }
+
+    @Test func diagnosticsAreAnsweredOnceAndCapped() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let box = Mutex<GDPSession?>(nil)
+        let session = GDPSession(handlers: rec.handlers(onDiagnostics: {
+            let report = Data(repeating: 0x41, count: 600 * 1024)
+            box.withLock { $0 }?.sendDiagnosticsReport(report)
+            box.withLock { $0 }?.sendDiagnosticsReport(report) // a second answer is not sent
+        }))
+        box.withLock { $0 = session }
+        try session.connect(host.sessionConfiguration())
+        #expect(await eventually { rec.snapshot.accept != nil })
+        host.sendDiagnosticsRequest()
+        #expect(await eventually { host.observed.diagnosticsReportLength > 0 })
+        #expect(host.observed.diagnosticsReportLength == 512 * 1024) // §7.11
+        #expect(rec.snapshot.diagnosticsRequests == 1)
+        box.withLock { $0 = nil }
+    }
+
+    @Test func commandsAndInputReachTheHost() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        session.requestKeyframe()
+        session.requestResolution(width: 2560, height: 1440)
+        session.requestResolution(width: 1001, height: 701) // odd: refused, answered with the current size
+        session.sendKey(hidUsage: 0x04, pressed: true)
+        session.sendKey(hidUsage: 0x04, pressed: false)
+        session.sendPointerMotion(dx: 0.5, dy: 0.25, absolute: true)
+        session.sendPointerButton(0x110, pressed: true)
+        session.sendPointerAxis(horizontal: 0, vertical: 1.5)
+        session.sendTouch(id: 1, phase: .down, x: 0.1, y: 0.2)
+        #expect(await eventually { host.observed.touches == 1 && rec.snapshot.displays.count == 2 })
+        let o = host.observed
+        #expect(o.keyframeRequests == 1)
+        #expect(o.resolutionRequests == 2 && o.lastResolution == (1001, 701))
+        #expect(rec.snapshot.displays.map { $0.first?.width } == [2560, 2560])
+        #expect(o.keyEvents == 2 && o.lastKeyUsage == 0x04 && !o.lastKeyPressed)
+        #expect(o.pointerMotions == 1 && o.lastMotion == (0.5, 0.25, true))
+        #expect(o.buttonEvents == 1 && o.lastButton == 0x110 && o.lastButtonPressed)
+        #expect(o.axisVerticalSum == 1.5)
+
+        session.sendLogout()
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(host.observed.logoutRequested)
+        #expect(rec.snapshot.ending?.code == 40) // SESSION_ENDED (§7.10)
+        #expect(rec.snapshot.ending?.isOrdinaryEnd == true)
+    }
+
+    @Test func audioPacketsAreHandedUp() async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.audio = true
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.audio == GDPSession.AudioConfig(codec: "opus", sampleRate: 48000, channels: 2,
+                                                                     frameMilliseconds: 10))
+        host.sendAudioPacket(sequence: 7, pts: 1234, opus: [1, 2, 3, 4])
+        #expect(await eventually { !rec.snapshot.audio.isEmpty })
+        let packet = try #require(rec.snapshot.audio.first)
+        #expect(packet.0 == 7 && packet.1 == 1234 && packet.2 == [1, 2, 3, 4])
+    }
+
+    @Test func hostCloseEndsTheSession() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        host.close(code: 42) // TAKEN_OVER
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == 42)
+        #expect(rec.snapshot.ending?.reason.isEmpty == false)
+    }
+}

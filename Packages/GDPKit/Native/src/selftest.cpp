@@ -14,10 +14,9 @@
 #include "gdp/video_reassembler.hpp"
 #include "session.pb.h"
 
-#include <openssl/evp.h>
-#include <openssl/pem.h>
+#include "cert_util.hpp"
+
 #include <openssl/rand.h>
-#include <openssl/x509.h>
 
 #include <poll.h>
 #include <unistd.h>
@@ -30,60 +29,6 @@
 #include <vector>
 
 namespace {
-
-struct SelfSignedCert {
-	std::string cert_path;
-	std::string key_path;
-	std::string sha256;
-
-	~SelfSignedCert() {
-		if (!cert_path.empty()) unlink(cert_path.c_str());
-		if (!key_path.empty()) unlink(key_path.c_str());
-	}
-
-	// An ephemeral P-256 key and a one-hour self-signed certificate for it,
-	// as PEM files under `dir`. Returns an error message, or empty on success.
-	std::string generate(const std::string &dir) {
-		std::unique_ptr<EVP_PKEY, decltype(&EVP_PKEY_free)> key(EVP_EC_gen("P-256"), EVP_PKEY_free);
-		if (!key) return "EVP_EC_gen failed";
-		std::unique_ptr<X509, decltype(&X509_free)> x509(X509_new(), X509_free);
-		if (!x509) return "X509_new failed";
-
-		uint64_t serial = 0;
-		RAND_bytes(reinterpret_cast<unsigned char *>(&serial), sizeof(serial));
-		X509_set_version(x509.get(), 2);
-		ASN1_INTEGER_set_uint64(X509_get_serialNumber(x509.get()), serial >> 1);
-		X509_gmtime_adj(X509_getm_notBefore(x509.get()), -60);
-		X509_gmtime_adj(X509_getm_notAfter(x509.get()), 3600);
-		X509_set_pubkey(x509.get(), key.get());
-		X509_NAME *name = X509_get_subject_name(x509.get());
-		X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, reinterpret_cast<const unsigned char *>("localhost"),
-			-1, -1, 0);
-		X509_set_issuer_name(x509.get(), name);
-		if (X509_sign(x509.get(), key.get(), EVP_sha256()) == 0) return "X509_sign failed";
-
-		unsigned char *der = nullptr;
-		int der_len = i2d_X509(x509.get(), &der);
-		if (der_len <= 0) return "i2d_X509 failed";
-		sha256 = gdp::sha256_hex(der, static_cast<size_t>(der_len));
-		OPENSSL_free(der);
-
-		std::string base = dir + "/gdpc-selftest-" + std::to_string(getpid()) + "-" + std::to_string(serial & 0xffff);
-		cert_path = base + "-cert.pem";
-		key_path = base + "-key.pem";
-		FILE *f = fopen(cert_path.c_str(), "w");
-		if (!f) return "cannot write " + cert_path;
-		bool ok = PEM_write_X509(f, x509.get()) == 1;
-		fclose(f);
-		if (!ok) return "PEM_write_X509 failed";
-		f = fopen(key_path.c_str(), "w");
-		if (!f) return "cannot write " + key_path;
-		ok = PEM_write_PrivateKey(f, key.get(), nullptr, nullptr, 0, nullptr, nullptr) == 1;
-		fclose(f);
-		if (!ok) return "PEM_write_PrivateKey failed";
-		return {};
-	}
-};
 
 double ms_since(uint64_t start_us) { return static_cast<double>(gdp::monotonic_us() - start_us) / 1000.0; }
 
@@ -113,7 +58,7 @@ extern "C" void gdpc_selftest_quic_loopback(const char *scratch_dir, int timeout
 	const uint64_t start_us = gdp::monotonic_us();
 	const uint64_t deadline_us = start_us + static_cast<uint64_t>(timeout_ms) * 1000;
 
-	SelfSignedCert cert;
+	gdpcore::SelfSignedCert cert;
 	if (std::string err = cert.generate(scratch_dir ? scratch_dir : "/tmp"); !err.empty()) {
 		return fail(out, "certificate: " + err);
 	}
