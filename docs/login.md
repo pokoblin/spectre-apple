@@ -51,6 +51,10 @@ App 登录页的 **Try the demo host** 会在 App 内同时启动 TestLobby（�
 - **SpectreKit**：地址解析（8 个合法、8 个非法）、KnownHosts 持久化（按名字和端口，名字不区分大小写）、LoginFlow 6 个流程：首次信任后登录、已保存指纹时不再询问、证书已变时拒绝（"信任"按钮无效，只能删除）、有人在看时必须 take over、密码错误的提示、broker 设备选择。
 - **手动**：iPad 模拟器上用演示服务器完整走过：信任 → 密码 → 选 KDE Plasma → 会话 → 注销（回到登录页，显示 "The session ended."）→ 再次登录不再询问证书 → 密码错误的提示。macOS 上走到了密码提示：computer-use 不能向安全输入框打字，后面几步由测试覆盖。
 
+## Redirect 之后的 lobby 连接
+
+§4.2：服务器发出 `Redirect` 之后，由它用错误码 0 关闭连接。原先客户端一拿到 Redirect 就销毁 lobby 连接，正好撞上服务器自己的关闭，ghostd 的日志里于是每次登录都有一条 `lobby: connection handler failed ... error=connection lost`。现在 `GDPLobby` 收到 Redirect 后不再接受命令，但会继续驱动连接，直到服务器关闭（C 桥接层的 `gdpc_lobby_connection_closed`）再销毁；服务器若 2 秒内没有关闭，就由客户端关闭。这段时间里对象自己持有自己，所以 `LoginFlow` 照常在 Redirect 时放开它；会话连接同时照常建立，不受影响。测试 `redirectWaitsForTheServersClose` 确认连接是由测试 lobby 的关闭结束的，而且远早于 2 秒。
+
 ## 踩过的坑
 
 - **Swift 6 的隔离推断**：在 `@MainActor` 的 LoginFlow 里创建的回调闭包会被推断为只能在主线程运行，而 GDPLobby 是在自己的队列上调用它们，结果运行时检查失败，测试进程直接 trap。现在 GDPLobby 和 GDPSession 的回调都声明为 `@Sendable`，这本来也是正确的接口：回调就是在别的队列上被调用的。

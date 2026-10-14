@@ -57,6 +57,22 @@ struct LobbyTests {
         return { $0 == pin }
     }
 
+    /// §4.2: after Redirect the server closes with code 0. The client keeps
+    /// the connection until then instead of dropping it under that close.
+    @Test func redirectWaitsForTheServersClose() async throws {
+        let host = try GDPTestHost()
+        var config = GDPTestLobby.Configuration()
+        config.redirect(to: host)
+        let server = try GDPTestLobby(config)
+        let script = LobbyScript()
+        let lobby = script.lobby(trust: pinning(server), answers: ["demo"])
+        try lobby.connect(host: "127.0.0.1", port: server.port, username: "demo", trustSystemCAs: false)
+        #expect(await eventually { script.snapshot.redirect != nil })
+        // Ended by the server's close, well before the linger limit.
+        #expect(await eventually(.seconds(1)) { !lobby.isLingering })
+        #expect(lobby.endedByServerClose)
+    }
+
     @Test func passwordLoginRedirectsToAWorkingSession() async throws {
         let host = try GDPTestHost()
         var config = GDPTestLobby.Configuration()

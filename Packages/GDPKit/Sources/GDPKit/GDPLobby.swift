@@ -96,6 +96,13 @@ public final class GDPLobby: @unchecked Sendable {
     private var handle: OpaquePointer?          // queue only
     private var readSource: DispatchSourceRead? // queue only
     private var finished = false                // queue only
+    /// After a Redirect: this object keeps itself alive, pumping, until the
+    /// server closes the connection (§4.2) or ``lingerLimit`` passes.
+    private var lingering: GDPLobby?            // queue only
+    /// Whether the last exchange ended with the server closing after its
+    /// Redirect, as §4.2 has it, rather than the linger limit (for tests).
+    private(set) var closedByServer = false     // queue only
+    static let lingerLimit: TimeInterval = 2
 
     public init(queue: DispatchQueue = DispatchQueue(label: "spectre.lobby", qos: .userInitiated), handlers: Handlers) {
         self.queue = queue
@@ -146,7 +153,7 @@ public final class GDPLobby: @unchecked Sendable {
             cb.redirect = { ctx, r in
                 let r = r!.pointee
                 let lobby = GDPLobby.from(ctx)
-                lobby.finish()
+                lobby.linger()
                 lobby.handlers.redirect?(Redirect(host: String(cString: r.host), port: r.port,
                                                   token: String(cString: r.token),
                                                   expiry: Date(timeIntervalSince1970: TimeInterval(r.expiry_unix)),
@@ -171,6 +178,10 @@ public final class GDPLobby: @unchecked Sendable {
             read.setEventHandler { [weak self] in
                 guard let self, let handle = self.handle else { return }
                 gdpc_lobby_dispatch(handle)
+                if self.lingering != nil, gdpc_lobby_connection_closed(handle) {
+                    self.closedByServer = true
+                    self.endLinger()
+                }
             }
             read.resume()
             readSource = read
@@ -187,6 +198,11 @@ public final class GDPLobby: @unchecked Sendable {
 
     /// Abandons the login.
     public func cancel() { onQueue { teardown() } }
+
+    /// Still holding the connection after a Redirect (for tests).
+    var isLingering: Bool { onQueue { lingering != nil } }
+    /// The connection ended with the server's close after the Redirect (for tests).
+    var endedByServerClose: Bool { onQueue { closedByServer } }
 
     // MARK: - Internals
 
@@ -208,8 +224,25 @@ public final class GDPLobby: @unchecked Sendable {
         }
     }
 
-    /// The exchange is over (Redirect or failure): stop pumping. The handle
-    /// stays until teardown, since we are inside its dispatch().
+    /// The exchange succeeded: stop taking commands, but keep pumping until
+    /// the server's close (§4.2: it closes with code 0 after Redirect).
+    /// Dropping the connection there and then races that close, and the
+    /// server logs a lost connection. The session connection opens
+    /// meanwhile; this only lets the lobby connection end cleanly.
+    private func linger() {
+        finished = true
+        lingering = self
+        queue.asyncAfter(deadline: .now() + Self.lingerLimit) { [weak self] in self?.endLinger() }
+    }
+
+    private func endLinger() {
+        guard lingering != nil else { return }
+        lingering = nil
+        teardown()
+    }
+
+    /// The exchange is over (a failure): stop pumping. The handle stays
+    /// until teardown, since we may be inside its dispatch().
     private func finish() {
         finished = true
         readSource?.cancel()

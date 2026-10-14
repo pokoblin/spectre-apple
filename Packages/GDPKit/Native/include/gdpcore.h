@@ -540,6 +540,9 @@ bool gdpc_lobby_connect(gdpc_lobby *lobby, const char *host, uint16_t port, cons
     const char *ca_file, char *error, size_t error_cap);
 int gdpc_lobby_notify_fd(const gdpc_lobby *lobby);
 void gdpc_lobby_dispatch(gdpc_lobby *lobby);
+// Whether the connection has ended. After redirect() the server closes it
+// with code 0 (§4.2): keep dispatching until then, then destroy.
+bool gdpc_lobby_connection_closed(const gdpc_lobby *lobby);
 void gdpc_lobby_respond(gdpc_lobby *lobby, const char *answer);
 void gdpc_lobby_select_device(gdpc_lobby *lobby, const char *device_id);
 // `type_id`: one of the offered ids, or "" for the default (§4.6).

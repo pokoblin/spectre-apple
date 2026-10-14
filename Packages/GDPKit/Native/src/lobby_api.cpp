@@ -29,6 +29,14 @@ std::vector<gdpcore::TestLobby::Prompt> prompts(const gdpc_test_prompt *p, size_
 	return out;
 }
 
+// libgdp's LobbyClient, plus whether its connection has ended: after a
+// Redirect the server closes it (§4.2), and the caller keeps dispatching
+// until it has, rather than drop the connection under the server's close.
+class LobbyClient : public gdp::LobbyClient {
+public:
+	bool connection_closed() const { return !conn_ || conn_->state() == gdp::ConnectionState::kShutdown; }
+};
+
 } // namespace
 
 struct gdpc_lobby {
@@ -77,7 +85,7 @@ struct gdpc_lobby {
 	}
 
 	gdpc_lobby_callbacks callbacks;
-	gdp::LobbyClient client;
+	LobbyClient client;
 };
 
 struct gdpc_test_lobby {
@@ -108,6 +116,7 @@ bool gdpc_lobby_connect(gdpc_lobby *lobby, const char *host, uint16_t port, cons
 
 int gdpc_lobby_notify_fd(const gdpc_lobby *lobby) { return lobby->client.notify_fd(); }
 void gdpc_lobby_dispatch(gdpc_lobby *lobby) { lobby->client.dispatch(); }
+bool gdpc_lobby_connection_closed(const gdpc_lobby *lobby) { return lobby->client.connection_closed(); }
 void gdpc_lobby_respond(gdpc_lobby *lobby, const char *answer) { lobby->client.respond(answer ? answer : ""); }
 
 void gdpc_lobby_select_device(gdpc_lobby *lobby, const char *device_id) {
