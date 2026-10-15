@@ -17,7 +17,7 @@ The design notes and measurements under [`docs/`](docs/) are written in Simplifi
 
 Working:
 
-- **Login**: lobby login (§4, §5); the server's certificate is confirmed on first connection and remembered (trust on first use); interactive authentication following the server's prompts; choosing a device and a desktop session; taking over a running session. See [docs/login.md](docs/login.md).
+- **Login**: lobby login (§4, §5); the server's certificate is confirmed on first connection and remembered (trust on first use); the password typed on the login form answers the server's first password prompt, and any further prompts (a one-time code) are asked in turn; choosing a device and a desktop session; taking over a running session. See [docs/login.md](docs/login.md).
 - **Video**: H.264 and HEVC, decoded in hardware by VideoToolbox and handed to Metal without copies; frame loss and latency statistics reported back to the host (StatsReport). See [docs/session-client.md](docs/session-client.md) and [docs/prototype-findings.md](docs/prototype-findings.md).
 - **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
 - **Audio**: the remote desktop's sound (Opus, decoded by the system's own codec) through a 60 ms jitter buffer that conceals lost packets; mute from the toolbar. The microphone, sent to the remote desktop while you turn it on. See [docs/audio.md](docs/audio.md).
@@ -25,7 +25,7 @@ Working:
 - **Gamepads**: up to four controllers forwarded as standard gamepads (§8.5), Home and Share included, off by default and switched in the toolbar. See [docs/gamepad.md](docs/gamepad.md).
 - **On-screen keyboard** (iPhone and iPad): the system keyboard types on the remote desktop, taken to use a US layout, with a key bar for Esc, Tab, sticky Ctrl/Shift/Alt/Super, arrows and function keys; the picture shrinks to fit above it. Chinese and other scripts go through the host's input method. See [docs/keyboard.md](docs/keyboard.md).
 - **Reconnecting**: a session whose connection is lost (Wi-Fi changing, the Mac asleep, iOS suspending the app) reconnects by itself, signing in again from answers kept in memory only; on iOS a short trip to another app keeps the connection. See [docs/reconnect.md](docs/reconnect.md).
-- **Saved passwords**: tick "Remember" under a password prompt and the login is kept in the Keychain, on this device only; that recent login then connects with one tap. One-time codes are still asked each time, and a saved password the server refuses is forgotten. See [docs/saved-logins.md](docs/saved-logins.md).
+- **Saved passwords**: tick "Remember" under the password on the login form (or under a later password prompt) and the login is kept in the Keychain, on this device only; that recent login then connects with one tap. One-time codes are still asked each time, and a saved password the server refuses is forgotten. See [docs/saved-logins.md](docs/saved-logins.md).
 - **Languages**: English, Spanish, Simplified Chinese, Traditional Chinese and Japanese, following the system's language (English otherwise). See [docs/localization.md](docs/localization.md).
 - **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
