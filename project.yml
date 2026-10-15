@@ -59,6 +59,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         # Asked the first time the microphone button is turned on (gdp-spec.md §10.1).
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Spectre sends your microphone to the remote desktop while you have it turned on."
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Spectre connects to ghost hosts and servers on your local network."
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
