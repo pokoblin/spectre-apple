@@ -154,7 +154,7 @@ Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop 
 The toolbar switches between two modes:
 
 - **Touch**: the pointer goes where you touch. Tap to click, long-press to right-click, drag with one finger to drag, drag with two fingers to scroll, and tap with two or three fingers for a right or middle click.
-- **Trackpad**: the screen works like a trackpad. Move the cursor with one finger and tap to click.
+- **Trackpad** (the default): the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
 ### Sound and microphone
 

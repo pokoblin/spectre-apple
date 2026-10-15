@@ -37,7 +37,7 @@ public final class SessionInput {
     }
     @ObservationIgnored public var onTouchModeChange: (() -> Void)?
     private static var savedTouchMode: TouchPointerMapper.Mode {
-        UserDefaults.standard.string(forKey: "touchMode").flatMap(TouchPointerMapper.Mode.init) ?? .direct
+        UserDefaults.standard.string(forKey: "touchMode").flatMap(TouchPointerMapper.Mode.init) ?? .trackpad
     }
 
     /// Scroll units (gdp-spec.md §8.2).

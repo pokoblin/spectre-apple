@@ -154,7 +154,7 @@ Cmd se envía como Super (la tecla Windows), así que copiar y pegar en el escri
 La barra de herramientas cambia entre dos modos:
 
 - **Táctil**: el puntero va donde tocas. Toca para hacer clic, mantén pulsado para el clic derecho, arrastra con un dedo para arrastrar, arrastra con dos dedos para desplazarte y toca con dos o tres dedos para el clic derecho o central.
-- **Trackpad**: la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
+- **Trackpad** (predeterminado): la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
 
 ### Sonido y micrófono
 
