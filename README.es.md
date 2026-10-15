@@ -23,9 +23,10 @@ Funciona:
 - **Audio**: el sonido del escritorio remoto (Opus, decodificado con el códec del propio sistema) a través de un búfer de jitter de 60 ms que oculta los paquetes perdidos; se puede silenciar desde la barra de herramientas. El micrófono, enviado al escritorio remoto mientras lo tengas activado. Véase [docs/audio.md](docs/audio.md).
 - **Portapapeles**: texto en ambos sentidos (§7.9), desactivado por defecto y activable en la barra de herramientas. En el Mac lo copiado se envía cuando Spectre está activa; en iPad, un botón de pegar envía el portapapeles sin el aviso de pegado del sistema, o lo copiado puede enviarse automáticamente. Véase [docs/clipboard.md](docs/clipboard.md).
 - **Mandos**: hasta cuatro mandos reenviados como mandos estándar (§8.5), botones Home y Share incluidos, desactivado por defecto y activable en la barra de herramientas. Véase [docs/gamepad.md](docs/gamepad.md).
+- **Teclado en pantalla** (iPhone y iPad): el teclado del sistema escribe en el escritorio remoto, suponiendo una distribución US en el host, con una barra de teclas para Esc, Tab, Ctrl/Shift/Alt/Super fijas, flechas y teclas de función; la imagen se reduce para caber encima. El chino y otras escrituras se introducen con el método de entrada del host. Véase [docs/keyboard.md](docs/keyboard.md).
 - **Control de sesión**: desconectar (la sesión remota sigue abierta) y cerrar sesión (termina la sesión remota).
 
-Pendiente: la capa de refinamiento sin pérdidas (refine), teclado en pantalla, AV1 y PyroWave.
+Pendiente: la capa de refinamiento sin pérdidas (refine), AV1 y PyroWave.
 
 ## Compilación
 
@@ -187,6 +188,7 @@ En el simulador VideoToolbox decodifica por software y no hay `presentedTime`, a
 - [docs/audio.md](docs/audio.md): audio, búfer de jitter, decodificación Opus
 - [docs/clipboard.md](docs/clipboard.md): el portapapeles en Mac y en iPad, supresión del eco, el aviso de pegado
 - [docs/gamepad.md](docs/gamepad.md): mandos, la asignación de botones, el botón Home
+- [docs/keyboard.md](docs/keyboard.md): el teclado en pantalla de iOS, de caracteres a teclas, la barra de teclas
 
 ## Licencia
 

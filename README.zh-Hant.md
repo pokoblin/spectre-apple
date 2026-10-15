@@ -23,9 +23,10 @@
 - **音訊**：播放遠端桌面的聲音（Opus，使用系統內建的解碼器），60 ms 的抖動緩衝，遺失封包時加以補償；工具列可以靜音。開啟麥克風後會把它傳給遠端桌面。見 [docs/audio.md](docs/audio.md)。
 - **剪貼簿**：文字雙向同步（§7.9），預設關閉，在工具列中開啟。Mac 上在 Spectre 處於使用中時傳送拷貝的內容；iPad 上用貼上按鈕傳送，不會跳出系統的貼上提示，也可以選擇自動傳送。見 [docs/clipboard.md](docs/clipboard.md)。
 - **遊戲控制器**：最多 4 個控制器以標準控制器轉送（§8.5），包括 Home 和 Share 鍵；預設關閉，在工具列中開啟。見 [docs/gamepad.md](docs/gamepad.md)。
+- **螢幕鍵盤**（iPhone 和 iPad）：用系統螢幕鍵盤在遠端桌面打字，以 host 為 US 配置換算；鍵盤上方有附加按鍵列（Esc、Tab、黏滯的 Ctrl/Shift/Alt/Super、方向鍵、功能鍵），畫面縮小到鍵盤上方。中文等文字用 host 的輸入法輸入。見 [docs/keyboard.md](docs/keyboard.md)。
 - **工作階段控制**：中斷連線（遠端工作階段會保留）、登出（結束遠端工作階段）。
 
-尚未完成：無損細化層（refine）、螢幕鍵盤、AV1／PyroWave。
+尚未完成：無損細化層（refine）、AV1／PyroWave。
 
 ## 建置
 
@@ -187,6 +188,7 @@ iOS 的進入點是 UIKit 的 app delegate，這樣根 view controller 才能鎖
 - [docs/audio.md](docs/audio.md)：音訊、抖動緩衝、Opus 解碼
 - [docs/clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪貼簿、回聲抑制、貼上提示
 - [docs/gamepad.md](docs/gamepad.md)：遊戲控制器、按鍵對應、Home 鍵
+- [docs/keyboard.md](docs/keyboard.md)：iOS 螢幕鍵盤、字元到按鍵的換算、附加按鍵列
 
 ## 授權
 
