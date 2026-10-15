@@ -10,6 +10,7 @@ struct LoginView: View {
     @State private var password = ""
     @State private var remember = false
     @FocusState private var focus: Field?
+    @State private var showTrustedServers = false
 
     private enum Field { case server, username, password }
 
@@ -27,6 +28,7 @@ struct LoginView: View {
             .padding(24)
             .frame(maxWidth: .infinity)
         }
+        .sheet(isPresented: $showTrustedServers) { TrustedServersView(app: app) }
     }
 
     private var header: some View {
@@ -148,6 +150,16 @@ struct LoginView: View {
                     }
                 }
             }
+
+            Divider()
+            Button {
+                focus = nil // on the Mac, the password field's AutoFill button would float over the sheet
+                showTrustedServers = true
+            } label: {
+                Label("Trusted Servers…", systemImage: "lock.shield")
+            }
+            .buttonStyle(.borderless)
+            .font(.caption)
         }
         .onAppear {
             if serverText.isEmpty, let last = app.recent.first {
@@ -207,7 +219,7 @@ private struct WorkingView: View {
 
 /// The fingerprint in the colon-separated form people compare (§2.3), eight
 /// byte pairs per line so it fits a phone and a large type size alike.
-private struct FingerprintText: View {
+struct FingerprintText: View {
     let fingerprint: CertificateFingerprint
 
     var body: some View {

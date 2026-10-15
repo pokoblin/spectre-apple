@@ -538,6 +538,34 @@
         }
       }
     },
+    "Done" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成"
+          }
+        }
+      }
+    },
     "End the desktop session" : {
       "localizations" : {
         "es" : {
@@ -758,6 +786,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除這筆登入紀錄"
+          }
+        }
+      }
+    },
+    "Forget the saved fingerprint" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar la huella guardada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存したフィンガープリントを削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除保存的指纹"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除儲存的指紋"
           }
         }
       }
@@ -1150,6 +1206,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在這台裝置上將遠端桌面靜音"
+          }
+        }
+      }
+    },
+    "No Trusted Servers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay servidores de confianza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信頼済みのサーバーはありません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有信任的服务器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有信任的伺服器"
           }
         }
       }
@@ -1632,6 +1716,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "伺服器"
+          }
+        }
+      }
+    },
+    "Servers you trust on their first connection appear here. A server whose certificate comes from a certificate authority isn't listed: nothing is saved for it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí aparecen los servidores en los que confías en su primera conexión. Un servidor con un certificado emitido por una autoridad de certificación no aparece: no se guarda nada para él."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初めての接続で信頼したサーバーがここに表示されます。認証局が発行した証明書を使うサーバーは、何も保存しないため表示されません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次连接时信任的服务器会显示在这里。使用证书颁发机构签发的证书的服务器不会列出，因为不会为它保存任何内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次連線時信任的伺服器會顯示在這裡。使用憑證授權單位簽發之憑證的伺服器不會列出，因為不會為它儲存任何內容。"
           }
         }
       }
@@ -2140,6 +2252,34 @@
         }
       }
     },
+    "The next connection to %@ will ask you to trust it again." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La próxima conexión a %@ te volverá a pedir que confíes en él."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次回 %@ に接続するときに、もう一度信頼するかどうかを確認します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次连接到 %@ 时，会重新询问你是否信任它。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次連線到 %@ 時，會重新詢問你是否信任它。"
+          }
+        }
+      }
+    },
     "The next connection to %@ will ask you to verify its new fingerprint." : {
       "localizations" : {
         "es" : {
@@ -2478,6 +2618,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "信任並繼續"
+          }
+        }
+      }
+    },
+    "Trusted Servers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidores de confianza"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信頼済みのサーバー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任的服务器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任的伺服器"
+          }
+        }
+      }
+    },
+    "Trusted Servers…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidores de confianza…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信頼済みのサーバー…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任的服务器…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任的伺服器…"
           }
         }
       }

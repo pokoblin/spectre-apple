@@ -139,6 +139,18 @@ final class AppModel {
         screen = .login
     }
 
+    /// The servers whose certificate the user trusted (docs/login.md).
+    var trustedServers: [KnownHosts.Pin] { _ = trustedRevision; return login.knownHosts.all }
+    /// Bumped when a pin is forgotten here, so the list redraws.
+    private var trustedRevision = 0
+
+    /// Forgets a trusted server's fingerprint: its next connection asks again
+    /// (§2.3). Its recent login and saved password stay.
+    func forgetTrusted(_ pin: KnownHosts.Pin) {
+        login.knownHosts.forget(pin.server)
+        trustedRevision += 1
+    }
+
     /// Forgets a recent login, and its saved password with it.
     func forgetRecent(_ entry: RecentLogin) {
         forgetSavedLogin(entry)

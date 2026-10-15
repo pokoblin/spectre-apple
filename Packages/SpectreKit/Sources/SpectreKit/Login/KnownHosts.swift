@@ -84,8 +84,20 @@ public final class KnownHosts: Sendable {
         save { $0.removeValue(forKey: server.key) }
     }
 
-    public var entries: [(server: String, fingerprint: String)] {
-        pins.withLock { $0 }.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+    /// A server the user trusted, and the fingerprint they accepted.
+    public struct Pin: Hashable, Sendable, Identifiable {
+        public let server: ServerAddress
+        public let fingerprint: CertificateFingerprint
+        public var id: String { server.key }
+    }
+
+    /// Every pin, by host name and port (the Trusted Servers list).
+    public var all: [Pin] {
+        pins.withLock { $0 }.sorted { $0.key < $1.key }.compactMap { key, hex in
+            // Keys are written by ServerAddress.key, which parses back.
+            guard let server = ServerAddress(parsing: key), let fingerprint = CertificateFingerprint(hex: hex) else { return nil }
+            return Pin(server: server, fingerprint: fingerprint)
+        }
     }
 
     private func save(_ change: (inout [String: String]) -> Void) {

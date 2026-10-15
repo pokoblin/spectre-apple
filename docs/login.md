@@ -12,7 +12,8 @@
 
 ```
 App/Shared/LoginView      每一步一个卡片：表单（服务器、用户名、密码）→ 信任确认 / 证书已变 → 提示 → 选设备 → 选桌面
-App/Shared/AppModel       登录页 ↔ 会话页；最近登录
+App/Shared/TrustedServersView  已信任服务器的列表（sheet）
+App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的服务器
   └ SpectreKit.LoginFlow  与界面无关的状态机（@MainActor @Observable）
       ├ KnownHosts        TOFU 指纹，JSON 文件，按 主机名:端口
       ├ ServerAddress     解析 host、host:port、[v6]、[v6]:port，默认端口 4442
@@ -52,6 +53,17 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录
 - **手动**：iPad 模拟器上用演示服务器完整走过：信任 → 密码 → 选 KDE Plasma → 会话 → 注销（回到登录页，显示 "The session ended."）→ 再次登录不再询问证书 → 密码错误的提示。macOS 上走到了密码提示：computer-use 不能向安全输入框打字，后面几步由测试覆盖。
 - **手动（表单密码，2026-10-15）**：iPad 模拟器连本机的测试 lobby（一个密码提示加一个不回显的验证码提示）。密码留空 → 信任 → 照常出现 Password 提示；表单填密码 → 直接出现验证码提示（密码提示被自动答掉）→ 选 GNOME → 会话打开。密码答错时回到表单，显示 “Wrong username or password.”，密码框已清空且获得焦点。macOS 上确认了表单布局（密码框、Remember、自动聚焦到密码框），后台 computer-use 不能向有密码框的窗口打字，所以没在 Mac 上走完登录。
 
+## 已信任的服务器
+
+登录页底部的 **Trusted Servers…** 打开一个列表，列出首次连接时信任过的每台服务器（主机名:端口）和它的 SHA-256 指纹。指纹的格式和信任确认时一样（冒号分隔，每行 8 对），可以选中复制。
+
+- **删除**：iOS 上左滑或长按，macOS 上点垃圾桶或右键。删除前用 alert 确认，确认后只删掉这条指纹（`KnownHosts.forget`），下次连接这台服务器时会像第一次一样询问（§2.3）。最近登录和保存的密码不受影响。
+- **CA 签发的证书**不保存指纹（§2.3 规定 SHOULD NOT），所以这类服务器不会出现在列表里。列表为空时会说明这一点。
+- `KnownHosts.all` 把存储的键（总是带端口的 `host:port` 或 `[v6]:port`）解析回 `ServerAddress`，界面直接用它来删除。文件格式没有变。
+- **确认用 alert，不用 confirmation dialog**：iPad 上 confirmation dialog 是个 popover。挂在整个列表上时，它指向 sheet 顶部，而不是要删的那一行；改成挂在行上，从左滑按钮弹出时又会把整个 sheet 一起关掉，什么也没删。alert 居中显示，没有这两个问题。
+- 实测（2026-10-15）：macOS 上往 `known_hosts.json` 加一条 `test.invalid`，在列表里点垃圾桶 → alert → Forget，只删掉这一条，文件和事先的备份逐项相同。iPad 模拟器上：空列表的说明；写入两条后左滑一条 → alert → Forget，sheet 保持打开，列表和文件都只剩另一条。
+- 测试：`listsEveryPinAndForgetsOne`（默认端口和 IPv6 都能解析回来，删除一条后其余不变）、`aServerForgottenFromTheListIsAskedAgain`（删除后再连接会先要求信任，服务器收不到 hello）。
+
 ## Redirect 之后的 lobby 连接
 
 §4.2：服务器发出 `Redirect` 之后，由它用错误码 0 关闭连接。原先客户端一拿到 Redirect 就销毁 lobby 连接，正好撞上服务器自己的关闭，ghostd 的日志里于是每次登录都有一条 `lobby: connection handler failed ... error=connection lost`。现在 `GDPLobby` 收到 Redirect 后不再接受命令，但会继续驱动连接，直到服务器关闭（C 桥接层的 `gdpc_lobby_connection_closed`）再销毁；服务器若 2 秒内没有关闭，就由客户端关闭。这段时间里对象自己持有自己，所以 `LoginFlow` 照常在 Redirect 时放开它；会话连接同时照常建立，不受影响。测试 `redirectWaitsForTheServersClose` 确认连接是由测试 lobby 的关闭结束的，而且远早于 2 秒。
@@ -69,5 +81,4 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录
 
 ## 以后
 
-- 管理已保存指纹的界面（现在只能在"证书已变"时删除）。
 - iOS 上的 CA 校验（见上）。

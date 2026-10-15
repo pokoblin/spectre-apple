@@ -45,6 +45,22 @@ struct KnownHostsTests {
         reloaded.forget(ServerAddress(host: "a", port: 1))
         #expect(KnownHosts(file: file).pin(for: ServerAddress(host: "a", port: 1)) == nil)
     }
+
+    @Test func listsEveryPinAndForgetsOne() throws {
+        let file = FileManager.default.temporaryDirectory.appending(path: "known-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let known = KnownHosts(file: file)
+        let a = CertificateFingerprint(certificateDER: Array("a".utf8))
+        let b = CertificateFingerprint(certificateDER: Array("b".utf8))
+        let v6 = ServerAddress(host: "2001:db8::1", port: 5000)
+        known.trust(a, for: ServerAddress(host: "ghost.example"))
+        known.trust(b, for: v6)
+        // Every pin parses back to the server it was trusted for, default port and IPv6 included.
+        #expect(KnownHosts(file: file).all.map(\.server) == [v6, ServerAddress(host: "ghost.example")])
+        #expect(known.all.map(\.fingerprint) == [b, a])
+        known.forget(v6)
+        #expect(KnownHosts(file: file).all == [.init(server: ServerAddress(host: "ghost.example"), fingerprint: a)])
+    }
 }
 
 @MainActor
@@ -109,6 +125,19 @@ struct LoginFlowTests {
         let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .prompt = flow.step { true } else { false } })
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test func aServerForgottenFromTheListIsAskedAgain() async throws {
+        let (server, _) = try lobby()
+        let known = KnownHosts(file: file)
+        let address = ServerAddress(host: "127.0.0.1", port: server.port)
+        known.trust(server.certificate, for: address)
+        for pin in known.all { known.forget(pin.server) }
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
+        flow.start(server: address, username: "demo")
+        #expect(await until { if case .trustNewHost = flow.step { true } else { false } })
+        #expect(!server.observed.helloReceived)
         try? FileManager.default.removeItem(at: file)
     }
 
