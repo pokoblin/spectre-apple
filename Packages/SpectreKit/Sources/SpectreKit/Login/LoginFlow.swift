@@ -131,6 +131,9 @@ public final class LoginFlow {
     public var onRedirect: ((SessionTicket) -> Void)?
 
     private var lobby: GDPLobby?
+    private let networkAccess: NetworkAccessCheck
+    /// Waiting for local network access before the lobby connects.
+    private var accessCheck: Task<Void, Never>?
     private var takeOver = false
     /// Bumped by every start and cancel: callbacks of an abandoned login are dropped.
     private var generation = 0
@@ -141,9 +144,10 @@ public final class LoginFlow {
     private let refusedCertificate = Refused()
 
     public init(knownHosts: KnownHosts = .standard(), savedLogins: SavedLogins = KeychainSavedLogins(),
-                codecs: [String] = ["h265", "h264"]) {
+                networkAccess: NetworkAccessCheck = LocalNetworkCheck(), codecs: [String] = ["h265", "h264"]) {
         self.knownHosts = knownHosts
         self.savedLogins = savedLogins
+        self.networkAccess = networkAccess
         self.codecs = codecs
     }
 
@@ -166,7 +170,24 @@ public final class LoginFlow {
         takeOver = false
         refusedCertificate.request.withLock { $0 = nil }
         step = .working(String(localized: "Connecting to \(server.description)…", bundle: .module))
+        let access = networkAccess.access(to: server)
+        accessCheck = Task { [weak self] in
+            for await state in access {
+                guard let self, self.generation == gen else { return }
+                switch state {
+                case .open:
+                    self.connect(server: server, username: username, generation: gen)
+                    return
+                case .waitingForLocalNetwork:
+                    self.step = .working(Self.waitingForLocalNetwork)
+                }
+            }
+        }
+    }
 
+    /// Opens the lobby connection, once the system lets the app reach the server.
+    private func connect(server: ServerAddress, username: String, generation gen: Int) {
+        step = .working(String(localized: "Connecting to \(server.description)…", bundle: .module))
         let knownHosts = knownHosts
         let refused = refusedCertificate
         var h = GDPLobby.Handlers()
@@ -277,6 +298,8 @@ public final class LoginFlow {
         password = nil
         notice = nil
         generation += 1
+        accessCheck?.cancel()
+        accessCheck = nil
         lobby?.cancel()
         lobby = nil
         step = .idle
@@ -363,6 +386,14 @@ public final class LoginFlow {
         default:
             break // working, a certificate to confirm (always the user's), redirected, failed
         }
+    }
+
+    static var waitingForLocalNetwork: String {
+        #if os(macOS)
+        String(localized: "Waiting for permission to use the local network. If you declined, turn on Spectre in System Settings › Privacy & Security › Local Network.", bundle: .module)
+        #else
+        String(localized: "Waiting for permission to use the local network. If you declined, turn on Spectre in Settings › Privacy & Security › Local Network.", bundle: .module)
+        #endif
     }
 
     /// Words for the §12 codes a login can end with, in the user's language;

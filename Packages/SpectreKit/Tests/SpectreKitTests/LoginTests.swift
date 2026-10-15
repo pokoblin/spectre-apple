@@ -1,5 +1,6 @@
 import Foundation
 import GDPKit
+import Synchronization
 import Testing
 @testable import SpectreKit
 
@@ -115,6 +116,55 @@ struct LoginFlowTests {
         #expect(ticket.configuration.codecs == ["h265", "h264"])
         #expect(server.observed.openedType == "plasma")
         try? FileManager.default.removeItem(at: file)
+    }
+
+    /// Local network access the test grants by hand.
+    final class ScriptedNetworkAccess: NetworkAccessCheck {
+        let continuation = Mutex<AsyncStream<NetworkAccess>.Continuation?>(nil)
+        let stopped = Mutex(false)
+        func access(to server: ServerAddress) -> AsyncStream<NetworkAccess> {
+            AsyncStream { c in
+                c.onTermination = { _ in self.stopped.withLock { $0 = true } }
+                continuation.withLock { $0 = c }
+                c.yield(.waitingForLocalNetwork)
+            }
+        }
+        func grant() { continuation.withLock { $0?.yield(.open); $0?.finish() } }
+    }
+
+    func isWaitingForLocalNetwork(_ flow: LoginFlow) -> Bool {
+        if case let .working(message) = flow.step { message == LoginFlow.waitingForLocalNetwork } else { false }
+    }
+
+    /// A socket opened while the local network alert is up sends into
+    /// nothing until the handshake times out: the lobby waits for access.
+    @Test func waitsForLocalNetworkAccessBeforeConnecting() async throws {
+        let (server, _) = try lobby()
+        let access = ScriptedNetworkAccess()
+        let flow = LoginFlow(knownHosts: KnownHosts(file: file), savedLogins: MemorySavedLogins(), networkAccess: access)
+        flow.start(server: ServerAddress(host: "127.0.0.1", port: server.port), username: "demo")
+        #expect(await until { isWaitingForLocalNetwork(flow) })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(server.observed.connections == 0)
+
+        access.grant()
+        #expect(await until { if case .trustNewHost = flow.step { true } else { false } })
+        #expect(server.observed.connections == 1)
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test func cancellingWhileWaitingForAccessConnectsNowhere() async throws {
+        let (server, _) = try lobby()
+        let access = ScriptedNetworkAccess()
+        let flow = LoginFlow(knownHosts: KnownHosts(file: file), savedLogins: MemorySavedLogins(), networkAccess: access)
+        flow.start(server: ServerAddress(host: "127.0.0.1", port: server.port), username: "demo")
+        #expect(await until { isWaitingForLocalNetwork(flow) })
+        flow.cancel()
+        #expect(await until { access.stopped.withLock { $0 } })
+        access.grant() // too late: the check was dropped
+        try await Task.sleep(for: .milliseconds(200))
+        guard case .idle = flow.step else { Issue.record("\(flow.step)"); return }
+        #expect(server.observed.connections == 0)
     }
 
     @Test func pinnedServerIsNotAskedAgain() async throws {

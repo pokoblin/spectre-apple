@@ -877,6 +877,62 @@
         }
       }
     },
+    "Waiting for permission to use the local network. If you declined, turn on Spectre in Settings › Privacy & Security › Local Network." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando permiso para usar la red local. Si lo denegaste, activa Spectre en Ajustes › Privacidad y seguridad › Red local."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルネットワークの使用許可を待っています。許可しなかった場合は、「設定」›「プライバシーとセキュリティ」›「ローカルネットワーク」で Spectre をオンにしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待使用本地网络的权限。如果你拒绝了，请在“设置”›“隐私与安全性”›“本地网络”中打开 Spectre。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待使用區域網路的權限。如果你拒絕了，請在「設定」›「隱私權與安全性」›「區域網路」中開啟 Spectre。"
+          }
+        }
+      }
+    },
+    "Waiting for permission to use the local network. If you declined, turn on Spectre in System Settings › Privacy & Security › Local Network." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esperando permiso para usar la red local. Si lo denegaste, activa Spectre en Ajustes del Sistema › Privacidad y seguridad › Red local."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローカルネットワークの使用許可を待っています。許可しなかった場合は、「システム設定」›「プライバシーとセキュリティ」›「ローカルネットワーク」で Spectre をオンにしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待使用本地网络的权限。如果你拒绝了，请在“系统设置”›“隐私与安全性”›“本地网络”中打开 Spectre。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待使用區域網路的權限。如果你拒絕了，請在「系統設定」›「隱私權與安全性」›「區域網路」中開啟 Spectre。"
+          }
+        }
+      }
+    },
     "Wrong username or password." : {
       "localizations" : {
         "es" : {
