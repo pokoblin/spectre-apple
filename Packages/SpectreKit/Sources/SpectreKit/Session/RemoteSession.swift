@@ -50,6 +50,15 @@ public final class RemoteSession: @unchecked Sendable {
         var ended = false
     }
     private let audioState = Mutex(AudioState())
+
+    /// Whether video is decoded: not while suspended (iOS in the background:
+    /// no GPU work allowed, decoders may be invalidated), and after that not
+    /// before the next keyframe.
+    private struct VideoGate {
+        var suspended = false
+        var awaitingKeyframe = false
+    }
+    private let videoGate = Mutex(VideoGate())
     /// Starts and stops the player in order, off the session queue.
     private let audioQueue = DispatchQueue(label: "spectre.audio.session", qos: .userInitiated)
     private let decodeQueue = DispatchQueue(label: "spectre.decode", qos: .userInteractive)
@@ -179,6 +188,17 @@ public final class RemoteSession: @unchecked Sendable {
 
     public func close() { session?.close() }
 
+    /// Stops decoding video; frames keep being acknowledged and are dropped,
+    /// so the host sees no loss and the connection stays healthy.
+    public func suspendVideo() { videoGate.withLock { $0.suspended = true } }
+
+    /// Decodes again, with a fresh decoder, from the next keyframe, which it asks for.
+    public func resumeVideo() {
+        videoGate.withLock { $0 = VideoGate(suspended: false, awaitingKeyframe: true) }
+        decodeQueue.async { [self] in decoder?.reset() }
+        session?.requestKeyframe()
+    }
+
     public func linkStats() -> GDPSession.LinkStats? { session?.linkStats() }
 
     // MARK: - Session queue
@@ -262,6 +282,15 @@ public final class RemoteSession: @unchecked Sendable {
     }
 
     private func received(_ frame: GDPSession.VideoFrame) -> Bool {
+        let drop = videoGate.withLock { gate in
+            if gate.suspended { return true }
+            if gate.awaitingKeyframe {
+                guard frame.keyframe else { return true }
+                gate.awaitingKeyframe = false
+            }
+            return false
+        }
+        if drop { return true }
         // The one copy of the compressed frame: GDPKit's buffer is only valid
         // during this call, and decoding runs on its own queue.
         let bytes = [UInt8](frame.data)

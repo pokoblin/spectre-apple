@@ -182,4 +182,46 @@ struct LoopbackSessionTests {
         #expect(link.rttMicroseconds > 0 && link.recentLosses == 0)
         remote.close()
     }
+
+    /// iOS in the background: frames are acknowledged but not decoded (no
+    /// loss for the host), and on return decoding starts again from a
+    /// keyframe the client asks for.
+    @Test func suspendedVideoIsDroppedAndResumesFromAKeyframe() async throws {
+        let stream = try TestStreamEncoder.encode(codec: .h264, width: 640, height: 360, frameCount: 120,
+                                                  bitrate: 2_000_000)
+        let loopback = try LoopbackHost(stream: stream, audio: false)
+        let mailbox = FrameMailbox()
+        let stats = PlaybackStats(mailbox: mailbox)
+        let decoded = Mutex<[UInt32]>([])
+        let remote = RemoteSession(mailbox: mailbox, stats: stats) {
+            if let f = mailbox.take() { decoded.withLock { $0.append(f.frameID) } }
+        }
+        try remote.connect(loopback.sessionConfiguration())
+        loopback.start()
+        defer { loopback.stop() }
+        func until(_ condition: () -> Bool) async -> Bool {
+            for _ in 0..<500 {
+                if condition() { return true }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            return condition()
+        }
+        #expect(await until { decoded.withLock { $0.count } >= 10 })
+
+        remote.suspendVideo()
+        try await Task.sleep(for: .milliseconds(100)) // frames already queued drain
+        let before = decoded.withLock { $0.count }
+        let sentBefore = loopback.host.observed.framesSent
+        let requestsBefore = loopback.host.observed.keyframeRequests
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(loopback.host.observed.framesSent > sentBefore + 20) // the host kept sending
+        #expect(decoded.withLock { $0.count } == before)           // nothing decoded
+        #expect(loopback.host.observed.lostFrameIDs.isEmpty)      // and nothing reported lost
+
+        remote.resumeVideo()
+        #expect(await until { loopback.host.observed.keyframeRequests > requestsBefore })
+        #expect(await until { decoded.withLock { $0.count } >= before + 10 })
+        #expect(stats.summary().decodeErrors == 0) // no P-frame reached the fresh decoder before the keyframe
+        remote.close()
+    }
 }

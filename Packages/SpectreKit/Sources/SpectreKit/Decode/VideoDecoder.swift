@@ -154,6 +154,19 @@ public final class VideoDecoder {
         guard status == noErr else { throw .decode(status) }
     }
 
+    /// Drops the decompression session; the next keyframe (its parameter
+    /// sets) makes a new one. For a decoder the system may have invalidated
+    /// meanwhile, as iOS does to hardware decoders of an app in the background.
+    public func reset() {
+        if let session {
+            VTDecompressionSessionWaitForAsynchronousFrames(session)
+            VTDecompressionSessionInvalidate(session)
+        }
+        session = nil
+        formatDescription = nil
+        parameterSets = []
+    }
+
     /// Waits until every frame submitted so far has come out.
     public func flush() {
         guard let session else { return }
