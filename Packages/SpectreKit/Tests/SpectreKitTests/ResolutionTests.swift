@@ -11,18 +11,26 @@ private func view(_ w: CGFloat, _ h: CGFloat) -> CGSize { CGSize(width: w, heigh
 @Suite("Resolution: the size to ask for")
 struct ResolutionSizeTests {
     @Test func pointsIgnoreTheScale() {
-        #expect(Follower.outputSize(viewSize: view(1512, 945), scale: 2, units: .points) == size(1512, 944))
+        #expect(Follower.outputSize(viewSize: view(1512, 945), scale: 2, units: .points) == size(1504, 944))
     }
 
     @Test func pixelsMultiplyByTheScale() {
         #expect(Follower.outputSize(viewSize: view(1512, 945), scale: 2, units: .pixels) == size(3024, 1890))
-        #expect(Follower.outputSize(viewSize: view(430, 932), scale: 3, units: .pixels) == size(1290, 2796))
+        #expect(Follower.outputSize(viewSize: view(430, 932), scale: 3, units: .pixels) == size(1280, 2796))
     }
 
     @Test func roundsDownToEvenWholePixels() {
         // §7.2: subsampled chroma needs even sizes.
-        #expect(Follower.outputSize(viewSize: view(1023.7, 701.2), scale: 1, units: .points) == size(1022, 700))
-        #expect(Follower.outputSize(viewSize: view(683.5, 512.5), scale: 2, units: .pixels) == size(1366, 1024))
+        #expect(Follower.outputSize(viewSize: view(1023.7, 701.2), scale: 1, units: .points) == size(1008, 700))
+        #expect(Follower.outputSize(viewSize: view(683.5, 512.5), scale: 2, units: .pixels) == size(1360, 1024))
+    }
+
+    @Test func widthsAreWholeBlocks() {
+        // wraith with VA-API shears pictures whose width isn't a multiple of 16
+        // (docs/resolution.md); heights need only be even.
+        #expect(Follower.outputSize(viewSize: view(856, 460), scale: 1, units: .points) == size(848, 460))
+        #expect(Follower.outputSize(viewSize: view(824, 462), scale: 1, units: .points) == size(816, 462))
+        #expect(Follower.outputSize(viewSize: view(816, 460), scale: 1, units: .points) == size(816, 460))
     }
 
     @Test func clampsToTheHostsLimits() {
@@ -47,7 +55,7 @@ struct ResolutionFollowerTests {
         #expect(f.update(at: 10.2) == nil) // still settling
         f.viewChanged(view(1300, 810), scale: 2, at: 10.3) // a drag goes on: the wait starts over
         #expect(f.update(at: 10.6) == nil)
-        #expect(f.update(at: 10.8) == size(1300, 810))
+        #expect(f.update(at: 10.8) == size(1296, 810))
         #expect(f.nextDeadline == nil)
         #expect(f.update(at: 20) == nil) // asked once
     }

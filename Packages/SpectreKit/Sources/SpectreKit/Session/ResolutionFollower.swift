@@ -37,6 +37,11 @@ public struct ResolutionFollower: Sendable {
     public static let settleDelay: TimeInterval = 0.5
     /// §7.2: the sizes a host accepts, per side.
     public static let sides: ClosedRange<UInt32> = 320...8192
+    /// Widths are asked for in whole 16-pixel blocks. §7.2 only needs them
+    /// even, but wraith encoding with VA-API (an Intel N100) sends sheared
+    /// pictures at other widths; heights that aren't multiples of 16 are
+    /// fine (docs/resolution.md).
+    public static let widthAlignment: UInt32 = 16
 
     public private(set) var isEnabled: Bool
     public private(set) var units: Units
@@ -56,16 +61,17 @@ public struct ResolutionFollower: Sendable {
     }
 
     /// The output size for a view: whole pixels rounded down to even
-    /// numbers (§7.2: subsampled chroma needs even sizes) within ``sides``.
-    /// Nil for a view with no area.
+    /// numbers (§7.2: subsampled chroma needs even sizes), widths to
+    /// ``widthAlignment``, within ``sides``. Nil for a view with no area.
     public static func outputSize(viewSize: CGSize, scale: CGFloat, units: Units) -> Size? {
         let factor = units == .pixels ? scale : 1
         guard viewSize.width > 0, viewSize.height > 0, factor > 0 else { return nil }
-        func side(_ length: CGFloat) -> UInt32 {
+        func side(_ length: CGFloat, multipleOf step: UInt32) -> UInt32 {
             let whole = UInt32(min(length * factor, CGFloat(sides.upperBound)).rounded(.down))
-            return max(whole & ~1, sides.lowerBound)
+            return max(whole / step * step, sides.lowerBound)
         }
-        return Size(width: side(viewSize.width), height: side(viewSize.height))
+        return Size(width: side(viewSize.width, multipleOf: widthAlignment),
+                    height: side(viewSize.height, multipleOf: 2))
     }
 
     /// The size the view asks for now, if following.

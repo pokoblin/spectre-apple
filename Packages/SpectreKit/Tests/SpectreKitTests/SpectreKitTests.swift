@@ -67,9 +67,13 @@ struct ColorTests {
 /// -> VideoDecoder -> zero-copy textures -> video shader -> read back.
 @Suite("Decode and present", .serialized)
 struct PipelineTests {
-    @Test(arguments: VideoCodec.allCases)
-    func decodedBarsRenderTheirColours(codec: VideoCodec) throws {
-        let width = 1920, height = 1080
+    /// Sizes a session can be resized to (§7.2): any even width, not only
+    /// multiples of the codecs' 16-pixel blocks, whose padding the decoder crops.
+    static let sizes = [(1920, 1080), (824, 460), (856, 460)]
+
+    @Test(arguments: VideoCodec.allCases, sizes)
+    func decodedBarsRenderTheirColours(codec: VideoCodec, size: (Int, Int)) throws {
+        let (width, height) = size
         let stream = try TestStreamEncoder.encode(codec: codec, width: width, height: height, frameCount: 10,
                                                   bitrate: 20_000_000)
         #expect(stream.accessUnits.count == 10)
@@ -109,21 +113,26 @@ struct PipelineTests {
         let pass = MTLRenderPassDescriptor()
         pass.colorAttachments[0].texture = target
         let cb = try #require(renderer.commandQueue.makeCommandBuffer())
-        renderer.encode(textures, color: .blockCodecDefault, viewport: VideoRenderer.fitViewport(
+        renderer.encode(textures, color: .blockCodecDefault, displaySize: CGSize(width: width, height: height),
+                        viewport: VideoRenderer.fitViewport(
             video: CGSize(width: width, height: height), drawable: CGSize(width: width, height: height)),
             pass: pass, into: cb)
         cb.commit()
         cb.waitUntilCompleted()
 
-        // Sample the middle of each bar, away from its edges.
+        // Sample the middle of each bar, away from its edges, near the top
+        // and the bottom of the bars: rows read with the wrong stride would
+        // drift sideways from one to the other.
+        let barsBottom = Double(height) * TestPatternGenerator.barsHeightFraction
         for (i, expected) in TestPatternGenerator.bars.enumerated() {
+            for y in [Int(barsBottom * 0.1), Int(barsBottom * 0.9)] {
             let x = (2 * i + 1) * width / 16
-            let y = Int(Double(height) * TestPatternGenerator.barsHeightFraction / 2)
             var bgra = [UInt8](repeating: 0, count: 4)
             target.getBytes(&bgra, bytesPerRow: 4 * width, from: MTLRegionMake2D(x, y, 1, 1), mipmapLevel: 0)
             let got = SIMD3(bgra[2], bgra[1], bgra[0])
             for c in 0..<3 {
-                #expect(abs(Int(got[c]) - Int(expected[c])) <= 6, "bar \(i): got \(got), expected \(expected)")
+                #expect(abs(Int(got[c]) - Int(expected[c])) <= 6, "bar \(i) row \(y): got \(got), expected \(expected)")
+            }
             }
         }
     }
