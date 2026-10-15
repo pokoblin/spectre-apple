@@ -292,6 +292,7 @@ public final class GDPSession: @unchecked Sendable {
                 GDPSession.from(ctx).handlers.clipboardText?(text)
             }
 
+            _ = GDP.ignoreBrokenPipes
             let h = gdpc_session_create(&callbacks)!
             var errorBuffer = [CChar](repeating: 0, count: 256)
             let ok = withCStrings(config.codecs) { codecs in

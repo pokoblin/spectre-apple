@@ -66,6 +66,22 @@ struct LobbyTests {
         return { $0 == pin }
     }
 
+    /// A send on a socket iOS made defunct raises SIGPIPE, which would end
+    /// the app without a crash report; once a lobby connects, a write with
+    /// no reader just fails with EPIPE.
+    @Test func brokenPipesDontEndTheProcess() throws {
+        let lobby = GDPLobby(handlers: GDPLobby.Handlers())
+        try lobby.connect(host: "127.0.0.1", port: 9, username: "demo", trustSystemCAs: false)
+        var fds: [Int32] = [0, 0]
+        #expect(pipe(&fds) == 0)
+        close(fds[0])
+        var byte: UInt8 = 1
+        #expect(write(fds[1], &byte, 1) == -1)
+        #expect(errno == EPIPE)
+        close(fds[1])
+        lobby.cancel()
+    }
+
     /// §4.2: after Redirect the server closes with code 0. The client keeps
     /// the connection until then instead of dropping it under that close.
     @Test func redirectWaitsForTheServersClose() async throws {

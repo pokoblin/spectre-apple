@@ -164,6 +164,7 @@ public final class GDPLobby: @unchecked Sendable {
                 lobby.finish()
                 lobby.handlers.failed?(Failure(code: code, message: String(cString: message!), certificateRejected: cert))
             }
+            _ = GDP.ignoreBrokenPipes
             let h = gdpc_lobby_create(&cb)!
             var errorBuffer = [CChar](repeating: 0, count: 256)
             let ok = withOptionalCString(extraCAFile?.path(percentEncoded: false)) { caFile in
@@ -335,6 +336,7 @@ public final class GDPTestLobby: @unchecked Sendable {
     public let certificate: CertificateFingerprint
 
     public init(_ config: Configuration) throws(GDPTestHost.Failure) {
+        _ = GDP.ignoreBrokenPipes
         var error = [CChar](repeating: 0, count: 256)
         // Every C string the configuration needs, kept alive for the call.
         var storage: [UnsafeMutablePointer<CChar>] = []

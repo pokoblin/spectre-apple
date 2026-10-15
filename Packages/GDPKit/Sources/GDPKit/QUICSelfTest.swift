@@ -31,6 +31,7 @@ public enum QUICSelfTest {
                            timeout: Duration = .seconds(10)) throws(Failure) -> Report {
         var r = gdpc_selftest_result()
         let ms = Int32(timeout.components.seconds * 1000 + timeout.components.attoseconds / 1_000_000_000_000_000)
+        _ = GDP.ignoreBrokenPipes
         gdpc_selftest_quic_loopback(scratchDirectory.path(percentEncoded: false), ms, &r)
         guard r.ok else {
             throw Failure(description: withUnsafeBytes(of: r.error) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) })

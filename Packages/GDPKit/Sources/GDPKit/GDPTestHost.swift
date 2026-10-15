@@ -145,6 +145,7 @@ public final class GDPTestHost: @unchecked Sendable {
     public let certificate: CertificateFingerprint
 
     public init(_ config: Configuration = Configuration()) throws(Failure) {
+        _ = GDP.ignoreBrokenPipes
         var error = [CChar](repeating: 0, count: 256)
         let h: OpaquePointer? = withCStrings(config.codecs) { codecs in
             withCStrings(config.capabilities) { caps in
