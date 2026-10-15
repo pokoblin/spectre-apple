@@ -69,6 +69,28 @@ final class PlaybackModel {
         }
     }
     private static let audioMutedKey = "audioMuted"
+    /// Keep the remote desktop the size of the session view (docs/resolution.md);
+    /// on unless turned off, remembered.
+    var matchesWindowSize = UserDefaults.standard.object(forKey: PlaybackModel.matchesWindowSizeKey) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(matchesWindowSize, forKey: Self.matchesWindowSizeKey)
+            resolution.setEnabled(matchesWindowSize, at: Self.now)
+            scheduleResolution()
+        }
+    }
+    /// Points (the default) or, for a sharper picture, pixels; remembered.
+    var resolutionUnits = UserDefaults.standard.string(forKey: PlaybackModel.resolutionUnitsKey)
+        .flatMap(ResolutionFollower.Units.init) ?? .points {
+        didSet {
+            UserDefaults.standard.set(resolutionUnits.rawValue, forKey: Self.resolutionUnitsKey)
+            resolution.setUnits(resolutionUnits, at: Self.now)
+            scheduleResolution()
+        }
+    }
+    private static let matchesWindowSizeKey = "matchesWindowSize"
+    private static let resolutionUnitsKey = "resolutionUnits"
+    private var resolution = ResolutionFollower(isEnabled: true, units: .points)
+    private var resolutionTimer: Task<Void, Never>?
     /// The session plays audio (SessionAccept described a format we decode).
     private(set) var hasAudio = false
     /// The host takes the microphone (`microphone` in effect, a format we encode).
@@ -163,6 +185,7 @@ final class PlaybackModel {
             arguments.firstIndex(of: flag).flatMap { arguments.indices.contains($0 + 1) ? arguments[$0 + 1] : nil }
         }
         bench = value("--bench").flatMap(Double.init).map { BenchOptions(seconds: $0) }
+        resolution = ResolutionFollower(isEnabled: matchesWindowSize, units: resolutionUnits)
         if let c = value("--codec").flatMap(VideoCodec.init(rawValue:)) { codec = c }
         if let s = value("--source").flatMap(Source.init(rawValue:)) { source = s }
         if let m = value("--mode").flatMap(VideoPresenter.Mode.init(rawValue:)) {
@@ -320,6 +343,8 @@ final class PlaybackModel {
         activity = nil
         reconnectTask?.cancel()
         reconnectTask = nil
+        resolutionTimer?.cancel()
+        resolutionTimer = nil
         endSession()
         player?.stop()
         player = nil
@@ -422,6 +447,9 @@ final class PlaybackModel {
                 presenter?.displaySize = picture.size
                 presenter?.color = picture.color
                 self?.input?.pictureChanged(picture.size)
+                self?.resolution.outputChanged(ResolutionFollower.Size(width: UInt32(picture.size.width),
+                                                                       height: UInt32(picture.size.height)))
+                print("session: output \(Int(picture.size.width))×\(Int(picture.size.height))")
             }
         }
         remote.onCursorShape = { [weak self] shape in
@@ -461,6 +489,13 @@ final class PlaybackModel {
         for capability in [GDPSession.Capability.clipboard, GDPSession.Capability.gamepad]
             where !config.capabilities.contains(capability) {
             config.capabilities.append(capability)
+        }
+        // The size the view wants, asked for in SessionHello (§6.2): the
+        // first picture comes at it, without a second encoder start. The
+        // test sources stream at a fixed size.
+        if isRemoteSession, let size = resolution.sizeForConnection() {
+            config.display = GDPSession.DisplayRequest(width: size.width, height: size.height)
+            print("session: asking for \(size)")
         }
         do {
             try remote.connect(config)
@@ -511,6 +546,7 @@ final class PlaybackModel {
             stats.reset()
             phase = .playing
             startTicker()
+            scheduleResolution() // the view may have changed while connecting
         case let .ended(ending):
             print("session: ended: \(ending)")
             input?.end()
@@ -533,6 +569,34 @@ final class PlaybackModel {
             } else if !(phase == .idle) {
                 phase = .failed("session ended: \(ending)")
             }
+        }
+    }
+
+    // MARK: - Resolution
+
+    /// The session view's size (points) and scale: what the remote desktop
+    /// is kept the size of (docs/resolution.md).
+    func sessionViewChanged(_ size: CGSize, scale: CGFloat) {
+        resolution.viewChanged(size, scale: scale, at: Self.now)
+        scheduleResolution()
+    }
+
+    private static var now: TimeInterval { ProcessInfo.processInfo.systemUptime }
+
+    /// Sends a ResolutionChange (§7.2) once the view has settled, while a
+    /// remote session is up; otherwise the next connection's SessionHello
+    /// carries the size.
+    private func scheduleResolution() {
+        resolutionTimer?.cancel()
+        resolutionTimer = nil
+        guard isRemoteSession, let deadline = resolution.nextDeadline else { return }
+        resolutionTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(max(deadline - Self.now, 0)))
+            guard !Task.isCancelled, let self, phase == .playing, let session = remote?.session else { return }
+            resolutionTimer = nil
+            guard let size = resolution.update(at: Self.now) else { return }
+            print("session: asking for \(size)")
+            session.requestResolution(width: size.width, height: size.height)
         }
     }
 

@@ -23,6 +23,8 @@ struct SessionView: View {
     @State private var diagnostics = DiagnosticsModel()
     @State private var showStats: Bool
     @State private var confirmLogOut = false
+    @State private var viewSize: CGSize = .zero
+    @Environment(\.displayScale) private var displayScale
 
     init(model: PlaybackModel) {
         self.model = model
@@ -33,15 +35,28 @@ struct SessionView: View {
     var body: some View {
         ZStack(alignment: .topLeading) {
             Color.black.ignoresSafeArea()
+                #if os(iOS)
+                // The remote desktop is kept the size of the whole screen
+                // area, not of what the touch keyboard leaves (that would
+                // resize it each time the keyboard shows). The proxy's size
+                // leaves out the safe area even here; its insets add it back.
+                .onGeometryChange(for: CGSize.self) { proxy in
+                    let insets = proxy.safeAreaInsets
+                    return CGSize(width: proxy.size.width + insets.leading + insets.trailing,
+                                  height: proxy.size.height + insets.top + insets.bottom)
+                } action: { viewSize = $0 }
+                #endif
             if let presenter = model.presenter {
                 VideoView(presenter: presenter, input: model.input)
                     #if os(iOS)
                     // Edge to edge, except where the touch keyboard is: the
                     // picture shrinks to fit above it, so nothing is hidden.
                     .ignoresSafeArea(.container)
-                    #endif
+                    #else
                     // On the Mac the picture starts below the toolbar: under
                     // it, the remote desktop's top edge (GNOME's top bar) is hidden.
+                    .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+                    #endif
             }
             VStack(alignment: .leading, spacing: 8) {
                 #if os(iOS)
@@ -85,6 +100,8 @@ struct SessionView: View {
         } message: {
             Text("This ends the desktop session itself, not just this connection.")
         }
+        .onChange(of: viewSize, initial: true) { model.sessionViewChanged(viewSize, scale: displayScale) }
+        .onChange(of: displayScale) { model.sessionViewChanged(viewSize, scale: displayScale) }
         .task { await model.start() }
         .onDisappear { model.windowClosed() }
         .task { if !model.isRemoteSession { await diagnostics.run() } }
@@ -115,6 +132,9 @@ struct SessionView: View {
         }
         if let gamepads = model.gamepads {
             GamepadControls(gamepads: gamepads)
+        }
+        if model.isRemoteSession {
+            ResolutionControls(model: model)
         }
         #if os(iOS)
         if let input = model.input {
@@ -259,6 +279,26 @@ private struct GamepadControls: View {
         #if os(iOS)
         .toggleStyle(.button)
         #endif
+    }
+}
+
+/// The remote desktop's size: the window's, or whatever the host has
+/// (gdp-spec.md §7.2, docs/resolution.md).
+private struct ResolutionControls: View {
+    @Bindable var model: PlaybackModel
+
+    var body: some View {
+        Menu {
+            Toggle("Match Window Size", isOn: $model.matchesWindowSize)
+            Section("Sharper on Retina screens, at up to four times the work for the host") {
+                Toggle("Retina Resolution", isOn: Binding(get: { model.resolutionUnits == .pixels },
+                                                          set: { model.resolutionUnits = $0 ? .pixels : .points }))
+                    .disabled(!model.matchesWindowSize)
+            }
+        } label: {
+            Label("Resolution", systemImage: "arrow.up.left.and.arrow.down.right")
+        }
+        .help("Resize the remote desktop to fit this window")
     }
 }
 
