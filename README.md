@@ -88,7 +88,7 @@ To run on a device, choose a development team for the target in Xcode.
 
 ## Using it
 
-The app opens on the login screen: enter the server (`host[:port]`, port 4442 by default) and your user name, answer the server's prompts, then pick a desktop to start the session. On the first connection you are asked to confirm the server's certificate fingerprint.
+The app opens on the login screen: enter the server (`host[:port]`, port 4442 by default), your user name and password, then pick a desktop to start the session. Any further prompt from the server (a one-time code, say) is asked on its own; leave the password empty to answer every prompt that way. On the first connection you are asked to confirm the server's certificate fingerprint.
 
 **Keyboard and mouse**: keys are sent by physical position, and the remote keyboard layout decides which characters they type. Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these three shortcuts stay local:
 

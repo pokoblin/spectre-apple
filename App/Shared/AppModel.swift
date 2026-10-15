@@ -73,10 +73,11 @@ final class AppModel {
         refreshSaved()
     }
 
-    func signIn(server: ServerAddress, username: String) {
+    /// `password`: the form's, for the server's first secret prompt (empty: none).
+    func signIn(server: ServerAddress, username: String, password: String, remember: Bool) {
         lastSessionEnd = nil
         recipe = nil
-        login.start(server: server, username: username)
+        login.start(server: server, username: username, password: password, remember: remember)
     }
 
     private func open(_ ticket: LoginFlow.SessionTicket) {

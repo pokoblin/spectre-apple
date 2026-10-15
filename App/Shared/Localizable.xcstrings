@@ -902,6 +902,34 @@
         }
       }
     },
+    "Keep the password in the Keychain and sign in with one tap next time." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda la contraseña en el llavero e inicia sesión con un toque la próxima vez."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードをキーチェーンに保存し、次回はタップするだけでサインインします。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把密码保存到钥匙串，下次点一下即可登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把密碼儲存到鑰匙圈，下次點一下即可登入。"
+          }
+        }
+      }
+    },
     "Keep this in the Keychain and sign in with one tap next time. Leave one-time codes unticked." : {
       "localizations" : {
         "es" : {
@@ -1290,6 +1318,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在開啟工作階段…"
+          }
+        }
+      }
+    },
+    "Password" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワード"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密碼"
           }
         }
       }

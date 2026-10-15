@@ -103,7 +103,10 @@ public final class LoginFlow {
     }
 
     public private(set) var step: Step = .idle {
-        didSet { if replay != nil { advanceReplay() } }
+        didSet {
+            if replay != nil { advanceReplay() }
+            if password != nil { answerWithPassword() }
+        }
     }
     /// What this login answered and chose so far; complete once redirected.
     public private(set) var recipe: Recipe?
@@ -113,6 +116,8 @@ public final class LoginFlow {
     private var replay: (recipe: Recipe, nextAnswer: Int, allowTakeOver: Bool)?
     /// The replay answers from a saved login: if the server refuses it, it is forgotten.
     private var replayingSaved = false
+    /// The password typed on the login form, until a secret prompt takes it.
+    private var password: (text: String, remember: Bool)?
     public private(set) var server: ServerAddress?
     public private(set) var username = ""
     public let knownHosts: KnownHosts
@@ -142,12 +147,18 @@ public final class LoginFlow {
         self.codecs = codecs
     }
 
-    public func start(server: ServerAddress, username: String) {
+    /// `password`: typed along with the username, it answers the server's
+    /// first secret prompt (`remember` as for any answer); every other
+    /// prompt is the user's, as without it. §4.5 promises no order, so a
+    /// prompt that shows what is typed never takes it. Nil or empty: every
+    /// prompt is the user's.
+    public func start(server: ServerAddress, username: String, password: String? = nil, remember: Bool = false) {
         let replay = self.replay, replayingSaved = self.replayingSaved, notice = self.notice
         cancel()
         self.replay = replay
         self.replayingSaved = replayingSaved
         self.notice = notice
+        if let password, !password.isEmpty { self.password = (password, remember) }
         let gen = generation
         self.server = server
         self.username = username
@@ -196,7 +207,7 @@ public final class LoginFlow {
     public func trustAndContinue() {
         guard case let .trustNewHost(request) = step else { return }
         knownHosts.trust(request.presented, for: request.server)
-        start(server: request.server, username: username)
+        start(server: request.server, username: username, password: password?.text, remember: password?.remember ?? false)
     }
 
     /// The user chose to drop the saved fingerprint of a server whose
@@ -204,6 +215,7 @@ public final class LoginFlow {
     public func forgetPinnedCertificate() {
         guard case let .certificateChanged(request) = step else { return }
         knownHosts.forget(request.server)
+        password = nil
         step = .idle
     }
 
@@ -262,6 +274,7 @@ public final class LoginFlow {
     public func cancel() {
         replay = nil
         replayingSaved = false
+        password = nil
         notice = nil
         generation += 1
         lobby?.cancel()
@@ -271,6 +284,7 @@ public final class LoginFlow {
 
     private func redirected(_ r: GDPLobby.Redirect) {
         lobby = nil
+        password = nil // no secret prompt came
         guard let server else { return }
         // §2.3: no session connection for a missing or malformed fingerprint.
         guard let certificate = r.certificate else {
@@ -294,6 +308,7 @@ public final class LoginFlow {
     private func failed(_ f: GDPLobby.Failure) {
         lobby = nil
         replay = nil
+        if !f.certificateRejected { password = nil } // kept for the login after the user trusts the server
         if replayingSaved, f.code == 20, let server {
             // §12 AUTH_FAILED: the saved password no longer works. Forget it
             // and ask, as a login without one would.
@@ -320,6 +335,13 @@ public final class LoginFlow {
         } else if recipe.answers.contains(where: { !$0.prompt.echo }) {
             savedLogins.delete(server: recipe.server, username: recipe.username)
         }
+    }
+
+    /// The form's password answers the first secret prompt, and only that one.
+    private func answerWithPassword() {
+        guard case let .prompt(prompt) = step, !prompt.echo, let password else { return }
+        self.password = nil
+        answer(password.text, remember: password.remember)
     }
 
     /// Takes the step a replay can take; leaves the rest to the user.

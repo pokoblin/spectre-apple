@@ -7,6 +7,11 @@ struct LoginView: View {
     @Bindable var app: AppModel
     @State private var serverText = ""
     @State private var username = ""
+    @State private var password = ""
+    @State private var remember = false
+    @FocusState private var focus: Field?
+
+    private enum Field { case server, username, password }
 
     private var flow: LoginFlow { app.login }
 
@@ -21,12 +26,6 @@ struct LoginView: View {
             }
             .padding(24)
             .frame(maxWidth: .infinity)
-        }
-        .onAppear {
-            if serverText.isEmpty, let last = app.recent.first {
-                serverText = last.server
-                username = last.username
-            }
         }
     }
 
@@ -84,6 +83,8 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled()
+                    .focused($focus, equals: .server)
+                    .onSubmit { focus = .username }
             }
             LabeledField("Username") {
                 TextField("Username", text: $username)
@@ -92,8 +93,20 @@ struct LoginView: View {
                     .textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled()
+                    .focused($focus, equals: .username)
+                    .onSubmit { focus = .password }
+            }
+            // Answers the server's first secret prompt; left empty, the
+            // server's prompts come one at a time (docs/login.md).
+            LabeledField("Password") {
+                SecureField("Password", text: $password)
+                    .textContentType(.password)
+                    .focused($focus, equals: .password)
                     .onSubmit(connect)
             }
+            Toggle("Remember", isOn: $remember)
+                .help("Keep the password in the Keychain and sign in with one tap next time.")
+                .disabled(password.isEmpty)
             Button(action: connect) {
                 Text("Connect").frame(maxWidth: .infinity)
             }
@@ -111,8 +124,10 @@ struct LoginView: View {
                         Button {
                             serverText = entry.server
                             username = entry.username
+                            password = ""
+                            remember = saved
                             // A saved login connects right away (docs/saved-logins.md).
-                            if saved { _ = app.signInWithSaved(entry) }
+                            if saved { _ = app.signInWithSaved(entry) } else { focus = .password }
                         } label: {
                             Label(entry.title, systemImage: saved ? "key.fill" : "clock.arrow.circlepath")
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -134,11 +149,25 @@ struct LoginView: View {
                 }
             }
         }
+        .onAppear {
+            if serverText.isEmpty, let last = app.recent.first {
+                serverText = last.server
+                username = last.username
+                remember = app.savedRecent.contains(last) // unticked, signing in forgets it
+            }
+            focusFirstEmpty()
+        }
     }
 
     private func connect() {
         guard let server = parsedServer, !username.isEmpty else { return }
-        app.signIn(server: server, username: username)
+        app.signIn(server: server, username: username, password: password, remember: remember)
+        password = "" // the login holds it until a prompt takes it
+    }
+
+    /// The first field still to fill in.
+    private func focusFirstEmpty() {
+        focus = parsedServer == nil ? .server : username.isEmpty ? .username : .password
     }
 }
 
