@@ -191,6 +191,7 @@ En el simulador VideoToolbox decodifica por software y no hay `presentedTime`, a
 - [docs/gamepad.md](docs/gamepad.md): mandos, la asignación de botones, el botón Home
 - [docs/keyboard.md](docs/keyboard.md): el teclado en pantalla de iOS, de caracteres a teclas, la barra de teclas
 - [docs/reconnect.md](docs/reconnect.md): reconexión de una sesión perdida, repetición del inicio de sesión, iOS en segundo plano
+- [docs/keep-alive.md](docs/keep-alive.md): keep-alive de QUIC, para que una conexión inactiva sobreviva al tiempo de inactividad de 30 s, y cuánto tarda en detectarse una conexión perdida
 
 ## Licencia
 

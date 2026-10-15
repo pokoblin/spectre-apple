@@ -29,6 +29,8 @@ GDPKit 新增的 `Lobby keep-alive` 套件：
 - `aPromptLeftOpenPastTheIdleTimeoutStillTakesItsAnswer`：测试 lobby 发出 Password 提示后，等 35 秒再回答，登录照常拿到 Redirect。测试 lobby 收到的回答是 `demo`，而且全程只有一条连接。没有保活时，这个测试在 30.0 秒时以上面那条 `Timer expired` 失败。
 - `aLobbyThatGoesAwayDuringAPromptIsReported`：经 `UDPRelay` 连到测试 lobby，停在提示框上时 `relay.cut()`。客户端仍然报告失败（code 0，`Timer expired`），实测 40 秒，测试窗口为 50 秒。
 
+手动检查（iPad 模拟器，Release，App 内的演示 host）：信任证书后停在密码框上 45 秒，再输入密码，登录成功，选桌面后会话正常出画面。修复前停 30 秒就会出现上面那条错误。
+
 `LobbyScript` 新增了 `answerDelay` 参数：它模拟用户在每个提示上花的时间，`nil` 表示永远不回答。
 
 会话这边没有新增"空闲超过 30 秒仍在线"的测试：因为有 StatsReport，不开保活这个测试也会通过，区分不出改动前后。断线检测仍由 `Lost connections` 里的 `aNetworkThatGoesAwayIsLost`（`UDPRelay.cut()`）覆盖，它现在会打印实测耗时。
