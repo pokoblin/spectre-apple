@@ -45,6 +45,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §7.10 Logout | 发 LogoutRequest；以 host 关闭时的 `SESSION_ENDED`(40) 作为完成信号 |
 | §7.11 诊断 | 收到请求后回调上层；每个请求只回答一次，超过 512 KiB 的部分截掉 |
 | §8 输入 | 键盘（HID usage）、指针移动（绝对/相对）、按键（`BTN_*`）、滚轮（以 notch 为单位）、触摸。建立之前不发；`client_time_us` 取单调时钟 |
+| §8.5 手柄 | 只有 `gamepad` 生效时才发 `GamepadConnect`/`GamepadState`/`GamepadDisconnect`，槽位 ≥ 4 的不发。`GamepadState` 总是带全 6 个轴、26 个按钮（`GDPKit.GamepadState` 按规范的顺序定义）；摇杆夹到 −1…1、扳机夹到 0…1，NaN 发 0。映射和转发在 SpectreKit，见 [gamepad.md](gamepad.md) |
 | §8.4 input 流上的回程数据 | 没有 `hid` capability 时，host 发来的数据一律忽略 |
 | §3.2 datagram | 只处理视频（0x01）和音频（0x02），其它通道丢弃；音频在建立之后原样交给上层 |
 | §6.8、§10 音频 | SessionHello 里没有音频字段，不用声明。`RemoteSession` 在 Accept 时检查 `audio` 的格式，能解就起播放器（抖动缓冲 + 系统 Opus 解码 + AVAudioEngine），不能解或没有就照常运行、没有声音。见 [audio.md](audio.md) |
@@ -71,7 +72,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 
 ## 没有实现的
 
-- capability：`refine`、`gamepad`、`hid`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。（`microphone` 已经实现，`RemoteSession` 总是提供，见 [audio.md](audio.md)；`clipboard` 也已实现，见 [clipboard.md](clipboard.md)。）
+- capability：`refine`、`hid`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。（`microphone` 已经实现，`RemoteSession` 总是提供，见 [audio.md](audio.md)；`clipboard` 也已实现，见 [clipboard.md](clipboard.md)；`gamepad` 见 [gamepad.md](gamepad.md)。）
 - 额外的流（§2.2 的 `StreamOpen`）：客户端不授予额外流的额度，收到也不会处理。
 - AV1、PyroWave（VideoToolbox 解不了 PyroWave；AV1 要看硬件，以后再评估）。
 - ~~lobby 阶段（`LobbyClient`、§4）~~：已完成，见 [login.md](login.md)。
@@ -84,7 +85,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 - 按客户端的偏好选择 codec，capability 取双方的交集；发送 Accept、光标和（`clipboard` 生效时）自己的剪贴板；记住 viewer 发来的剪贴板文本，下一个 viewer 连上时发给它；按 §7.2 的规则响应 ResolutionChange；收到 Logout 后以 `SESSION_ENDED` 关闭。
 - 把视频帧切成 datagram 发送（可以指定丢弃某些分片，模拟丢包），也能发送音频、Ping、光标、DisplaysChanged、网络 profile、GatewayPath、诊断请求。音频可以由调用方给出 `seq` 和 `pts`（测乱序、丢包），也可以像真实 host 那样由测试 host 自己编号（从 Accept 时的 0 开始）、用会话时钟打 `pts`（`sendAudio`）；Accept 里的音频格式可以配置（测不支持的格式）。
 - 可以故意出错：选一个客户端没提供的 codec、用指定的码拒绝、发 Reject、在 Accept 之前发 Ping、让 frame_id 从任意值开始。
-- 记录收到的一切，包括每份 StatsReport 的字段和所有被报告为丢失的 frame_id。收到 KeyframeRequest 或有新的丢失时会标记"需要关键帧"。
+- 记录收到的一切，包括每份 StatsReport 的字段、所有被报告为丢失的 frame_id，以及手柄消息原样的内容（轴和按钮的个数、取值）。收到 KeyframeRequest 或有新的丢失时会标记"需要关键帧"。
 
 App 的 loopback 模式（`SpectreKit.LoopbackHost`）就是用它按 60 Hz 播放测试码流，收到"需要关键帧"时从第 0 帧（IDR）重新开始。
 

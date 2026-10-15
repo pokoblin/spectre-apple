@@ -328,6 +328,12 @@ void gdpc_session_send_pointer_button(gdpc_session *session, uint32_t button, bo
 void gdpc_session_send_pointer_axis(gdpc_session *session, double horizontal, double vertical);
 // `phase`: 1 down, 2 move, 3 up, 4 cancel (§8.3).
 void gdpc_session_send_touch(gdpc_session *session, uint32_t touch_id, int32_t phase, double x, double y);
+// Gamepads (§8.5). Dropped before establishment, without `gamepad` in
+// effect, and for a slot of 4 or more. `axes`: 6 values, `buttons`: 26, in
+// the spec's (SDL3's) order; axes are clamped to their ranges, NaN sent as 0.
+void gdpc_session_send_gamepad_connect(gdpc_session *session, uint32_t slot, const char *name);
+void gdpc_session_send_gamepad_state(gdpc_session *session, uint32_t slot, const float *axes, const bool *buttons);
+void gdpc_session_send_gamepad_disconnect(gdpc_session *session, uint32_t slot);
 // One Opus packet of the microphone (§10.1); seq and pts are filled in.
 // Dropped unless established with `microphone` in effect.
 bool gdpc_session_send_microphone(gdpc_session *session, const uint8_t *opus, size_t len);
@@ -383,15 +389,24 @@ typedef enum {
     GDPC_TEST_INPUT_BUTTON = 3,
     GDPC_TEST_INPUT_AXIS = 4,
     GDPC_TEST_INPUT_TOUCH = 5,
+    GDPC_TEST_INPUT_GAMEPAD_CONNECT = 6,
+    GDPC_TEST_INPUT_GAMEPAD_STATE = 7,
+    GDPC_TEST_INPUT_GAMEPAD_DISCONNECT = 8,
 } gdpc_test_input_kind;
 
 typedef struct {
     int32_t kind;      // gdpc_test_input_kind
-    uint32_t code;     // HID usage, BTN_* code or touch_id
+    uint32_t code;     // HID usage, BTN_* code, touch_id or pad_index
     bool pressed;      // key, button
     double x, y;       // motion dx/dy, axis horizontal/vertical, touch position
     bool absolute;     // motion
     int32_t phase;     // touch
+    // GamepadState (§8.5) as sent: how many axes and buttons it carried,
+    // the first 6 axes, the first 26 buttons as bits (bit i = button i).
+    uint32_t axis_count, button_count;
+    float axes[6];
+    uint32_t buttons;
+    char name[64];     // GamepadConnect, truncated
 } gdpc_test_input_event;
 
 typedef struct {

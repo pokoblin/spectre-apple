@@ -169,6 +169,13 @@ public:
 	void send_pointer_button(uint32_t button, bool pressed);
 	void send_pointer_axis(double horizontal, double vertical);
 	void send_touch(uint32_t touch_id, int32_t phase, double x, double y);
+	// Gamepads (§8.5): dropped before establishment, without `gamepad` in
+	// effect, and for a slot of 4 or more. `axes` holds 6 values and
+	// `buttons` 26, in gdp/gamepad.hpp's order; axes are clamped to their
+	// ranges, NaN sent as 0.
+	void send_gamepad_connect(uint32_t slot, const std::string &name);
+	void send_gamepad_state(uint32_t slot, const float *axes, const bool *buttons);
+	void send_gamepad_disconnect(uint32_t slot);
 
 	// One Opus packet of the microphone (§10.1) on datagram channel 0x03:
 	// seq counts from 0 at SessionAccept, pts is our session clock. Dropped
@@ -212,6 +219,7 @@ private:
 	uint64_t microphone_sent_ = 0;
 	uint64_t microphone_dropped_ = 0;
 	bool clipboard_ = false;                // `clipboard` among them
+	bool gamepad_ = false;                  // `gamepad` among them
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}

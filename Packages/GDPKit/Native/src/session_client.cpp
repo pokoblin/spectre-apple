@@ -6,10 +6,12 @@
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
 #include "gdp/framing.hpp"
+#include "gdp/gamepad.hpp"
 #include "gdp/version.hpp"
 #include "session.pb.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace gdpcore {
 
@@ -275,6 +277,7 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	microphone_ = info.has_microphone;
 	microphone_seq_ = 0; // §10.1
 	clipboard_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityClipboard) != capabilities_.end();
+	gamepad_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityGamepad) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
@@ -522,6 +525,37 @@ bool SessionClient::send_microphone(const uint8_t *opus, size_t len) {
 	}
 	++microphone_sent_;
 	return true;
+}
+
+void SessionClient::send_gamepad_connect(uint32_t slot, const std::string &name) {
+	if (!gamepad_ || slot >= gdp::kMaxGamepads) return;
+	gdp::session::InputEnvelope env;
+	auto *c = env.mutable_gamepad_connect();
+	c->set_pad_index(slot);
+	c->set_name(name);
+	send_input(env);
+}
+
+void SessionClient::send_gamepad_state(uint32_t slot, const float *axes, const bool *buttons) {
+	if (!gamepad_ || slot >= gdp::kMaxGamepads) return;
+	gdp::session::InputEnvelope env;
+	auto *g = env.mutable_gamepad();
+	g->set_pad_index(slot);
+	for (size_t i = 0; i < gdp::kGamepadAxisCount; i++) {
+		// §8.5: sticks -1..1, triggers 0..1.
+		bool trigger = i >= static_cast<size_t>(gdp::GamepadAxis::kLeftTrigger);
+		float v = std::isnan(axes[i]) ? 0.0f : std::clamp(axes[i], trigger ? 0.0f : -1.0f, 1.0f);
+		g->add_axes(v);
+	}
+	for (size_t i = 0; i < gdp::kGamepadButtonCount; i++) g->add_buttons(buttons[i]);
+	send_input(env);
+}
+
+void SessionClient::send_gamepad_disconnect(uint32_t slot) {
+	if (!gamepad_ || slot >= gdp::kMaxGamepads) return;
+	gdp::session::InputEnvelope env;
+	env.mutable_gamepad_disconnect()->set_pad_index(slot);
+	send_input(env);
 }
 
 SessionClient::LinkStats SessionClient::link_stats() const {

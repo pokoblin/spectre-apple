@@ -53,15 +53,21 @@ public:
 		std::string clipboard;
 	};
 
-	// One input event as received (§8.2, §8.3), in order.
+	// One input event as received (§8.2, §8.3, §8.5), in order.
 	struct InputEvent {
-		enum Kind : uint8_t { Key = 1, Motion, Button, Axis, Touch };
+		enum Kind : uint8_t { Key = 1, Motion, Button, Axis, Touch, GamepadConnect, GamepadState, GamepadDisconnect };
 		Kind kind;
-		uint32_t code = 0;    // HID usage, BTN_* code or touch_id
+		uint32_t code = 0;    // HID usage, BTN_* code, touch_id or pad_index
 		bool pressed = false; // key and button
 		double x = 0, y = 0;  // motion dx/dy, axis horizontal/vertical, touch position
 		bool absolute = false;
 		int32_t phase = 0;    // touch
+		// GamepadState as sent: how many axes and buttons it carried, the
+		// first 6 axes, and the first 26 buttons as bits (bit i = button i).
+		uint32_t axis_count = 0, button_count = 0;
+		float axes[6] = {};
+		uint32_t buttons = 0;
+		std::string name;     // GamepadConnect
 	};
 	static constexpr size_t kMaxInputLog = 8192;
 	static constexpr size_t kMaxMicrophoneLog = 6000; // a minute of 10 ms packets

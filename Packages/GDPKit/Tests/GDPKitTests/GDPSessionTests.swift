@@ -630,3 +630,100 @@ struct ClipboardTests {
         #expect(await eventually { rec2.snapshot.clipboards == ["copied on the Mac ⌘"] })
     }
 }
+
+@Suite("Gamepads (§8.5)")
+struct GamepadTests {
+    func gamepadHost() throws -> GDPTestHost {
+        var hc = GDPTestHost.Configuration()
+        hc.capabilities = [GDPSession.Capability.gamepad]
+        return try GDPTestHost(hc)
+    }
+
+    /// Sends a key as a marker and waits for it: input arrives in order, so
+    /// everything sent before it has arrived (or was never sent).
+    func flush(_ session: GDPSession, _ host: GDPTestHost) async -> [GDPTestHost.InputEvent] {
+        session.sendKey(hidUsage: 0x04, pressed: true)
+        _ = await eventually { host.inputEvents().contains(.key(usage: 0x04, pressed: true)) }
+        return host.inputEvents().filter { $0 != .key(usage: 0x04, pressed: true) }
+    }
+
+    @Test func connectStateAndDisconnectReachTheHost() async throws {
+        let host = try gamepadHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = [GDPSession.Capability.gamepad] }
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.capabilities == ["gamepad"])
+
+        var state = GamepadState()
+        state[.leftX] = 0.5
+        state[.leftY] = -1
+        state[.rightTrigger] = 0.25
+        state[.south] = true
+        state[.guide] = true
+        state[.misc6] = true
+        session.sendGamepadConnect(slot: 3, name: "Xbox Wireless Controller")
+        session.sendGamepadState(slot: 3, state)
+        session.sendGamepadDisconnect(slot: 3)
+        let events = await flush(session, host)
+        #expect(events == [
+            .gamepadConnect(slot: 3, name: "Xbox Wireless Controller"),
+            // Always every axis and every button, in the spec's order.
+            .gamepadState(slot: 3, axisCount: 6, buttonCount: 26, axes: [0.5, -1, 0, 0, 0, 0.25],
+                          buttons: 1 << 0 | 1 << 5 | 1 << 25),
+            .gamepadDisconnect(slot: 3),
+        ])
+    }
+
+    @Test func axesAreClampedToTheirRanges() async throws {
+        let host = try gamepadHost()
+        let session = try await connected(host, Recorder()) { $0.capabilities = ["gamepad"] }
+        defer { withExtendedLifetime(session) {} }
+        var state = GamepadState()
+        state[.leftX] = .nan
+        state[.leftY] = 0.25
+        state[.rightX] = 2
+        state[.rightY] = -2
+        state[.leftTrigger] = -0.5 // triggers are 0...1
+        state[.rightTrigger] = .infinity
+        session.sendGamepadState(slot: 0, state)
+        let events = await flush(session, host)
+        #expect(events == [.gamepadState(slot: 0, axisCount: 6, buttonCount: 26, axes: [0, 0.25, 1, -1, 0, 1], buttons: 0)])
+    }
+
+    @Test(arguments: [(true, false), (false, true)])
+    func nothingIsSentWithoutTheCapability(hostSupports: Bool, clientOffers: Bool) async throws {
+        var hc = GDPTestHost.Configuration()
+        hc.capabilities = hostSupports ? ["gamepad"] : []
+        let host = try GDPTestHost(hc)
+        let session = try await connected(host, Recorder()) { $0.capabilities = clientOffers ? ["gamepad"] : [] }
+        defer { withExtendedLifetime(session) {} }
+        session.sendGamepadConnect(slot: 0, name: "pad")
+        session.sendGamepadState(slot: 0, GamepadState())
+        session.sendGamepadDisconnect(slot: 0)
+        #expect(await flush(session, host).isEmpty)
+    }
+
+    @Test func slotsBeyondFourAreNotSent() async throws {
+        let host = try gamepadHost()
+        let session = try await connected(host, Recorder()) { $0.capabilities = ["gamepad"] }
+        defer { withExtendedLifetime(session) {} }
+        session.sendGamepadConnect(slot: 4, name: "fifth")
+        session.sendGamepadState(slot: 4, GamepadState())
+        session.sendGamepadDisconnect(slot: 4)
+        #expect(await flush(session, host).isEmpty)
+    }
+
+    @Test func wireOrderMatchesTheSpec() {
+        // §8.5's tables: 6 axes, 26 buttons, a few spot checks of the order.
+        #expect(GamepadState.Axis.allCases.count == 6)
+        #expect(GamepadState.Button.allCases.count == 26)
+        #expect(GamepadState.Axis.leftTrigger.rawValue == 4)
+        #expect(GamepadState.Button.guide.rawValue == 5)
+        #expect(GamepadState.Button.dpadUp.rawValue == 11)
+        #expect(GamepadState.Button.misc1.rawValue == 15)
+        #expect(GamepadState.Button.rightPaddle1.rawValue == 16)
+        #expect(GamepadState.Button.leftPaddle1.rawValue == 17)
+        #expect(GamepadState.Button.touchpad.rawValue == 20)
+        #expect(GamepadState.Button.misc6.rawValue == 25)
+    }
+}

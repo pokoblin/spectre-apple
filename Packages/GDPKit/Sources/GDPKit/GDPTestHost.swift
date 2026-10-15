@@ -275,6 +275,11 @@ public final class GDPTestHost: @unchecked Sendable {
         case button(UInt32, pressed: Bool)
         case axis(horizontal: Double, vertical: Double)
         case touch(id: UInt32, phase: Int32, x: Double, y: Double)
+        case gamepadConnect(slot: UInt32, name: String)
+        /// As sent: how many axes and buttons it carried, the first 6 axes,
+        /// the first 26 buttons as bits (bit i = button i).
+        case gamepadState(slot: UInt32, axisCount: Int, buttonCount: Int, axes: [Float], buttons: UInt32)
+        case gamepadDisconnect(slot: UInt32)
     }
 
     /// The input events received so far (the first 8192), oldest first, from index `first`.
@@ -292,7 +297,15 @@ public final class GDPTestHost: @unchecked Sendable {
                 case Int32(GDPC_TEST_INPUT_MOTION.rawValue): out.append(.motion(x: e.x, y: e.y, absolute: e.absolute))
                 case Int32(GDPC_TEST_INPUT_BUTTON.rawValue): out.append(.button(e.code, pressed: e.pressed))
                 case Int32(GDPC_TEST_INPUT_AXIS.rawValue): out.append(.axis(horizontal: e.x, vertical: e.y))
-                default: out.append(.touch(id: e.code, phase: e.phase, x: e.x, y: e.y))
+                case Int32(GDPC_TEST_INPUT_TOUCH.rawValue): out.append(.touch(id: e.code, phase: e.phase, x: e.x, y: e.y))
+                case Int32(GDPC_TEST_INPUT_GAMEPAD_CONNECT.rawValue):
+                    let name = withUnsafeBytes(of: e.name) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+                    out.append(.gamepadConnect(slot: e.code, name: name))
+                case Int32(GDPC_TEST_INPUT_GAMEPAD_STATE.rawValue):
+                    let axes = withUnsafeBytes(of: e.axes) { Array($0.bindMemory(to: Float.self)) }
+                    out.append(.gamepadState(slot: e.code, axisCount: Int(e.axis_count), buttonCount: Int(e.button_count),
+                                             axes: Array(axes.prefix(Int(min(e.axis_count, 6)))), buttons: e.buttons))
+                default: out.append(.gamepadDisconnect(slot: e.code))
                 }
             }
             next += n

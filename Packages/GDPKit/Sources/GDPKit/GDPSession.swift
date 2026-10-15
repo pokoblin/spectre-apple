@@ -208,6 +208,7 @@ public final class GDPSession: @unchecked Sendable {
     /// Capability names (§6.7) this client can offer.
     public enum Capability {
         public static let clipboard = "clipboard"
+        public static let gamepad = "gamepad"
     }
 
     /// The most clipboard text either peer sends, in UTF-8 bytes (§7.9).
@@ -412,6 +413,20 @@ public final class GDPSession: @unchecked Sendable {
     public func sendTouch(id: UInt32, phase: TouchPhase, x: Double, y: Double) {
         async { gdpc_session_send_touch($0, id, phase.rawValue, x, y) }
     }
+
+    // Gamepads (§8.5): dropped before establishment, without `gamepad` in
+    // effect, and for a slot of 4 or more. Axes are clamped to their ranges.
+    public func sendGamepadConnect(slot: UInt32, name: String) {
+        async { h in name.withCString { gdpc_session_send_gamepad_connect(h, slot, $0) } }
+    }
+    public func sendGamepadState(slot: UInt32, _ state: GamepadState) {
+        async { h in
+            state.axes.withUnsafeBufferPointer { axes in
+                state.buttons.withUnsafeBufferPointer { gdpc_session_send_gamepad_state(h, slot, axes.baseAddress, $0.baseAddress) }
+            }
+        }
+    }
+    public func sendGamepadDisconnect(slot: UInt32) { async { gdpc_session_send_gamepad_disconnect($0, slot) } }
 
     /// One Opus packet of the microphone, in ``Accept/microphone``'s format
     /// (gdp-spec.md §10.1). The session numbers it (`seq` from 0) and stamps

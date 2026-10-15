@@ -451,6 +451,27 @@ struct TestHost::Impl {
 				ev.x = env.touch().x();
 				ev.y = env.touch().y();
 				break;
+			case gdp::session::InputEnvelope::kGamepadConnect:
+				ev.kind = TestHost::InputEvent::GamepadConnect;
+				ev.code = env.gamepad_connect().pad_index();
+				ev.name = env.gamepad_connect().name();
+				break;
+			case gdp::session::InputEnvelope::kGamepad: {
+				const auto &g = env.gamepad();
+				ev.kind = TestHost::InputEvent::GamepadState;
+				ev.code = g.pad_index();
+				ev.axis_count = static_cast<uint32_t>(g.axes_size());
+				ev.button_count = static_cast<uint32_t>(g.buttons_size());
+				for (int i = 0; i < std::min(g.axes_size(), 6); i++) ev.axes[i] = g.axes(i);
+				for (int i = 0; i < std::min(g.buttons_size(), 26); i++) {
+					if (g.buttons(i)) ev.buttons |= 1u << i;
+				}
+				break;
+			}
+			case gdp::session::InputEnvelope::kGamepadDisconnect:
+				ev.kind = TestHost::InputEvent::GamepadDisconnect;
+				ev.code = env.gamepad_disconnect().pad_index();
+				break;
 			default:
 				return true;
 			}

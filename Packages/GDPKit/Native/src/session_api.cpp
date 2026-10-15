@@ -225,6 +225,18 @@ void gdpc_session_send_touch(gdpc_session *session, uint32_t touch_id, int32_t p
 	session->client.send_touch(touch_id, phase, x, y);
 }
 
+void gdpc_session_send_gamepad_connect(gdpc_session *session, uint32_t slot, const char *name) {
+	session->client.send_gamepad_connect(slot, name ? name : "");
+}
+
+void gdpc_session_send_gamepad_state(gdpc_session *session, uint32_t slot, const float *axes, const bool *buttons) {
+	session->client.send_gamepad_state(slot, axes, buttons);
+}
+
+void gdpc_session_send_gamepad_disconnect(gdpc_session *session, uint32_t slot) {
+	session->client.send_gamepad_disconnect(slot);
+}
+
 bool gdpc_session_send_microphone(gdpc_session *session, const uint8_t *opus, size_t len) {
 	return session->client.send_microphone(opus, len);
 }
@@ -432,7 +444,10 @@ size_t gdpc_test_host_input_events(const gdpc_test_host *host, size_t first, gdp
 	size_t n = 0;
 	for (size_t i = first; i < o.inputs.size() && n < cap; i++, n++) {
 		const auto &e = o.inputs[i];
-		out[n] = gdpc_test_input_event{static_cast<int32_t>(e.kind), e.code, e.pressed, e.x, e.y, e.absolute, e.phase};
+		out[n] = gdpc_test_input_event{static_cast<int32_t>(e.kind), e.code, e.pressed, e.x, e.y, e.absolute, e.phase,
+			e.axis_count, e.button_count, {}, e.buttons, {}};
+		std::copy(std::begin(e.axes), std::end(e.axes), out[n].axes);
+		copy_string(out[n].name, sizeof(out[n].name), e.name);
 	}
 	return n;
 }
