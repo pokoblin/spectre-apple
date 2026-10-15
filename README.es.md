@@ -25,6 +25,7 @@ Funciona:
 - **Mandos**: hasta cuatro mandos reenviados como mandos estándar (§8.5), botones Home y Share incluidos, desactivado por defecto y activable en la barra de herramientas. Véase [docs/gamepad.md](docs/gamepad.md).
 - **Teclado en pantalla** (iPhone y iPad): el teclado del sistema escribe en el escritorio remoto, suponiendo una distribución US en el host, con una barra de teclas para Esc, Tab, Ctrl/Shift/Alt/Super fijas, flechas y teclas de función; la imagen se reduce para caber encima. El chino y otras escrituras se introducen con el método de entrada del host. Véase [docs/keyboard.md](docs/keyboard.md).
 - **Reconexión**: una sesión que pierde la conexión (cambio de Wi-Fi, el Mac en reposo, iOS suspendiendo la app) se reconecta sola, volviendo a iniciar sesión con respuestas guardadas solo en memoria; en iOS una visita breve a otra app no corta la conexión. Véase [docs/reconnect.md](docs/reconnect.md).
+- **Contraseñas guardadas**: al marcar "Remember" bajo una pregunta de contraseña, el inicio de sesión se guarda en el llavero (Keychain), solo en este dispositivo, y esa entrada reciente se conecta con un toque. Los códigos de un solo uso se siguen pidiendo cada vez, y una contraseña guardada que el servidor rechaza se olvida. Véase [docs/saved-logins.md](docs/saved-logins.md).
 - **Control de sesión**: desconectar (la sesión remota sigue abierta) y cerrar sesión (termina la sesión remota).
 
 Pendiente: la capa de refinamiento sin pérdidas (refine), AV1 y PyroWave.
@@ -191,6 +192,7 @@ En el simulador VideoToolbox decodifica por software y no hay `presentedTime`, a
 - [docs/gamepad.md](docs/gamepad.md): mandos, la asignación de botones, el botón Home
 - [docs/keyboard.md](docs/keyboard.md): el teclado en pantalla de iOS, de caracteres a teclas, la barra de teclas
 - [docs/reconnect.md](docs/reconnect.md): reconexión de una sesión perdida, repetición del inicio de sesión, iOS en segundo plano
+- [docs/saved-logins.md](docs/saved-logins.md): contraseñas guardadas en el llavero, inicio de sesión con un toque
 - [docs/keep-alive.md](docs/keep-alive.md): keep-alive de QUIC, para que una conexión inactiva sobreviva al tiempo de inactividad de 30 s, y cuánto tarda en detectarse una conexión perdida
 
 ## Licencia

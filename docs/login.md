@@ -37,7 +37,7 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；演示服务�
 ## 不同平台
 
 - **iOS 上不做 CA 校验**：libgdp 在 Apple 平台上从 `/etc/ssl/cert.pem` 读系统根证书，iOS 沙盒里没有这个文件。所以 iOS 上 `trustSystemCAs` 默认关闭，CA 签发的证书也按 TOFU 处理，这是 §2.3 允许的（证书验证不通过时必须退回到指纹固定）。要在 iOS 上做 CA 校验，需要 libgdp 把对端证书链交出来，再交给 Security.framework 验证，可以以后向上游提。
-- **密码不保存**：现在每次登录都要重新输入。以后可以接入 Keychain 和系统的"密码"自动填充（密码框已经设置了 `textContentType(.password)`）。
+- **密码默认不保存**：勾选密码提问下的 Remember 才存进 Keychain，之后在最近列表里点一下就能登录，见 [saved-logins.md](saved-logins.md)。系统的"密码"自动填充照常可用（密码框设置了 `textContentType(.password)`）。
 
 ## 测试服务器和演示
 
@@ -68,7 +68,6 @@ App 登录页的 **Try the demo host** 会在 App 内同时启动 TestLobby（�
 
 ## 以后
 
-- Keychain 保存密码，和系统"密码"自动填充集成。（断线重连用的登录配方只存在内存里，见 [reconnect.md](reconnect.md)。）
 - 管理已保存指纹的界面（现在只能在"证书已变"时删除）。
 - iOS 上的 CA 校验（见上）。
 - 界面文字目前是英文，之后统一做本地化（工程的开发语言已设为 zh-Hans）。

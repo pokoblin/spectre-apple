@@ -25,6 +25,7 @@ Working:
 - **Gamepads**: up to four controllers forwarded as standard gamepads (§8.5), Home and Share included, off by default and switched in the toolbar. See [docs/gamepad.md](docs/gamepad.md).
 - **On-screen keyboard** (iPhone and iPad): the system keyboard types on the remote desktop, taken to use a US layout, with a key bar for Esc, Tab, sticky Ctrl/Shift/Alt/Super, arrows and function keys; the picture shrinks to fit above it. Chinese and other scripts go through the host's input method. See [docs/keyboard.md](docs/keyboard.md).
 - **Reconnecting**: a session whose connection is lost (Wi-Fi changing, the Mac asleep, iOS suspending the app) reconnects by itself, signing in again from answers kept in memory only; on iOS a short trip to another app keeps the connection. See [docs/reconnect.md](docs/reconnect.md).
+- **Saved passwords**: tick "Remember" under a password prompt and the login is kept in the Keychain, on this device only; that recent login then connects with one tap. One-time codes are still asked each time, and a saved password the server refuses is forgotten. See [docs/saved-logins.md](docs/saved-logins.md).
 - **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
 Not done yet: the lossless refinement layer (refine), AV1 and PyroWave.
@@ -191,6 +192,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 - [docs/gamepad.md](docs/gamepad.md): gamepads, the button mapping, the Home button
 - [docs/keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
 - [docs/reconnect.md](docs/reconnect.md): reconnecting a lost session, replaying the login, iOS in the background
+- [docs/saved-logins.md](docs/saved-logins.md): saved passwords in the Keychain, one-tap sign-in
 - [docs/keep-alive.md](docs/keep-alive.md): QUIC keep-alive, so an idle connection outlives the 30 s idle timeout, and how long a lost one takes to notice
 
 ## License

@@ -90,6 +90,6 @@ App/Shared/PlaybackModel        重连循环；iOS 后台：暂停视频、申�
 
 ## 没有做的
 
-- 保存密码（Keychain）：配方只在内存里，App 退出后重新打开要重新登录。见 [login.md](login.md) 的“以后”。
+- 配方本身只在内存里。勾选了 Remember 的登录另外存在 Keychain 里，App 重新打开后可以一键登录，见 [saved-logins.md](saved-logins.md)。
 - QUIC 连接迁移（换网络时保持同一个连接）：libgdp 没有提供。
 - 后台音频模式：后台继续播放声音、保持连接更久，是另一个产品决定（见 [audio.md](audio.md)）。
