@@ -70,6 +70,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 - **开局就要关键帧**：每个流一开始就处于"等关键帧"状态。如果第一个拼完整的帧不是关键帧，会丢弃它并请求关键帧。
 - **Reject**：规范允许 host 先发 Reject 再用 §12 的码关闭。客户端收到 Reject 立即以 0 关闭，以免等不到 host 的关闭；reason 会保留在结束原因里。
 - **销毁**：`GDPSession` 被释放时会直接销毁连接，不发 CONNECTION_CLOSE。正常断开要先调 `close()`。（第一次写测试时，因为 `_ = try await connected(...)` 让会话立即被释放，就踩到了这一点。）
+- **保活**：连接开启了 10 秒间隔的 QUIC PING（§2.1）。StatsReport 本来就让连接一直有流量，所以这只是兜底，断线检测时间仍是约 30 秒，见 [keep-alive.md](keep-alive.md)。
 
 ## 没有实现的
 

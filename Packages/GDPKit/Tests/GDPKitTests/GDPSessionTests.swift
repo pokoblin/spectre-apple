@@ -762,7 +762,9 @@ struct LostConnectionTests {
         // a live session), so only QUIC's 30 s idle timeout notices, as on
         // a phone that slept: this test takes that long.
         relay.cut()
+        let cut = ContinuousClock.now
         #expect(await eventually(.seconds(45)) { rec.snapshot.ending != nil })
+        print("session connection lost after \(ContinuousClock.now - cut)")
         let ending = try #require(rec.snapshot.ending)
         #expect(ending.connectionLost)
         #expect(ending.code == 0)
