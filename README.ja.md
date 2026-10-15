@@ -73,7 +73,9 @@ spectre-apple は ghost に触発された独立したサードパーティ製�
 
 ## はじめに
 
-ビルド済みのリリースはまだないため、Spectre はソースからビルドします。
+Mac 版は [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) にあります。`.dmg` をダウンロードして開き、Spectre を「アプリケーション」フォルダにドラッグしてください。Developer ID で署名され、Apple の公証を受けています。
+
+iPhone と iPad で使う場合や、開発に参加する場合は、以下の手順でソースからビルドします。
 
 ### 必要なツール
 

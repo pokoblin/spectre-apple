@@ -73,7 +73,9 @@ Not done yet:
 
 ## Getting started
 
-There are no prebuilt releases yet, so Spectre is built from source.
+The Mac app is on [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest): download the `.dmg`, open it and drag Spectre to Applications. It is signed with a Developer ID and notarized by Apple.
+
+For iPhone and iPad, or to work on Spectre, build it from source as below.
 
 ### Tools
 

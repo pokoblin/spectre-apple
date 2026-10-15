@@ -73,7 +73,9 @@ spectre-apple 是受 ghost 启发的独立第三方客户端，并非 ghost 官�
 
 ## 快速开始
 
-目前还没有发布预编译的版本，需要从源码构建 Spectre。
+Mac 版可以在 [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) 下载：下载 `.dmg`，打开后把 Spectre 拖到“应用程序”文件夹即可。App 使用 Developer ID 签名，并经过 Apple 公证。
+
+iPhone 和 iPad 版，或者想参与开发，请按下面的步骤从源码构建。
 
 ### 工具
 

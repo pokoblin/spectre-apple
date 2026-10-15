@@ -73,7 +73,9 @@ Pendiente:
 
 ## Primeros pasos
 
-Todavía no hay versiones precompiladas, así que Spectre se compila desde el código fuente.
+La app para Mac está en [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest): descarga el `.dmg`, ábrelo y arrastra Spectre a Aplicaciones. Está firmada con un Developer ID y notarizada por Apple.
+
+Para iPhone y iPad, o para trabajar en Spectre, compílalo desde el código fuente como se explica a continuación.
 
 ### Herramientas
 
