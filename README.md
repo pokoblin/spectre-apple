@@ -193,6 +193,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 - [docs/keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
 - [docs/reconnect.md](docs/reconnect.md): reconnecting a lost session, replaying the login, iOS in the background
 - [docs/saved-logins.md](docs/saved-logins.md): saved passwords in the Keychain, one-tap sign-in
+- [docs/keep-alive.md](docs/keep-alive.md): QUIC keep-alive, so an idle connection outlives the 30 s idle timeout, and how long a lost one takes to notice
 
 ## License
 

@@ -19,9 +19,10 @@ final class LobbyScript: Sendable {
     var done: Bool { snapshot.redirect != nil || snapshot.failure != nil }
 
     /// `trust`: the certificate decision; `answers`: one per prompt, in order;
+    /// `answerDelay`: how long the user takes over each prompt (nil: forever);
     /// `device`/`type`: the choices to make.
     func lobby(trust: @escaping @Sendable (CertificateFingerprint?) -> Bool, answers: [String],
-               device: String? = nil, type: String? = nil) -> GDPLobby {
+               answerDelay: Duration? = .zero, device: String? = nil, type: String? = nil) -> GDPLobby {
         let remaining = Mutex(answers)
         let box = Mutex<GDPLobby?>(nil)
         var h = GDPLobby.Handlers()
@@ -32,7 +33,15 @@ final class LobbyScript: Sendable {
         h.authPrompt = { prompt, echo in
             self.state.withLock { $0.prompts.append((prompt, echo)) }
             let answer = remaining.withLock { $0.isEmpty ? "" : $0.removeFirst() }
-            box.withLock { $0 }?.respond(answer)
+            guard let answerDelay, let lobby = box.withLock({ $0 }) else { return }
+            if answerDelay == .zero {
+                lobby.respond(answer)
+            } else {
+                Task {
+                    try? await Task.sleep(for: answerDelay)
+                    lobby.respond(answer)
+                }
+            }
         }
         h.deviceList = { devices in
             self.state.withLock { $0.devices = devices }
@@ -233,5 +242,50 @@ struct LobbyTests {
         let lobby = GDPLobby(handlers: .init())
         #expect(throws: GDPLobby.ConnectError.self) { try lobby.connect(host: "", username: "demo") }
         #expect(throws: GDPLobby.ConnectError.self) { try lobby.connect(host: "127.0.0.1", username: "") }
+    }
+}
+
+/// §2.1: a lobby connection sits idle while the user reads a prompt, for as
+/// long as they like; libgdp's QUIC idle timeout is 30 s, so these tests take
+/// that long.
+@Suite("Lobby keep-alive")
+struct LobbyKeepAliveTests {
+    @Test func aPromptLeftOpenPastTheIdleTimeoutStillTakesItsAnswer() async throws {
+        var config = GDPTestLobby.Configuration()
+        config.redirectPort = 1
+        let server = try GDPTestLobby(config)
+        let pin = server.certificate
+        let script = LobbyScript()
+        let lobby = script.lobby(trust: { $0 == pin }, answers: ["demo"], answerDelay: .seconds(35))
+        try lobby.connect(host: "127.0.0.1", port: server.port, username: "demo", trustSystemCAs: false)
+        #expect(await eventually(.seconds(50)) { script.done })
+        let s = script.snapshot
+        #expect(s.failure == nil, "\(s.failure.map(String.init(describing:)) ?? "")")
+        #expect(s.prompts.map(\.0) == ["Password: "])
+        #expect(s.redirect != nil)
+        #expect(server.observed.lastResponse == "demo")
+        #expect(server.observed.connections == 1) // the same connection all along
+        withExtendedLifetime(lobby) {}
+    }
+
+    /// Keep-alive must not hide a lobby that went away: its PINGs go
+    /// unanswered and the idle timeout still ends the connection.
+    @Test func aLobbyThatGoesAwayDuringAPromptIsReported() async throws {
+        let server = try GDPTestLobby(GDPTestLobby.Configuration())
+        let relay = try UDPRelay(to: server.port)
+        let pin = server.certificate
+        let script = LobbyScript()
+        let lobby = script.lobby(trust: { $0 == pin }, answers: [], answerDelay: nil)
+        try lobby.connect(host: "127.0.0.1", port: relay.port, username: "demo", trustSystemCAs: false)
+        #expect(await eventually { !script.snapshot.prompts.isEmpty })
+        relay.cut()
+        let cut = ContinuousClock.now
+        #expect(await eventually(.seconds(50)) { script.snapshot.failure != nil }) // 40 s, see docs/keep-alive.md
+        print("lobby connection lost after \(ContinuousClock.now - cut)")
+        let f = try #require(script.snapshot.failure)
+        #expect(f.code == 0 && !f.certificateRejected)
+        #expect(f.message.contains("Timer expired"), "\(f)")
+        #expect(script.snapshot.redirect == nil)
+        withExtendedLifetime(lobby) {}
     }
 }

@@ -1,6 +1,7 @@
 // The C ABI in include/gdpcore.h over libgdp's gdp::LobbyClient and TestLobby.
 #include "gdpcore.h"
 
+#include "keep_alive.hpp"
 #include "test_lobby.hpp"
 
 #include "gdp/lobby_client.hpp"
@@ -35,6 +36,11 @@ std::vector<gdpcore::TestLobby::Prompt> prompts(const gdpc_test_prompt *p, size_
 class LobbyClient : public gdp::LobbyClient {
 public:
 	bool connection_closed() const { return !conn_ || conn_->state() == gdp::ConnectionState::kShutdown; }
+	// A prompt may wait on the user for longer than the idle timeout, with
+	// nothing to send either way: PINGs keep the connection up meanwhile.
+	void keep_alive() {
+		if (conn_) conn_->set_keep_alive(gdpcore::kKeepAliveMs);
+	}
 };
 
 } // namespace
@@ -111,6 +117,7 @@ bool gdpc_lobby_connect(gdpc_lobby *lobby, const char *host, uint16_t port, cons
 	lobby->client.ca_trust.system = ca_system;
 	lobby->client.ca_trust.extra_file = ca_file ? ca_file : "";
 	if (!lobby->client.connect(host, port, username)) return fail("could not start the connection");
+	lobby->client.keep_alive();
 	return true;
 }
 

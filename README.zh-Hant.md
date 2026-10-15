@@ -193,6 +193,7 @@ iOS 的進入點是 UIKit 的 app delegate，這樣根 view controller 才能鎖
 - [docs/keyboard.md](docs/keyboard.md)：iOS 螢幕鍵盤、字元到按鍵的換算、附加按鍵列
 - [docs/reconnect.md](docs/reconnect.md)：斷線重連、重放登入、iOS 背景
 - [docs/saved-logins.md](docs/saved-logins.md)：鑰匙圈儲存密碼、一鍵登入
+- [docs/keep-alive.md](docs/keep-alive.md)：QUIC 保活，讓閒置的連線撐過 30 秒的閒置逾時，以及多久才能發現斷線
 
 ## 授權
 

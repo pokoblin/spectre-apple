@@ -191,6 +191,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/keyboard.md](docs/keyboard.md)：iOS 屏幕软键盘、字符到按键的换算、附加键条
 - [docs/reconnect.md](docs/reconnect.md)：断线重连、重放登录、iOS 后台
 - [docs/saved-logins.md](docs/saved-logins.md)：Keychain 保存密码、一键登录
+- [docs/keep-alive.md](docs/keep-alive.md)：QUIC 保活，让空闲的连接撑过 30 秒的空闲超时，以及多久才能发现断线
 
 ## 许可证
 

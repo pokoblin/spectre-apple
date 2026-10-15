@@ -1,5 +1,7 @@
 #include "session_client.hpp"
 
+#include "keep_alive.hpp"
+
 #include "gdp/cert_fingerprint.hpp"
 #include "gdp/clipboard.hpp"
 #include "gdp/clock.hpp"
@@ -70,6 +72,10 @@ bool SessionClient::start(const Config &config, std::string *error) {
 	config_ = config;
 	on_certificate = [this](const std::string &presented) { return presented == config_.cert_sha256; };
 	if (!connect_transport(config.host, config.port, gdp::kAlpn)) return failed("could not start the connection");
+	// §2.1: an idle viewer must not time out. StatsReport (every 250 ms,
+	// §7.5) keeps the connection busy once the session is accepted; PINGs
+	// cover whatever quiet that leaves.
+	conn_->set_keep_alive(kKeepAliveMs);
 	return true;
 }
 
