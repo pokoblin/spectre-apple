@@ -118,12 +118,21 @@ struct LoginFlowTests {
         try? FileManager.default.removeItem(at: file)
     }
 
-    /// Local network access the test grants by hand.
+    /// Local network access the test grants by hand, open from the start for `openHosts`.
     final class ScriptedNetworkAccess: NetworkAccessCheck {
+        let openHosts: Set<String>
         let continuation = Mutex<AsyncStream<NetworkAccess>.Continuation?>(nil)
         let stopped = Mutex(false)
+        let asked = Mutex<[ServerAddress]>([])
+        init(openHosts: Set<String> = []) { self.openHosts = openHosts }
         func access(to server: ServerAddress) -> AsyncStream<NetworkAccess> {
-            AsyncStream { c in
+            asked.withLock { $0.append(server) }
+            return AsyncStream { c in
+                if openHosts.contains(server.host) {
+                    c.yield(.open)
+                    c.finish()
+                    return
+                }
                 c.onTermination = { _ in self.stopped.withLock { $0 = true } }
                 continuation.withLock { $0 = c }
                 c.yield(.waitingForLocalNetwork)
@@ -165,6 +174,46 @@ struct LoginFlowTests {
         try await Task.sleep(for: .milliseconds(200))
         guard case .idle = flow.step else { Issue.record("\(flow.step)"); return }
         #expect(server.observed.connections == 0)
+    }
+
+    /// A broker's host elsewhere may be the app's first local network
+    /// access: the session waits for it too, after the login succeeded.
+    @Test func aRedirectElsewhereWaitsForLocalNetworkAccess() async throws {
+        let (server, host) = try lobby { $0.redirectHost = "localhost" }
+        let known = KnownHosts(file: file)
+        let address = ServerAddress(host: "127.0.0.1", port: server.port)
+        known.trust(server.certificate, for: address)
+        let access = ScriptedNetworkAccess(openHosts: ["127.0.0.1"])
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins(), networkAccess: access)
+        var opened: LoginFlow.SessionTicket?
+        flow.onRedirect = { opened = $0 }
+        flow.start(server: address, username: "demo", password: "demo")
+        #expect(await until { if case .chooseSession = flow.step { true } else { false } })
+        flow.open(type: nil, takeOver: false)
+        #expect(await until { isWaitingForLocalNetwork(flow) })
+        #expect(access.asked.withLock { $0 } == [address, ServerAddress(host: "localhost", port: host.port)])
+        #expect(opened == nil)
+
+        access.grant()
+        #expect(await until { if case .redirected = flow.step { true } else { false } })
+        #expect(opened?.configuration.host == "localhost")
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    /// The usual case, the lobby's own host: nothing more to wait for.
+    @Test func aRedirectToTheLobbysHostOpensRightAway() async throws {
+        let (server, _) = try lobby()
+        let known = KnownHosts(file: file)
+        let address = ServerAddress(host: "127.0.0.1", port: server.port)
+        known.trust(server.certificate, for: address)
+        let access = ScriptedNetworkAccess(openHosts: ["127.0.0.1"])
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins(), networkAccess: access)
+        flow.start(server: address, username: "demo", password: "demo")
+        #expect(await until { if case .chooseSession = flow.step { true } else { false } })
+        flow.open(type: nil, takeOver: false)
+        #expect(await until { if case .redirected = flow.step { true } else { false } })
+        #expect(access.asked.withLock { $0 } == [address])
+        try? FileManager.default.removeItem(at: file)
     }
 
     @Test func pinnedServerIsNotAskedAgain() async throws {

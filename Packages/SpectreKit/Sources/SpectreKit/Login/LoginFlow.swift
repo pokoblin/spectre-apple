@@ -132,7 +132,7 @@ public final class LoginFlow {
 
     private var lobby: GDPLobby?
     private let networkAccess: NetworkAccessCheck
-    /// Waiting for local network access before the lobby connects.
+    /// Waiting for local network access before the lobby or the session connects.
     private var accessCheck: Task<Void, Never>?
     private var takeOver = false
     /// Bumped by every start and cancel: callbacks of an abandoned login are dropped.
@@ -170,13 +170,23 @@ public final class LoginFlow {
         takeOver = false
         refusedCertificate.request.withLock { $0 = nil }
         step = .working(String(localized: "Connecting to \(server.description)…", bundle: .module))
-        let access = networkAccess.access(to: server)
+        whenReachable(server, generation: gen) { [weak self] in
+            self?.connect(server: server, username: username, generation: gen)
+        }
+    }
+
+    /// Runs `body` once the system lets the app reach `address` (local
+    /// network privacy), saying so while it waits; not at all if this
+    /// login is abandoned first.
+    private func whenReachable(_ address: ServerAddress, generation gen: Int,
+                               _ body: @escaping @MainActor () -> Void) {
+        let access = networkAccess.access(to: address)
         accessCheck = Task { [weak self] in
             for await state in access {
                 guard let self, self.generation == gen else { return }
                 switch state {
                 case .open:
-                    self.connect(server: server, username: username, generation: gen)
+                    body()
                     return
                 case .waitingForLocalNetwork:
                     self.step = .working(Self.waitingForLocalNetwork)
@@ -324,8 +334,17 @@ public final class LoginFlow {
         replayingSaved = false
         notice = nil
         rememberLogin()
-        step = .redirected(ticket)
-        onRedirect?(ticket)
+        guard r.host.lowercased() != server.host else {
+            step = .redirected(ticket)
+            onRedirect?(ticket)
+            return
+        }
+        // A broker's host elsewhere: the session may be the app's first
+        // local network access, which the lobby's check didn't cover.
+        whenReachable(ServerAddress(host: r.host, port: r.port), generation: generation) { [weak self] in
+            self?.step = .redirected(ticket)
+            self?.onRedirect?(ticket)
+        }
     }
 
     private func failed(_ f: GDPLobby.Failure) {
