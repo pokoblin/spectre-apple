@@ -20,9 +20,10 @@
 - **输入**：键盘按物理位置转发；鼠标支持绝对坐标、各按键和平滑滚动，可以捕获鼠标发送相对移动；显示远端光标；iPad 支持硬件键盘、触控板和鼠标，手指可以选“直接触摸”或“触控板”两种用法。见 [docs/input.md](docs/input.md)。
 - **音频**：播放远端桌面的声音（Opus，用系统自带的解码器），60 ms 的抖动缓冲，丢包时做补偿；工具栏可以静音。打开麦克风后会把它发给远端桌面。见 [docs/audio.md](docs/audio.md)。
 - **剪贴板**：文本双向同步（§7.9），默认关闭，在工具栏里打开。Mac 上在 Spectre 处于活跃状态时发送复制的内容；iPad 上用粘贴按钮发送，不会弹出系统的粘贴提示，也可以选择自动发送。见 [docs/clipboard.md](docs/clipboard.md)。
+- **手柄**：最多 4 个手柄按标准手柄转发（§8.5），包括 Home 和 Share 键；默认关闭，在工具栏里打开。见 [docs/gamepad.md](docs/gamepad.md)。
 - **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
 
-还没有做：手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
+还没有做：无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
 
 ## 构建
 
@@ -183,6 +184,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/input.md](docs/input.md)：键盘、鼠标、光标、触摸
 - [docs/audio.md](docs/audio.md)：音频、抖动缓冲、Opus 解码
 - [docs/clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪贴板、回声抑制、粘贴提示
+- [docs/gamepad.md](docs/gamepad.md)：手柄、按键映射、Home 键
 
 ## 许可证
 

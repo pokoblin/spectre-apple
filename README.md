@@ -22,9 +22,10 @@ Working:
 - **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
 - **Audio**: the remote desktop's sound (Opus, decoded by the system's own codec) through a 60 ms jitter buffer that conceals lost packets; mute from the toolbar. The microphone, sent to the remote desktop while you turn it on. See [docs/audio.md](docs/audio.md).
 - **Clipboard**: text in both directions (§7.9), off by default, switched in the toolbar. On the Mac copies are sent when Spectre is active; on iPad a paste button sends the clipboard without the system's paste prompt, or copies can be sent automatically. See [docs/clipboard.md](docs/clipboard.md).
+- **Gamepads**: up to four controllers forwarded as standard gamepads (§8.5), Home and Share included, off by default and switched in the toolbar. See [docs/gamepad.md](docs/gamepad.md).
 - **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
-Not done yet: gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
+Not done yet: the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
 
 ## Building
 
@@ -185,6 +186,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 - [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
 - [docs/audio.md](docs/audio.md): audio, jitter buffer, Opus decoding
 - [docs/clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
+- [docs/gamepad.md](docs/gamepad.md): gamepads, the button mapping, the Home button
 
 ## License
 

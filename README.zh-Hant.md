@@ -22,9 +22,10 @@
 - **輸入**：鍵盤按實體按鍵位置轉送；滑鼠支援絕對座標、各個按鍵和平滑捲動，也可以擷取滑鼠以傳送相對移動；在本機繪製遠端游標；iPad 支援實體鍵盤、觸控板和滑鼠，手指可以選擇「直接觸控」或「觸控板」兩種用法。見 [docs/input.md](docs/input.md)。
 - **音訊**：播放遠端桌面的聲音（Opus，使用系統內建的解碼器），60 ms 的抖動緩衝，遺失封包時加以補償；工具列可以靜音。開啟麥克風後會把它傳給遠端桌面。見 [docs/audio.md](docs/audio.md)。
 - **剪貼簿**：文字雙向同步（§7.9），預設關閉，在工具列中開啟。Mac 上在 Spectre 處於使用中時傳送拷貝的內容；iPad 上用貼上按鈕傳送，不會跳出系統的貼上提示，也可以選擇自動傳送。見 [docs/clipboard.md](docs/clipboard.md)。
+- **遊戲控制器**：最多 4 個控制器以標準控制器轉送（§8.5），包括 Home 和 Share 鍵；預設關閉，在工具列中開啟。見 [docs/gamepad.md](docs/gamepad.md)。
 - **工作階段控制**：中斷連線（遠端工作階段會保留）、登出（結束遠端工作階段）。
 
-尚未完成：遊戲控制器、無損細化層（refine）、螢幕鍵盤、AV1／PyroWave。
+尚未完成：無損細化層（refine）、螢幕鍵盤、AV1／PyroWave。
 
 ## 建置
 
@@ -185,6 +186,7 @@ iOS 的進入點是 UIKit 的 app delegate，這樣根 view controller 才能鎖
 - [docs/input.md](docs/input.md)：鍵盤、滑鼠、游標、觸控
 - [docs/audio.md](docs/audio.md)：音訊、抖動緩衝、Opus 解碼
 - [docs/clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪貼簿、回聲抑制、貼上提示
+- [docs/gamepad.md](docs/gamepad.md)：遊戲控制器、按鍵對應、Home 鍵
 
 ## 授權
 
