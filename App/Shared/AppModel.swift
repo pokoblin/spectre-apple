@@ -24,6 +24,8 @@ final class AppModel {
     /// Why the last session ended, for the login screen.
     private(set) var lastSessionEnd: String?
     private(set) var recent: [RecentLogin] = []
+    /// The recent logins with a saved login in the Keychain (docs/saved-logins.md).
+    private(set) var savedRecent: Set<RecentLogin> = []
     private(set) var demo: DemoServer?
     private(set) var demoStatus: String?
     /// What the session's login answered and chose, to sign in again after
@@ -44,6 +46,31 @@ final class AppModel {
             recent = saved
         }
         login.onRedirect = { [weak self] ticket in self?.open(ticket) }
+        refreshSaved()
+    }
+
+    /// Which recent logins have a saved login (reads no secret).
+    private func refreshSaved() {
+        savedRecent = Set(recent.filter { entry in
+            ServerAddress(parsing: entry.server).map { login.hasSavedLogin(server: $0, username: entry.username) } ?? false
+        })
+    }
+
+    /// One tap on a recent login with a saved one: signs in with it. False
+    /// if it couldn't be read (on the Mac, keychain access not allowed).
+    func signInWithSaved(_ entry: RecentLogin) -> Bool {
+        guard let server = ServerAddress(parsing: entry.server) else { return false }
+        lastSessionEnd = nil
+        recipe = nil
+        return login.signInWithSaved(server: server, username: entry.username)
+    }
+
+    /// Forgets the saved password, keeps the recent login.
+    func forgetSavedLogin(_ entry: RecentLogin) {
+        if let server = ServerAddress(parsing: entry.server) {
+            login.savedLogins.delete(server: server, username: entry.username)
+        }
+        refreshSaved()
     }
 
     func signIn(server: ServerAddress, username: String) {
@@ -72,6 +99,7 @@ final class AppModel {
         lastSessionEnd = message
         recipe = nil
         login.cancel()
+        refreshSaved()
         screen = .login
     }
 
@@ -107,6 +135,7 @@ final class AppModel {
     /// replay stopped on; finishing it opens the session as usual.
     private func needsLogin(_ message: String) {
         lastSessionEnd = message
+        refreshSaved()
         screen = .login
     }
 
@@ -125,9 +154,12 @@ final class AppModel {
         }
     }
 
+    /// Forgets a recent login, and its saved password with it.
     func forgetRecent(_ entry: RecentLogin) {
+        forgetSavedLogin(entry)
         recent.removeAll { $0 == entry }
         save()
+        refreshSaved()
     }
 
     private func remember(_ entry: RecentLogin) {

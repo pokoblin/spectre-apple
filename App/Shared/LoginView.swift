@@ -54,8 +54,9 @@ struct LoginView: View {
         case let .certificateChanged(request):
             CertificateChangedView(request: request, onForget: flow.forgetPinnedCertificate, onCancel: flow.cancel)
         case let .prompt(prompt):
-            PromptView(prompt: prompt, username: flow.username, server: flow.server, onAnswer: { flow.answer($0) },
-                       onCancel: flow.cancel)
+            PromptView(prompt: prompt, username: flow.username, server: flow.server, notice: flow.notice,
+                       remembered: flow.server.map { flow.hasSavedLogin(server: $0, username: flow.username) } ?? false,
+                       onAnswer: { flow.answer($0, remember: $1) }, onCancel: flow.cancel)
                 .id(prompt.text) // a fresh field per prompt
         case let .chooseDevice(devices):
             DeviceListView(devices: devices, onSelect: flow.select(device:), onCancel: flow.cancel)
@@ -105,15 +106,25 @@ struct LoginView: View {
                 Divider()
                 Text("Recent").font(.caption).foregroundStyle(.secondary)
                 ForEach(app.recent) { entry in
+                    let saved = app.savedRecent.contains(entry)
                     HStack {
                         Button {
                             serverText = entry.server
                             username = entry.username
+                            // A saved login connects right away (docs/saved-logins.md).
+                            if saved { _ = app.signInWithSaved(entry) }
                         } label: {
-                            Label("\(entry.username) @ \(entry.server)", systemImage: "clock.arrow.circlepath")
+                            Label("\(entry.username) @ \(entry.server)", systemImage: saved ? "key.fill" : "clock.arrow.circlepath")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
+                        .help(saved ? "Connect with the saved password" : "Fill in this server and username")
+                        .contextMenu {
+                            if saved {
+                                Button("Forget Saved Password", role: .destructive) { app.forgetSavedLogin(entry) }
+                            }
+                            Button("Forget This Login", role: .destructive) { app.forgetRecent(entry) }
+                        }
                         Button(role: .destructive) { app.forgetRecent(entry) } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
                         }
@@ -269,13 +280,32 @@ private struct PromptView: View {
     let prompt: LoginFlow.Prompt
     let username: String
     let server: ServerAddress?
-    let onAnswer: (String) -> Void
+    let notice: String?
+    let onAnswer: (String, Bool) -> Void
     let onCancel: () -> Void
     @State private var answer = ""
+    /// For a secret: keep it in the Keychain once signed in.
+    @State private var remember: Bool
     @FocusState private var focused: Bool
+
+    /// `remembered`: a login is already saved for this user and server, so
+    /// "Remember" starts ticked; otherwise it starts off.
+    init(prompt: LoginFlow.Prompt, username: String, server: ServerAddress?, notice: String?, remembered: Bool,
+         onAnswer: @escaping (String, Bool) -> Void, onCancel: @escaping () -> Void) {
+        self.prompt = prompt
+        self.username = username
+        self.server = server
+        self.notice = notice
+        self.onAnswer = onAnswer
+        self.onCancel = onCancel
+        _remember = State(initialValue: remembered)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
+            if let notice {
+                Label(notice, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.callout)
+            }
             Text("\(username) @ \(server?.description ?? "")").font(.caption).foregroundStyle(.secondary)
             // The server's own prompt text, as its authentication stack wrote it (§4.3).
             Text(prompt.text.trimmingCharacters(in: .whitespaces)).font(.headline)
@@ -294,6 +324,10 @@ private struct PromptView: View {
             .textFieldStyle(.roundedBorder)
             .focused($focused)
             .onSubmit(submit)
+            if !prompt.echo {
+                Toggle("Remember", isOn: $remember)
+                    .help("Keep this in the Keychain and sign in with one tap next time. Leave one-time codes unticked.")
+            }
             HStack {
                 Button("Cancel", role: .cancel, action: onCancel)
                 Spacer()
@@ -306,7 +340,7 @@ private struct PromptView: View {
     }
 
     private func submit() {
-        onAnswer(answer)
+        onAnswer(answer, remember)
         answer = ""
     }
 }
