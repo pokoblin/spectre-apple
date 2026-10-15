@@ -36,22 +36,32 @@ struct SessionView: View {
             if let presenter = model.presenter {
                 VideoView(presenter: presenter, input: model.input)
                     #if os(iOS)
-                    .ignoresSafeArea()
+                    // Edge to edge, except where the touch keyboard is: the
+                    // picture shrinks to fit above it, so nothing is hidden.
+                    .ignoresSafeArea(.container)
                     #endif
                     // On the Mac the picture starts below the toolbar: under
                     // it, the remote desktop's top edge (GNOME's top bar) is hidden.
             }
             VStack(alignment: .leading, spacing: 8) {
                 #if os(iOS)
-                HStack { sessionButtons }
-                    .buttonStyle(.bordered)
-                    .tint(.white)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack { sessionButtons }
+                        .buttonStyle(.bordered)
+                        .tint(.white)
+                }
+                .scrollBounceBehavior(.basedOnSize)
                 #endif
                 if showStats {
                     overlay.allowsHitTesting(false) // clicks on it go to the remote desktop
                 }
             }
             .padding(10)
+            #if os(iOS)
+            if let input = model.input {
+                UntypableNotice(input: input)
+            }
+            #endif
         }
         #if os(macOS)
         .toolbar {
@@ -105,6 +115,11 @@ struct SessionView: View {
         }
         #if os(iOS)
         if let input = model.input {
+            Toggle(isOn: Binding(get: { input.showsTouchKeyboard }, set: { input.showsTouchKeyboard = $0 })) {
+                Label("Keyboard", systemImage: input.showsTouchKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
+            }
+            .toggleStyle(.button)
+            .help("Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)")
             Button {
                 input.touchMode = input.touchMode == .direct ? .trackpad : .direct
             } label: {
@@ -239,3 +254,38 @@ private struct GamepadControls: View {
         #endif
     }
 }
+
+#if os(iOS)
+/// A short notice when the touch keyboard gave characters the host's
+/// layout has no key for (see TextTyper).
+private struct UntypableNotice: View {
+    let input: SessionInput
+    @State private var shown: SessionInput.Untypable?
+
+    var body: some View {
+        VStack {
+            Spacer()
+            if let shown {
+                Text(shown.count == 1
+                     ? "1 character can't be typed on the host's US layout. Use the host's input method for other scripts."
+                     : "\(shown.count) characters can't be typed on the host's US layout. Use the host's input method for other scripts.")
+                    .font(.callout)
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
+                    .background(.black.opacity(0.75), in: Capsule())
+                    .padding(.bottom, 12)
+                    .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .allowsHitTesting(false)
+        .task(id: input.untypable) {
+            guard let notice = input.untypable else { return }
+            withAnimation { shown = notice }
+            try? await Task.sleep(for: .seconds(3))
+            withAnimation { if shown == notice { shown = nil } }
+        }
+    }
+}
+#endif
