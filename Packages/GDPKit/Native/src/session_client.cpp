@@ -118,6 +118,9 @@ void SessionClient::on_connection_shutdown() {
 		return;
 	}
 	uint64_t c = conn_ ? conn_->shutdown_error_code() : 0;
+	// libgdp leaves the reason empty only for the peer's ordinary close
+	// (application code 0); timeouts, resets and socket errors carry one.
+	bool lost = c == 0 && rejected_reason_.empty() && conn_ && !conn_->shutdown_reason().empty();
 	std::string reason;
 	if (!rejected_reason_.empty()) {
 		reason = "rejected: " + rejected_reason_;
@@ -126,16 +129,16 @@ void SessionClient::on_connection_shutdown() {
 	} else if (conn_ && !conn_->shutdown_reason().empty()) {
 		reason = conn_->shutdown_reason();
 	}
-	report_closed(c, reason);
+	report_closed(c, reason, lost);
 }
 
-void SessionClient::report_closed(uint64_t c, const std::string &reason) {
+void SessionClient::report_closed(uint64_t c, const std::string &reason, bool connection_lost) {
 	if (closed_reported_) return;
 	closed_reported_ = true;
 	accepted_ = false;
 	control_ = nullptr;
 	input_ = nullptr;
-	if (cb_.closed) cb_.closed(c, reason, certificate_rejected());
+	if (cb_.closed) cb_.closed(c, reason, certificate_rejected(), connection_lost);
 }
 
 void SessionClient::fail(uint64_t c, const std::string &reason) {

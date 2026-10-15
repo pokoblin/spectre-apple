@@ -96,8 +96,8 @@ struct gdpc_session {
 			a.host_name = info.host_name.c_str();
 			callbacks.accepted(callbacks.ctx, &a);
 		};
-		cb.closed = [this](uint64_t code, const std::string &reason, bool cert) {
-			if (callbacks.closed) callbacks.closed(callbacks.ctx, code, reason.c_str(), cert);
+		cb.closed = [this](uint64_t code, const std::string &reason, bool cert, bool lost) {
+			if (callbacks.closed) callbacks.closed(callbacks.ctx, code, reason.c_str(), cert, lost);
 		};
 		cb.displays_changed = [this](const std::vector<gdpcore::Output> &outputs) {
 			if (!callbacks.displays_changed) return;

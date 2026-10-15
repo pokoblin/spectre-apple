@@ -258,8 +258,10 @@ typedef struct {
     void *ctx;
     void (*accepted)(void *ctx, const gdpc_session_accept *accept);
     // Exactly once. `code` is the §12 code (the host's close code, or the
-    // one this client closed with), 0 for a plain close.
-    void (*closed)(void *ctx, uint64_t code, const char *reason, bool certificate_rejected);
+    // one this client closed with), 0 for a plain close. `connection_lost`:
+    // the connection failed rather than anyone ending it (an idle timeout,
+    // a reset, a network error, no answer): worth connecting again.
+    void (*closed)(void *ctx, uint64_t code, const char *reason, bool certificate_rejected, bool connection_lost);
     void (*displays_changed)(void *ctx, const gdpc_output *outputs, size_t count);
     // Return false if the frame can't be used now: it counts as lost (§7.5)
     // and frames are dropped until the next keyframe.

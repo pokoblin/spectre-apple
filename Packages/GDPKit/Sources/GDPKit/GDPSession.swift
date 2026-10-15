@@ -116,6 +116,10 @@ public final class GDPSession: @unchecked Sendable {
         public let code: UInt64
         public let reason: String
         public let certificateRejected: Bool
+        /// The connection failed rather than anyone ending it: an idle
+        /// timeout, a reset, a network error, no answer. Nothing was said
+        /// about the session, so connecting again may well work.
+        public var connectionLost = false
 
         /// §12 groups: 1x protocol, 2x access, 3x availability, 4x an ordinary end.
         public var isOrdinaryEnd: Bool { code == 0 || code / 10 == 4 }
@@ -247,8 +251,9 @@ public final class GDPSession: @unchecked Sendable {
             var callbacks = gdpc_session_callbacks()
             callbacks.ctx = Unmanaged.passUnretained(self).toOpaque()
             callbacks.accepted = { ctx, a in GDPSession.from(ctx).onAccepted(a!.pointee) }
-            callbacks.closed = { ctx, code, reason, cert in
-                GDPSession.from(ctx).onClosed(Ending(code: code, reason: String(cString: reason!), certificateRejected: cert))
+            callbacks.closed = { ctx, code, reason, cert, lost in
+                GDPSession.from(ctx).onClosed(Ending(code: code, reason: String(cString: reason!), certificateRejected: cert,
+                                                     connectionLost: lost))
             }
             callbacks.displays_changed = { ctx, outputs, count in
                 let list = UnsafeBufferPointer(start: outputs, count: count).map(Output.init)

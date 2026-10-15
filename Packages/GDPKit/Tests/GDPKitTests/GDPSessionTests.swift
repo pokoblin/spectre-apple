@@ -727,3 +727,59 @@ struct GamepadTests {
         #expect(GamepadState.Button.misc6.rawValue == 25)
     }
 }
+
+@Suite("Lost connections")
+struct LostConnectionTests {
+    @Test(arguments: [UInt64(0), 40, 42])
+    func anEndingTheHostChoseIsNotLost(code: UInt64) async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        host.close(code: code)
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.code == code)
+        #expect(rec.snapshot.ending?.connectionLost == false)
+    }
+
+    @Test func closingItOurselvesIsNotLost() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        session.close()
+        #expect(await eventually { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.connectionLost == false)
+    }
+
+    @Test func aNetworkThatGoesAwayIsLost() async throws {
+        let host = try GDPTestHost()
+        let relay = try UDPRelay(to: host.port)
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.port = relay.port }
+        defer { withExtendedLifetime(session) {} }
+        // Gone without a word: no close reaches the client. Past the
+        // handshake libgdp ignores ICMP errors (they could be spoofed to kill
+        // a live session), so only QUIC's 30 s idle timeout notices, as on
+        // a phone that slept: this test takes that long.
+        relay.cut()
+        #expect(await eventually(.seconds(45)) { rec.snapshot.ending != nil })
+        let ending = try #require(rec.snapshot.ending)
+        #expect(ending.connectionLost)
+        #expect(ending.code == 0)
+        #expect(!ending.reason.isEmpty)
+    }
+
+    @Test func noHostThereIsLost() async throws {
+        var config: GDPSession.Configuration
+        do {
+            let gone = try GDPTestHost()
+            config = gone.sessionConfiguration()
+        } // the host is gone: nothing listens on its port
+        let rec = Recorder()
+        let session = GDPSession(handlers: rec.handlers())
+        try session.connect(config)
+        #expect(await eventually(.seconds(40)) { rec.snapshot.ending != nil })
+        #expect(rec.snapshot.ending?.connectionLost == true)
+        #expect(rec.snapshot.accept == nil)
+    }
+}

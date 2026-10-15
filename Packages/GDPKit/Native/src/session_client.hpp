@@ -104,7 +104,11 @@ public:
 		// Exactly once, at the end: the §12 code (the peer's, or ours when we
 		// closed for a protocol violation), a description, and whether the
 		// host's certificate was the reason.
-		std::function<void(uint64_t code, const std::string &reason, bool certificate_rejected)> closed;
+		// `connection_lost`: the connection failed rather than anyone ending
+		// it (an idle timeout, a reset, a network error, no answer at all):
+		// no §12 code, not closed by us, not refused at the certificate.
+		std::function<void(uint64_t code, const std::string &reason, bool certificate_rejected, bool connection_lost)>
+			closed;
 		std::function<void(const std::vector<Output> &)> displays_changed;
 		// Return false if the frame could not be used: it then counts as lost (§7.5).
 		std::function<bool(const VideoFrame &)> video_frame;
@@ -198,7 +202,7 @@ private:
 	void send_input(gdp::session::InputEnvelope &env);
 	// Closes for a protocol violation (or any local reason) with `code`.
 	void fail(uint64_t code, const std::string &reason);
-	void report_closed(uint64_t code, const std::string &reason);
+	void report_closed(uint64_t code, const std::string &reason, bool connection_lost = false);
 
 	Callbacks cb_;
 	Config config_;
