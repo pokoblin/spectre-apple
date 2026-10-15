@@ -1,5 +1,7 @@
 # spectre-apple
 
+<img src="docs/images/app-icon.png" width="128" align="right" alt="The Spectre icon">
+
 **English** | [简体中文](README.zh-Hans.md) | [繁體中文](README.zh-Hant.md) | [Español](README.es.md)
 
 A native Apple client for the [ghost](https://github.com/jsaiko/ghost) remote desktop, for macOS, iPadOS and iOS (Apple silicon / arm64 only). The app is called **Spectre**; its bundle ID is `org.ghost.spectre.apple`.

@@ -1,5 +1,7 @@
 # spectre-apple
 
+<img src="docs/images/app-icon.png" width="128" align="right" alt="Spectre 圖示">
+
 [English](README.md) | [简体中文](README.zh-Hans.md) | **繁體中文** | [Español](README.es.md)
 
 [ghost](https://github.com/jsaiko/ghost) 遠端桌面的 Apple 原生用戶端，支援 macOS、iPadOS 和 iOS（僅支援 Apple 晶片／arm64）。App 顯示名稱為 **Spectre**，Bundle ID 為 `org.ghost.spectre.apple`。
