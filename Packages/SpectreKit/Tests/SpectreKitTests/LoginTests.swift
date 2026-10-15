@@ -190,4 +190,148 @@ struct LoginFlowTests {
         #expect(server.observed.selectedDevice == "ws")
         try? FileManager.default.removeItem(at: file)
     }
+
+    // MARK: Replay (signing in again after a lost connection)
+
+    func pinned(_ server: GDPTestLobby) -> (LoginFlow, ServerAddress) {
+        let known = KnownHosts(file: file)
+        let address = ServerAddress(host: "127.0.0.1", port: server.port)
+        known.trust(server.certificate, for: address)
+        return (LoginFlow(knownHosts: known), address)
+    }
+
+    func redirected(_ flow: LoginFlow) async -> LoginFlow.SessionTicket? {
+        _ = await until { if case .redirected = flow.step { true } else { false } }
+        if case let .redirected(ticket) = flow.step { return ticket }
+        return nil
+    }
+
+    @Test func anInteractiveLoginIsRecordedAndReplayedWithoutTheUser() async throws {
+        let (server, _) = try lobby()
+        let (flow, address) = pinned(server)
+        flow.start(server: address, username: "demo")
+        #expect(await until { if case .prompt = flow.step { true } else { false } })
+        flow.answer("demo")
+        #expect(await until { if case .chooseSession = flow.step { true } else { false } })
+        flow.open(type: "plasma", takeOver: false)
+        #expect(await redirected(flow) != nil)
+        let recipe = try #require(flow.recipe)
+        #expect(recipe.answers.map(\.text) == ["demo"] && recipe.sessionType == "plasma")
+
+        flow.replay(recipe, allowTakeOver: false)
+        #expect(flow.isReplaying)
+        let ticket = await redirected(flow)
+        #expect(ticket != nil)
+        #expect(!flow.isReplaying)
+        #expect(server.observed.openedType == "plasma")
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test func aQuestionTheRecipeLacksIsLeftToTheUserThenTheReplayGoesOn() async throws {
+        let (server, _) = try lobby {
+            $0.prompts = [.init("Password: ", expected: "demo"), .init("Verification code: ", echo: true, expected: "123456")]
+        }
+        let (flow, address) = pinned(server)
+        let recipe = LoginFlow.Recipe(server: address, username: "demo",
+                                      answers: [(.init(text: "Password: ", echo: false), "demo")])
+        flow.replay(recipe, allowTakeOver: false)
+        #expect(await until { if case .prompt(let p) = flow.step { p.text == "Verification code: " } else { false } })
+        #expect(flow.isReplaying) // waiting for the user, not over
+        flow.answer("123456")
+        #expect(await redirected(flow) != nil) // the session choice was made for the user again
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test func aRecordedPasswordThatNoLongerWorksFails() async throws {
+        let (server, _) = try lobby()
+        let (flow, address) = pinned(server)
+        let recipe = LoginFlow.Recipe(server: address, username: "demo",
+                                      answers: [(.init(text: "Password: ", echo: false), "old")])
+        flow.replay(recipe, allowTakeOver: false)
+        #expect(await until { if case .failed = flow.step { true } else { false } })
+        guard case let .failed(failure) = flow.step else { return }
+        #expect(failure.code == 20)
+        #expect(!flow.isReplaying)
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test(arguments: [false, true])
+    func aViewedSessionIsTakenOverOnlyIfAllowed(allow: Bool) async throws {
+        let (server, _) = try lobby {
+            $0.runningSession = true
+            $0.viewerAttached = true
+        }
+        let (flow, address) = pinned(server)
+        let recipe = LoginFlow.Recipe(server: address, username: "demo",
+                                      answers: [(.init(text: "Password: ", echo: false), "demo")])
+        flow.replay(recipe, allowTakeOver: allow)
+        if allow {
+            let ticket = await redirected(flow)
+            #expect(ticket?.configuration.takeOver == true)
+        } else {
+            #expect(await until { if case .chooseSession = flow.step { true } else { false } })
+            #expect(flow.isReplaying) // the user decides
+        }
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test(arguments: [("ws", true), ("gone", false)])
+    func theRecordedDeviceIsChosenIfStillThere(device: String, chosen: Bool) async throws {
+        let (server, _) = try lobby {
+            $0.broker = true
+            $0.devices = [.init(id: "ws", name: "Workstation")]
+        }
+        let (flow, address) = pinned(server)
+        let recipe = LoginFlow.Recipe(server: address, username: "demo",
+                                      answers: [(.init(text: "Password: ", echo: false), "demo")], deviceID: device)
+        flow.replay(recipe, allowTakeOver: false)
+        if chosen {
+            #expect(await redirected(flow) != nil)
+            #expect(server.observed.selectedDevice == "ws")
+        } else {
+            #expect(await until { if case .chooseDevice = flow.step { true } else { false } })
+        }
+        try? FileManager.default.removeItem(at: file)
+    }
+
+    @Test func cancellingStopsTheReplay() async throws {
+        let (server, _) = try lobby()
+        let (flow, address) = pinned(server)
+        flow.replay(LoginFlow.Recipe(server: address, username: "demo"), allowTakeOver: false)
+        flow.cancel()
+        #expect(!flow.isReplaying)
+        try? FileManager.default.removeItem(at: file)
+    }
+}
+
+@Suite("Reconnect policy")
+struct ReconnectPolicyTests {
+    @Test func onlyALostConnectionIsReconnected() {
+        typealias E = GDPSession.Ending
+        #expect(ReconnectPolicy.reconnects(after: E(code: 0, reason: "connection error (Timer expired)", connectionLost: true)))
+        #expect(!ReconnectPolicy.reconnects(after: E(code: 0, reason: "closed")))
+        #expect(!ReconnectPolicy.reconnects(after: E(code: 42, reason: "taken over")))
+        #expect(!ReconnectPolicy.reconnects(after: E(code: 40, reason: "session ended")))
+        #expect(!ReconnectPolicy.reconnects(after: E(code: 0, reason: "cert", certificateRejected: true, connectionLost: true)))
+    }
+
+    @Test func loginFailuresWorthRetrying() {
+        #expect(ReconnectPolicy.retries(loginFailure: 0))  // no answer
+        #expect(ReconnectPolicy.retries(loginFailure: 30)) // host offline
+        #expect(!ReconnectPolicy.retries(loginFailure: 20)) // wrong password
+        #expect(!ReconnectPolicy.retries(loginFailure: 10)) // protocol
+    }
+
+    @Test func takeOverWithoutAskingOnlyJustAfterLosingItsOwnConnection() {
+        let now = Date()
+        #expect(ReconnectPolicy.takesOverAutomatically(lostAt: now.addingTimeInterval(-5), now: now))
+        #expect(!ReconnectPolicy.takesOverAutomatically(lostAt: now.addingTimeInterval(-120), now: now))
+        #expect(!ReconnectPolicy.takesOverAutomatically(lostAt: nil, now: now)) // closed it ourselves
+    }
+
+    @Test func aboutAMinuteOfAttempts() {
+        let total = ReconnectPolicy.delays.reduce(Duration.zero, +)
+        #expect(total >= .seconds(50) && total <= .seconds(70))
+        #expect(ReconnectPolicy.delays.first == .zero)
+    }
 }

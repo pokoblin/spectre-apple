@@ -121,6 +121,13 @@ public final class GDPSession: @unchecked Sendable {
         /// about the session, so connecting again may well work.
         public var connectionLost = false
 
+        public init(code: UInt64, reason: String, certificateRejected: Bool = false, connectionLost: Bool = false) {
+            self.code = code
+            self.reason = reason
+            self.certificateRejected = certificateRejected
+            self.connectionLost = connectionLost
+        }
+
         /// §12 groups: 1x protocol, 2x access, 3x availability, 4x an ordinary end.
         public var isOrdinaryEnd: Bool { code == 0 || code / 10 == 4 }
         public var description: String {

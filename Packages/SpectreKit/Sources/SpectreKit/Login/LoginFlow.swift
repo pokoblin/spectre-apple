@@ -41,6 +41,26 @@ public final class LoginFlow {
         public let configuration: GDPSession.Configuration
     }
 
+    /// What an interactive login answered and chose, in order: enough to
+    /// sign in again without the user after a lost connection. Lives in
+    /// memory only (it holds the password); see docs/reconnect.md.
+    public struct Recipe: Sendable {
+        public let server: ServerAddress
+        public let username: String
+        public fileprivate(set) var answers: [(prompt: Prompt, text: String)] = []
+        public fileprivate(set) var deviceID: String?
+        public fileprivate(set) var sessionType: String?
+
+        init(server: ServerAddress, username: String, answers: [(prompt: Prompt, text: String)] = [],
+             deviceID: String? = nil, sessionType: String? = nil) {
+            self.server = server
+            self.username = username
+            self.answers = answers
+            self.deviceID = deviceID
+            self.sessionType = sessionType
+        }
+    }
+
     public struct Failure: Sendable, Equatable {
         public let message: String
         public let code: UInt64
@@ -58,7 +78,15 @@ public final class LoginFlow {
         case failed(Failure)
     }
 
-    public private(set) var step: Step = .idle
+    public private(set) var step: Step = .idle {
+        didSet { if replay != nil { advanceReplay() } }
+    }
+    /// What this login answered and chose so far; complete once redirected.
+    public private(set) var recipe: Recipe?
+    /// Whether a replay is driving this login (it stops at whatever the
+    /// recipe can't answer, leaving that step to the user).
+    public var isReplaying: Bool { replay != nil }
+    private var replay: (recipe: Recipe, nextAnswer: Int, allowTakeOver: Bool)?
     public private(set) var server: ServerAddress?
     public private(set) var username = ""
     public let knownHosts: KnownHosts
@@ -83,10 +111,13 @@ public final class LoginFlow {
     }
 
     public func start(server: ServerAddress, username: String) {
+        let replay = self.replay
         cancel()
+        self.replay = replay
         let gen = generation
         self.server = server
         self.username = username
+        recipe = Recipe(server: server, username: username)
         takeOver = false
         refusedCertificate.request.withLock { $0 = nil }
         step = .working("Connecting to \(server)…")
@@ -142,14 +173,25 @@ public final class LoginFlow {
         step = .idle
     }
 
+    /// Signs in again as `recipe` did, answering and choosing for the user
+    /// wherever the server asks what it asked then. `allowTakeOver`: open a
+    /// session someone is viewing without asking (it is most likely this
+    /// client's own connection, just lost).
+    public func replay(_ recipe: Recipe, allowTakeOver: Bool) {
+        replay = (recipe, 0, allowTakeOver)
+        start(server: recipe.server, username: recipe.username)
+    }
+
     public func answer(_ text: String) {
-        guard case .prompt = step, let lobby else { return }
+        guard case let .prompt(prompt) = step, let lobby else { return }
+        recipe?.answers.append((prompt, text))
         step = .working("Signing in…")
         lobby.respond(text)
     }
 
     public func select(device: GDPLobby.Device) {
         guard case .chooseDevice = step, let lobby else { return }
+        recipe?.deviceID = device.id
         step = .working("Signing in to \(device.name)…")
         lobby.selectDevice(device.id)
     }
@@ -160,11 +202,13 @@ public final class LoginFlow {
         guard case let .chooseSession(choice) = step, let lobby else { return }
         if choice.needsTakeOver && !takeOver { return }
         self.takeOver = takeOver
+        recipe?.sessionType = type
         step = .working("Starting the session…")
         lobby.openSession(type: type)
     }
 
     public func cancel() {
+        replay = nil
         generation += 1
         lobby?.cancel()
         lobby = nil
@@ -184,17 +228,40 @@ public final class LoginFlow {
         config.takeOver = takeOver
         config.decoders = ["videotoolbox"]
         let ticket = SessionTicket(server: server, username: username, configuration: config)
+        replay = nil
         step = .redirected(ticket)
         onRedirect?(ticket)
     }
 
     private func failed(_ f: GDPLobby.Failure) {
         lobby = nil
+        replay = nil
         if f.certificateRejected, let request = refusedCertificate.request.withLock({ $0 }) {
             step = request.pinned == nil ? .trustNewHost(request) : .certificateChanged(request)
             return
         }
         step = .failed(Failure(message: Self.explain(f), code: f.code))
+    }
+
+    /// Takes the step a replay can take; leaves the rest to the user.
+    private func advanceReplay() {
+        guard let (recipe, next, allowTakeOver) = replay else { return }
+        switch step {
+        case let .prompt(prompt):
+            // The recorded answers in order: one for the same question, or the user.
+            guard let i = recipe.answers.indices.dropFirst(next).first(where: { recipe.answers[$0].prompt == prompt })
+            else { return }
+            replay?.nextAnswer = i + 1
+            answer(recipe.answers[i].text)
+        case let .chooseDevice(devices):
+            guard let id = recipe.deviceID, let device = devices.first(where: { $0.id == id && $0.online }) else { return }
+            select(device: device)
+        case let .chooseSession(choice):
+            if choice.needsTakeOver && !allowTakeOver { return }
+            open(type: recipe.sessionType, takeOver: choice.needsTakeOver)
+        default:
+            break // working, a certificate to confirm (always the user's), redirected, failed
+        }
     }
 
     /// Words for the §12 codes a login can end with.
