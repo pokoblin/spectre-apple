@@ -1126,6 +1126,34 @@
         }
       }
     },
+    "Match Window Size" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustar al tamaño de la ventana"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウインドウサイズに合わせる"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "匹配窗口大小"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "符合視窗大小"
+          }
+        }
+      }
+    },
     "Microphone" : {
       "localizations" : {
         "es" : {
@@ -1580,6 +1608,90 @@
         }
       }
     },
+    "Resize the remote desktop to fit this window" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajusta el tamaño del escritorio remoto a esta ventana"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートデスクトップのサイズをこのウインドウに合わせる"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "调整远程桌面的大小以适合此窗口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "調整遠端桌面的大小以符合此視窗"
+          }
+        }
+      }
+    },
+    "Resolution" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolución"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解像度"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分辨率"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解析度"
+          }
+        }
+      }
+    },
+    "Retina Resolution" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolución Retina"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retina 解像度"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retina 分辨率"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retina 解析度"
+          }
+        }
+      }
+    },
     "Saved" : {
       "localizations" : {
         "es" : {
@@ -1828,6 +1940,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "與遠端桌面共享剪貼簿：在任一端拷貝的文字都可以在另一端貼上"
+          }
+        }
+      }
+    },
+    "Sharper on Retina screens, at up to four times the work for the host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más nítido en pantallas Retina, con hasta cuatro veces más trabajo para el host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retina ディスプレイでより鮮明になりますが、ホストの負荷は最大 4 倍になります"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Retina 屏幕上更清晰，主机的工作量最多为四倍"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Retina 螢幕上更清晰，主機的工作量最多為四倍"
           }
         }
       }
