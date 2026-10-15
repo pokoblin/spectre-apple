@@ -23,152 +23,494 @@
               }
             }
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 个字符无法在主机的美式键盘布局上输入。其他文字请使用主机的输入法。"
+          }
         }
       }
     },
     "A %@ session is running; you'll return to it." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有一个 %@ 会话正在运行，你将回到这个会话。"
+          }
+        }
+      }
     },
     "Another client took this session over." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一个客户端接管了这个会话。"
+          }
+        }
+      }
     },
     "Cancel" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        }
+      }
     },
     "Capture Mouse" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "捕获鼠标"
+          }
+        }
+      }
     },
     "Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为游戏和 3D 视图捕获鼠标：发送相对移动，锁定指针（Ctrl+Cmd+G）"
+          }
+        }
+      }
     },
     "Choose a desktop" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择桌面"
+          }
+        }
+      }
     },
     "Choose a host" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择主机"
+          }
+        }
+      }
     },
     "Clipboard" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪贴板"
+          }
+        }
+      }
     },
     "Connect" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接"
+          }
+        }
+      }
     },
     "Connect to a ghost host" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接到 ghost 主机"
+          }
+        }
+      }
     },
     "Connect with the saved password" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用保存的密码连接"
+          }
+        }
+      }
     },
     "Connection lost" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接已丢失"
+          }
+        }
+      }
     },
     "Continue" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续"
+          }
+        }
+      }
     },
     "Desktop" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "桌面"
+          }
+        }
+      }
     },
     "Disconnect" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开连接"
+          }
+        }
+      }
     },
     "Disconnected." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已断开连接。"
+          }
+        }
+      }
     },
     "Disconnected: %@." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已断开连接：%@。"
+          }
+        }
+      }
     },
     "End the desktop session" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "结束桌面会话"
+          }
+        }
+      }
     },
     "Fill in this server and username" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入这个服务器和用户名"
+          }
+        }
+      }
     },
     "First connection to %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次连接到 %@"
+          }
+        }
+      }
     },
     "Forget" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        }
+      }
     },
     "Forget %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除 %@"
+          }
+        }
+      }
     },
     "Forget Saved Fingerprint…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除保存的指纹…"
+          }
+        }
+      }
     },
     "Forget Saved Password" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除保存的密码"
+          }
+        }
+      }
     },
     "Forget This Login" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除这条登录记录"
+          }
+        }
+      }
     },
     "Forget the saved fingerprint?" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除保存的指纹？"
+          }
+        }
+      }
     },
     "Forward game controllers to the remote desktop, up to four" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把游戏手柄转发到远程桌面，最多四个"
+          }
+        }
+      }
     },
     "Forwarding: %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在转发：%@"
+          }
+        }
+      }
     },
     "Gamepads" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手柄"
+          }
+        }
+      }
     },
     "Gamepads (%lld)" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "手柄（%lld）"
+          }
+        }
+      }
     },
     "Keep this in the Keychain and sign in with one tap next time. Leave one-time codes unticked." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存到钥匙串，下次点一下即可登录。一次性验证码不要勾选。"
+          }
+        }
+      }
     },
     "Keyboard" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "键盘"
+          }
+        }
+      }
     },
     "Leave the session running and disconnect" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开连接，会话继续运行"
+          }
+        }
+      }
     },
     "Log Out" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "注销"
+          }
+        }
+      }
     },
     "Log out of the remote desktop?" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要注销远程桌面吗？"
+          }
+        }
+      }
     },
     "Microphone" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风"
+          }
+        }
+      }
     },
     "Mute" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静音"
+          }
+        }
+      }
     },
     "Mute the remote desktop's sound on this device" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这台设备上将远程桌面静音"
+          }
+        }
+      }
     },
     "No hosts are assigned to you." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有分配给你的主机。"
+          }
+        }
+      }
     },
     "Nothing has been sent to the server yet. If you trust it, Spectre remembers this fingerprint and warns you if it ever changes." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还没有向服务器发送任何内容。如果你信任它，Spectre 会记住这个指纹，并在它变化时提醒你。"
+          }
+        }
+      }
     },
     "OK" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        }
+      }
     },
     "Offline" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离线"
+          }
+        }
+      }
     },
     "Online" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线"
+          }
+        }
+      }
     },
     "Opening the session…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在打开会话…"
+          }
+        }
+      }
     },
     "Play the remote desktop's sound" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放远程桌面的声音"
+          }
+        }
+      }
     },
     "Preparing the demo host…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备演示主机…"
+          }
+        }
+      }
     },
     "Presented now" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次出示的"
+          }
+        }
+      }
     },
     "Recent" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近"
+          }
+        }
+      }
     },
     "Reconnecting… (attempt %lld of %lld)" : {
       "localizations" : {
@@ -177,92 +519,294 @@
             "state" : "new",
             "value" : "Reconnecting… (attempt %1$lld of %2$lld)"
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重新连接…（第 %lld 次，共 %lld 次）"
+          }
         }
       }
     },
     "Remember" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记住"
+          }
+        }
+      }
     },
     "Saved" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存的"
+          }
+        }
+      }
     },
     "Send Copies Automatically" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自动发送拷贝的内容"
+          }
+        }
+      }
     },
     "Send this device's clipboard to the remote desktop" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把这台设备的剪贴板发送到远程桌面"
+          }
+        }
+      }
     },
     "Send your microphone to the remote desktop (use headphones, or it hears its own sound)" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把你的麦克风发送到远程桌面（请戴耳机，否则它会听到自己的声音）"
+          }
+        }
+      }
     },
     "Server" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器"
+          }
+        }
+      }
     },
     "Session running" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话运行中"
+          }
+        }
+      }
     },
     "Share Clipboard" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享剪贴板"
+          }
+        }
+      }
     },
     "Share the clipboard with the remote desktop: text copied on either side can be pasted on the other" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "与远程桌面共享剪贴板：在任一端拷贝的文字都可以在另一端粘贴"
+          }
+        }
+      }
     },
     "Someone else is viewing this session. Sign in again and choose to take it over." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他人正在查看这个会话。请重新登录并选择接管。"
+          }
+        }
+      }
     },
     "Someone is viewing it from another device. Taking over disconnects them; the session keeps running." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人正在从另一台设备查看它。接管会断开对方的连接，会话继续运行。"
+          }
+        }
+      }
     },
     "Spectre hasn't seen this server before. Check that its certificate fingerprint matches the one its administrator gave you before you sign in." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 之前没有连接过这个服务器。登录前，请确认它的证书指纹与管理员给你的一致。"
+          }
+        }
+      }
     },
     "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 没有使用麦克风的权限。请在“系统设置”→“隐私与安全性”→“麦克风”中打开。"
+          }
+        }
+      }
     },
     "Start" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始"
+          }
+        }
+      }
     },
     "Statistics" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计"
+          }
+        }
+      }
     },
     "Stop sending your microphone" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止发送麦克风"
+          }
+        }
+      }
     },
     "Take over from the other viewer" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从另一位查看者那里接管"
+          }
+        }
+      }
     },
     "The app was in the background." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 曾在后台。"
+          }
+        }
+      }
     },
     "The certificate of %@ has changed" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的证书已更改"
+          }
+        }
+      }
     },
     "The connection was lost and could not be restored." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接已丢失，且无法恢复。"
+          }
+        }
+      }
     },
     "The connection was lost. Sign in again to continue." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接已丢失。请重新登录以继续。"
+          }
+        }
+      }
     },
     "The connection was lost. Sign in again." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接已丢失。请重新登录。"
+          }
+        }
+      }
     },
     "The demo could not start: %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "演示无法启动：%@"
+          }
+        }
+      }
     },
     "The host can't send any video format this device decodes." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主机无法发送这台设备能解码的任何视频格式。"
+          }
+        }
+      }
     },
     "The microphone didn't start: %@." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麦克风没有启动：%@。"
+          }
+        }
+      }
     },
     "The next connection to %@ will ask you to verify its new fingerprint." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次连接到 %@ 时，会请你核对它的新指纹。"
+          }
+        }
+      }
     },
     "The server did not answer." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器没有响应。"
+          }
+        }
+      }
     },
     "The session ended." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话已结束。"
+          }
+        }
+      }
     },
     "The session ended: %@ (code %lld)." : {
       "localizations" : {
@@ -271,59 +815,184 @@
             "state" : "new",
             "value" : "The session ended: %1$@ (code %2$lld)."
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话已结束：%@（代码 %lld）。"
+          }
         }
       }
     },
     "The session host presented a different certificate than the login promised." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话主机出示的证书与登录时告知的不一致。"
+          }
+        }
+      }
     },
     "The session refused the login token. Sign in again." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话拒绝了登录令牌。请重新登录。"
+          }
+        }
+      }
     },
     "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这可能意味着有人在拦截连接。Spectre 没有发送你的用户名。除非服务器管理员告诉过你证书已更换，否则不要继续。"
+          }
+        }
+      }
     },
     "This ends the desktop session itself, not just this connection." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这会结束桌面会话本身，而不只是断开这个连接。"
+          }
+        }
+      }
     },
     "Touch" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触摸"
+          }
+        }
+      }
     },
     "Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触摸：指针移到你触摸的位置。触控板：屏幕像笔记本电脑的触控板一样使用。"
+          }
+        }
+      }
     },
     "Trackpad" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "触控板"
+          }
+        }
+      }
     },
     "Trust and Continue" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任并继续"
+          }
+        }
+      }
     },
     "Try the demo host" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "试用演示主机"
+          }
+        }
+      }
     },
     "Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用屏幕键盘在远程桌面上打字（按主机为美式键盘布局处理）"
+          }
+        }
+      }
     },
     "Unmute" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消静音"
+          }
+        }
+      }
     },
     "Username" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名"
+          }
+        }
+      }
     },
     "You logged in at the host itself, which ended this session." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在主机本机登录了，因此这个会话已结束。"
+          }
+        }
+      }
     },
     "Your session" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的会话"
+          }
+        }
+      }
     },
     "host or host:port" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主机 或 主机:端口"
+          }
+        }
+      }
     },
     "iOS asks before Spectre reads what other apps copied, unless allowed in Settings" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 读取其他 App 拷贝的内容前，iOS 会先询问，除非已在“设置”中允许"
+          }
+        }
+      }
     },
     "password: demo" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码：demo"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

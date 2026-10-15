@@ -2,103 +2,342 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Connecting to %@…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在连接到 %@…"
+          }
+        }
+      }
     },
     "Delete" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        }
+      }
     },
     "Down Arrow" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下箭头"
+          }
+        }
+      }
     },
     "End" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End"
+          }
+        }
+      }
     },
     "Function Keys" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "功能键"
+          }
+        }
+      }
     },
     "Hide Keyboard" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏键盘"
+          }
+        }
+      }
     },
     "Home" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        }
+      }
     },
     "Insert" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert"
+          }
+        }
+      }
     },
     "Left Arrow" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左箭头"
+          }
+        }
+      }
     },
     "Menu" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menu"
+          }
+        }
+      }
     },
     "More Keys" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多按键"
+          }
+        }
+      }
     },
     "Page Down" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Down"
+          }
+        }
+      }
     },
     "Page Up" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Up"
+          }
+        }
+      }
     },
     "Print Screen" : {
-      "comment" : "A key on a PC keyboard"
+      "comment" : "A key on a PC keyboard",
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Print Screen"
+          }
+        }
+      }
     },
     "Right Arrow" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右箭头"
+          }
+        }
+      }
     },
     "Signing in to %@…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在登录 %@…"
+          }
+        }
+      }
     },
     "Signing in…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在登录…"
+          }
+        }
+      }
     },
     "Starting the session…" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在启动会话…"
+          }
+        }
+      }
     },
     "That desktop is not available on this host." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台主机上没有这种桌面。"
+          }
+        }
+      }
     },
     "That host is not one of yours." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台主机不属于你。"
+          }
+        }
+      }
     },
     "That host is offline." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这台主机不在线。"
+          }
+        }
+      }
     },
     "The connection closed before the login finished." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录完成前连接就关闭了。"
+          }
+        }
+      }
     },
     "The connection closed before the login finished: %@" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录完成前连接就关闭了：%@"
+          }
+        }
+      }
     },
     "The host has no room for another session." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主机无法再容纳一个会话。"
+          }
+        }
+      }
     },
     "The host refused the password, though the broker accepted it." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代理服务器接受了密码，但主机拒绝了它。"
+          }
+        }
+      }
     },
     "The login failed." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录失败。"
+          }
+        }
+      }
     },
     "The saved password no longer works. Sign in again." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存的密码已失效。请重新登录。"
+          }
+        }
+      }
     },
     "The server sent no valid certificate fingerprint for the session." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器没有为会话提供有效的证书指纹。"
+          }
+        }
+      }
     },
     "The server speaks a different protocol version." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器使用的协议版本不同。"
+          }
+        }
+      }
     },
     "The session could not be started." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法启动会话。"
+          }
+        }
+      }
     },
     "Up Arrow" : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上箭头"
+          }
+        }
+      }
     },
     "Wrong username or password." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户名或密码错误。"
+          }
+        }
+      }
     },
     "You are logged in at the host itself. Log out there first." : {
-
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已在主机本机登录。请先在那里注销。"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

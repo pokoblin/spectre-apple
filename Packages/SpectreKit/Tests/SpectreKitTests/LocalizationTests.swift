@@ -8,7 +8,7 @@ import Testing
 @Suite("Localization")
 struct LocalizationTests {
     /// Besides English, the source language.
-    static let languages: [String] = []
+    static let languages = ["zh-Hans"]
 
     static let catalogs = [
         "App/Shared/Localizable.xcstrings",

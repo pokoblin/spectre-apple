@@ -10,6 +10,12 @@
             "state" : "new",
             "value" : "Spectre sends your microphone to the remote desktop while you have it turned on."
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 会在你打开麦克风时，把麦克风的声音发送到远程桌面。"
+          }
         }
       }
     }
