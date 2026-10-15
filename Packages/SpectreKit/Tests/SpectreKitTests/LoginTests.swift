@@ -70,7 +70,7 @@ struct LoginFlowTests {
 
     @Test func firstLoginAsksToTrustThenSignsIn() async throws {
         let (server, host) = try lobby()
-        let flow = LoginFlow(knownHosts: KnownHosts(file: file))
+        let flow = LoginFlow(knownHosts: KnownHosts(file: file), savedLogins: MemorySavedLogins())
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         flow.start(server: address, username: "demo")
 
@@ -106,7 +106,7 @@ struct LoginFlowTests {
         let known = KnownHosts(file: file)
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         known.trust(server.certificate, for: address)
-        let flow = LoginFlow(knownHosts: known)
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .prompt = flow.step { true } else { false } })
         try? FileManager.default.removeItem(at: file)
@@ -118,7 +118,7 @@ struct LoginFlowTests {
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         let old = CertificateFingerprint(certificateDER: Array("the old one".utf8))
         known.trust(old, for: address)
-        let flow = LoginFlow(knownHosts: known)
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .certificateChanged = flow.step { true } else { false } })
         guard case let .certificateChanged(request) = flow.step else { return }
@@ -140,7 +140,7 @@ struct LoginFlowTests {
         let known = KnownHosts(file: file)
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         known.trust(server.certificate, for: address)
-        let flow = LoginFlow(knownHosts: known)
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .prompt = flow.step { true } else { false } })
         flow.answer("demo")
@@ -161,7 +161,7 @@ struct LoginFlowTests {
         let known = KnownHosts(file: file)
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         known.trust(server.certificate, for: address)
-        let flow = LoginFlow(knownHosts: known)
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .prompt = flow.step { true } else { false } })
         flow.answer("wrong")
@@ -179,7 +179,7 @@ struct LoginFlowTests {
         let known = KnownHosts(file: file)
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         known.trust(server.certificate, for: address)
-        let flow = LoginFlow(knownHosts: known)
+        let flow = LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins())
         flow.start(server: address, username: "demo")
         #expect(await until { if case .prompt = flow.step { true } else { false } })
         flow.answer("demo")
@@ -197,7 +197,7 @@ struct LoginFlowTests {
         let known = KnownHosts(file: file)
         let address = ServerAddress(host: "127.0.0.1", port: server.port)
         known.trust(server.certificate, for: address)
-        return (LoginFlow(knownHosts: known), address)
+        return (LoginFlow(knownHosts: known, savedLogins: MemorySavedLogins()), address)
     }
 
     func redirected(_ flow: LoginFlow) async -> LoginFlow.SessionTicket? {
@@ -233,7 +233,7 @@ struct LoginFlowTests {
         }
         let (flow, address) = pinned(server)
         let recipe = LoginFlow.Recipe(server: address, username: "demo",
-                                      answers: [(.init(text: "Password: ", echo: false), "demo")])
+                                      answers: [.init(prompt: .init(text: "Password: ", echo: false), text: "demo", remember: false)])
         flow.replay(recipe, allowTakeOver: false)
         #expect(await until { if case .prompt(let p) = flow.step { p.text == "Verification code: " } else { false } })
         #expect(flow.isReplaying) // waiting for the user, not over
@@ -246,7 +246,7 @@ struct LoginFlowTests {
         let (server, _) = try lobby()
         let (flow, address) = pinned(server)
         let recipe = LoginFlow.Recipe(server: address, username: "demo",
-                                      answers: [(.init(text: "Password: ", echo: false), "old")])
+                                      answers: [.init(prompt: .init(text: "Password: ", echo: false), text: "old", remember: false)])
         flow.replay(recipe, allowTakeOver: false)
         #expect(await until { if case .failed = flow.step { true } else { false } })
         guard case let .failed(failure) = flow.step else { return }
@@ -263,7 +263,7 @@ struct LoginFlowTests {
         }
         let (flow, address) = pinned(server)
         let recipe = LoginFlow.Recipe(server: address, username: "demo",
-                                      answers: [(.init(text: "Password: ", echo: false), "demo")])
+                                      answers: [.init(prompt: .init(text: "Password: ", echo: false), text: "demo", remember: false)])
         flow.replay(recipe, allowTakeOver: allow)
         if allow {
             let ticket = await redirected(flow)
@@ -283,7 +283,7 @@ struct LoginFlowTests {
         }
         let (flow, address) = pinned(server)
         let recipe = LoginFlow.Recipe(server: address, username: "demo",
-                                      answers: [(.init(text: "Password: ", echo: false), "demo")], deviceID: device)
+                                      answers: [.init(prompt: .init(text: "Password: ", echo: false), text: "demo", remember: false)], deviceID: device)
         flow.replay(recipe, allowTakeOver: false)
         if chosen {
             #expect(await redirected(flow) != nil)
@@ -301,6 +301,102 @@ struct LoginFlowTests {
         flow.cancel()
         #expect(!flow.isReplaying)
         try? FileManager.default.removeItem(at: file)
+    }
+}
+
+@MainActor
+@Suite("Saved logins in the login flow", .serialized)
+struct SavedLoginFlowTests {
+    let file = FileManager.default.temporaryDirectory.appending(path: "known-\(UUID().uuidString).json")
+    let saved = MemorySavedLogins()
+
+    func until(_ condition: () -> Bool) async -> Bool {
+        for _ in 0..<500 {
+            if condition() { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
+    }
+
+    func setUp(_ configure: (inout GDPTestLobby.Configuration) -> Void = { _ in }) throws
+        -> (LoginFlow, GDPTestLobby, ServerAddress, GDPTestHost) {
+        let host = try GDPTestHost()
+        var config = GDPTestLobby.Configuration()
+        config.redirect(to: host)
+        configure(&config)
+        let server = try GDPTestLobby(config)
+        let known = KnownHosts(file: file)
+        let address = ServerAddress(host: "127.0.0.1", port: server.port)
+        known.trust(server.certificate, for: address)
+        return (LoginFlow(knownHosts: known, savedLogins: saved), server, address, host)
+    }
+
+    func step(_ flow: LoginFlow, is test: (LoginFlow.Step) -> Bool) async -> Bool { await until { test(flow.step) } }
+
+    @Test func aTickedPasswordIsSavedOnceSignedIn() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        flow.start(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt = $0 { true } else { false } })
+        flow.answer("demo", remember: true)
+        #expect(!saved.contains(server: address, username: "demo")) // not before the server accepted it
+        #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
+        flow.open(type: "plasma", takeOver: false)
+        #expect(await step(flow) { if case .redirected = $0 { true } else { false } })
+        #expect(saved.load(server: address, username: "demo") ==
+                SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "demo")], sessionType: "plasma"))
+    }
+
+    @Test func signingInWithoutTickingForgetsASavedLogin() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.save(SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "demo")]), server: address, username: "demo")
+        flow.start(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt = $0 { true } else { false } })
+        flow.answer("demo") // not ticked this time
+        #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
+        flow.open(type: nil, takeOver: false)
+        #expect(await step(flow) { if case .redirected = $0 { true } else { false } })
+        #expect(!saved.contains(server: address, username: "demo"))
+    }
+
+    @Test func oneTapSignInReplaysTheSavedLogin() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.save(SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "demo")], sessionType: "plasma"),
+                   server: address, username: "demo")
+        #expect(flow.hasSavedLogin(server: address, username: "demo"))
+        #expect(flow.signInWithSaved(server: address, username: "demo"))
+        #expect(await step(flow) { if case .redirected = $0 { true } else { false } })
+        #expect(server.observed.openedType == "plasma")
+        #expect(saved.contains(server: address, username: "demo")) // kept, refreshed
+        #expect(!flow.signInWithSaved(server: address, username: "nobody"))
+    }
+
+    @Test func aOneTimeCodeIsAskedEveryTimeAndNeverSaved() async throws {
+        let (flow, server, address, host) = try setUp {
+            $0.prompts = [.init("Password: ", expected: "demo"), .init("Code: ", echo: false, expected: "123456")]
+        }
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.save(SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "demo")]), server: address, username: "demo")
+        flow.signInWithSaved(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt(let p) = $0 { p.text == "Code: " } else { false } })
+        flow.answer("123456") // not ticked
+        #expect(await step(flow) { if case .redirected = $0 { true } else { false } })
+        #expect(saved.load(server: address, username: "demo")?.answers.map(\.prompt) == ["Password: "])
+    }
+
+    @Test func aSavedPasswordThatStoppedWorkingIsForgottenAndAsked() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.save(SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "old")]), server: address, username: "demo")
+        flow.signInWithSaved(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt = $0 { true } else { false } })
+        #expect(!saved.contains(server: address, username: "demo"))
+        #expect(flow.notice == "The saved password no longer works. Sign in again.")
+        #expect(!flow.isReplaying)
+        flow.answer("demo")
+        #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
     }
 }
 

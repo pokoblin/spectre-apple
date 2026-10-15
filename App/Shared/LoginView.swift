@@ -54,7 +54,7 @@ struct LoginView: View {
         case let .certificateChanged(request):
             CertificateChangedView(request: request, onForget: flow.forgetPinnedCertificate, onCancel: flow.cancel)
         case let .prompt(prompt):
-            PromptView(prompt: prompt, username: flow.username, server: flow.server, onAnswer: flow.answer,
+            PromptView(prompt: prompt, username: flow.username, server: flow.server, onAnswer: { flow.answer($0) },
                        onCancel: flow.cancel)
                 .id(prompt.text) // a fresh field per prompt
         case let .chooseDevice(devices):

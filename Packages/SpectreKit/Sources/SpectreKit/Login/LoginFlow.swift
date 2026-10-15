@@ -45,19 +45,43 @@ public final class LoginFlow {
     /// sign in again without the user after a lost connection. Lives in
     /// memory only (it holds the password); see docs/reconnect.md.
     public struct Recipe: Sendable {
+        public struct Answer: Sendable, Equatable {
+            public let prompt: Prompt
+            public let text: String
+            /// For a secret: the user asked to keep it (saved logins, docs/saved-logins.md).
+            public let remember: Bool
+        }
+
         public let server: ServerAddress
         public let username: String
-        public fileprivate(set) var answers: [(prompt: Prompt, text: String)] = []
+        public fileprivate(set) var answers: [Answer] = []
         public fileprivate(set) var deviceID: String?
         public fileprivate(set) var sessionType: String?
 
-        init(server: ServerAddress, username: String, answers: [(prompt: Prompt, text: String)] = [],
+        init(server: ServerAddress, username: String, answers: [Answer] = [],
              deviceID: String? = nil, sessionType: String? = nil) {
             self.server = server
             self.username = username
             self.answers = answers
             self.deviceID = deviceID
             self.sessionType = sessionType
+        }
+
+        /// What to keep of it: the secrets the user ticked, and then also the
+        /// rest (questions that aren't secret, the device, the desktop);
+        /// nil if no secret was ticked.
+        var toSave: SavedLogin? {
+            guard answers.contains(where: { !$0.prompt.echo && $0.remember }) else { return nil }
+            let kept = answers.filter { $0.prompt.echo || $0.remember }
+            return SavedLogin(answers: kept.map { .init(prompt: $0.prompt.text, echo: $0.prompt.echo, text: $0.text) },
+                              deviceID: deviceID, sessionType: sessionType)
+        }
+
+        init(_ saved: SavedLogin, server: ServerAddress, username: String) {
+            self.init(server: server, username: username,
+                      answers: saved.answers.map { Answer(prompt: Prompt(text: $0.prompt, echo: $0.echo), text: $0.text,
+                                                          remember: !$0.echo) },
+                      deviceID: saved.deviceID, sessionType: saved.sessionType)
         }
     }
 
@@ -87,9 +111,15 @@ public final class LoginFlow {
     /// recipe can't answer, leaving that step to the user).
     public var isReplaying: Bool { replay != nil }
     private var replay: (recipe: Recipe, nextAnswer: Int, allowTakeOver: Bool)?
+    /// The replay answers from a saved login: if the server refuses it, it is forgotten.
+    private var replayingSaved = false
     public private(set) var server: ServerAddress?
     public private(set) var username = ""
     public let knownHosts: KnownHosts
+    /// Logins the user asked to remember (docs/saved-logins.md).
+    public let savedLogins: SavedLogins
+    /// Something to tell the user on the current step (a saved password that stopped working).
+    public private(set) var notice: String?
     /// Video codecs offered in SessionHello, most preferred first.
     public var codecs: [String]
     /// Called with the ticket when the login succeeds; open the session right away.
@@ -105,15 +135,19 @@ public final class LoginFlow {
     }
     private let refusedCertificate = Refused()
 
-    public init(knownHosts: KnownHosts = .standard(), codecs: [String] = ["h265", "h264"]) {
+    public init(knownHosts: KnownHosts = .standard(), savedLogins: SavedLogins = KeychainSavedLogins(),
+                codecs: [String] = ["h265", "h264"]) {
         self.knownHosts = knownHosts
+        self.savedLogins = savedLogins
         self.codecs = codecs
     }
 
     public func start(server: ServerAddress, username: String) {
-        let replay = self.replay
+        let replay = self.replay, replayingSaved = self.replayingSaved, notice = self.notice
         cancel()
         self.replay = replay
+        self.replayingSaved = replayingSaved
+        self.notice = notice
         let gen = generation
         self.server = server
         self.username = username
@@ -182,9 +216,27 @@ public final class LoginFlow {
         start(server: recipe.server, username: recipe.username)
     }
 
-    public func answer(_ text: String) {
+    /// Whether a login is saved for this user and server (reads no secret).
+    public func hasSavedLogin(server: ServerAddress, username: String) -> Bool {
+        savedLogins.contains(server: server, username: username)
+    }
+
+    /// Signs in with the saved login, the way a replay does: whatever it
+    /// doesn't answer (a one-time code, a session someone is viewing) is
+    /// left to the user. False if none is saved (or it can't be read).
+    @discardableResult
+    public func signInWithSaved(server: ServerAddress, username: String) -> Bool {
+        guard let saved = savedLogins.load(server: server, username: username) else { return false }
+        cancel()
+        replayingSaved = true
+        replay(Recipe(saved, server: server, username: username), allowTakeOver: false)
+        return true
+    }
+
+    /// `remember`: for a secret, keep it in the saved login once signed in.
+    public func answer(_ text: String, remember: Bool = false) {
         guard case let .prompt(prompt) = step, let lobby else { return }
-        recipe?.answers.append((prompt, text))
+        recipe?.answers.append(.init(prompt: prompt, text: text, remember: remember && !prompt.echo))
         step = .working("Signing in…")
         lobby.respond(text)
     }
@@ -209,6 +261,8 @@ public final class LoginFlow {
 
     public func cancel() {
         replay = nil
+        replayingSaved = false
+        notice = nil
         generation += 1
         lobby?.cancel()
         lobby = nil
@@ -229,6 +283,9 @@ public final class LoginFlow {
         config.decoders = ["videotoolbox"]
         let ticket = SessionTicket(server: server, username: username, configuration: config)
         replay = nil
+        replayingSaved = false
+        notice = nil
+        rememberLogin()
         step = .redirected(ticket)
         onRedirect?(ticket)
     }
@@ -236,11 +293,32 @@ public final class LoginFlow {
     private func failed(_ f: GDPLobby.Failure) {
         lobby = nil
         replay = nil
+        if replayingSaved, f.code == 20, let server {
+            // §12 AUTH_FAILED: the saved password no longer works. Forget it
+            // and ask, as a login without one would.
+            replayingSaved = false
+            savedLogins.delete(server: server, username: username)
+            notice = "The saved password no longer works. Sign in again."
+            start(server: server, username: username)
+            return
+        }
+        replayingSaved = false
         if f.certificateRejected, let request = refusedCertificate.request.withLock({ $0 }) {
             step = request.pinned == nil ? .trustNewHost(request) : .certificateChanged(request)
             return
         }
         step = .failed(Failure(message: Self.explain(f), code: f.code))
+    }
+
+    /// After a successful login: keep what the user ticked, or forget a
+    /// saved login the user signed in to without ticking anything.
+    private func rememberLogin() {
+        guard let recipe else { return }
+        if let saved = recipe.toSave {
+            savedLogins.save(saved, server: recipe.server, username: recipe.username)
+        } else if recipe.answers.contains(where: { !$0.prompt.echo }) {
+            savedLogins.delete(server: recipe.server, username: recipe.username)
+        }
     }
 
     /// Takes the step a replay can take; leaves the rest to the user.
@@ -252,7 +330,7 @@ public final class LoginFlow {
             guard let i = recipe.answers.indices.dropFirst(next).first(where: { recipe.answers[$0].prompt == prompt })
             else { return }
             replay?.nextAnswer = i + 1
-            answer(recipe.answers[i].text)
+            answer(recipe.answers[i].text, remember: recipe.answers[i].remember)
         case let .chooseDevice(devices):
             guard let id = recipe.deviceID, let device = devices.first(where: { $0.id == id && $0.online }) else { return }
             select(device: device)
