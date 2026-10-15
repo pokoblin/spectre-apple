@@ -33,6 +33,8 @@ public final class RemoteSession: @unchecked Sendable {
     public var onCursorShape: (@Sendable (GDPSession.CursorShape) -> Void)?
     /// Called on the session queue: where the host put the pointer, 0...1 (§7.4).
     public var onCursorPosition: (@Sendable (CGPoint) -> Void)?
+    /// Called on the session queue: the host's clipboard text (§7.9).
+    public var onClipboardText: (@Sendable (String) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -165,6 +167,7 @@ public final class RemoteSession: @unchecked Sendable {
         h.audioPacket = { [weak self] sequence, pts, opus in
             self?.audioState.withLock { $0.player }?.receive(sequence: sequence, pts: pts, opus: opus)
         }
+        h.clipboardText = { [weak self] text in self?.onClipboardText?(text) }
         let session = GDPSession(handlers: h)
         self.session = session
         stats.setTimingSink { [weak session] decode, present in
