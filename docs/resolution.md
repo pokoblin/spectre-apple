@@ -27,7 +27,7 @@ GDPKit 原来就有这两样（`Configuration.display`、`GDPSession.requestReso
 ## App 里怎么接
 
 - **测量**（`ContentView.swift`）：
-  - macOS 量 `VideoView` 本身，它在工具栏下面，量出来就是画面实际能用的区域。
+  - macOS 量 `VideoView` 本身，它在工具栏下面，量出来就是画面实际能用的区域。全屏时工具栏默认收起，量出来是整个屏幕；工具栏唤出时盖在画面上，尺寸不变（见 [full-screen.md](full-screen.md)）。
   - iOS 量铺满全屏的黑色背景。`VideoView` 在触摸键盘弹出时会缩到键盘上方（让画面不被挡住），如果量它，每次开关键盘都会让远端改一次分辨率。
   - 缩放比例用环境里的 `displayScale`，窗口移到另一个显示器时会跟着变。
 - **`PlaybackModel`**：每次连接都经过 `connect(_:)`（登录、`--connect`、重连都走这里），在这里把尺寸写进 `config.display`。所以 `LoginFlow` 和 `RemoteSession` 都不用改。`onPictureChange`（SessionAccept 和每个 DisplaysChanged）把 host 报告的尺寸告诉 follower。计时器到点时只有会话已建立（`phase == .playing`）才发；没建立时请求保持挂起，连上后再处理。
@@ -73,6 +73,8 @@ GDPKit 原来就有这两样（`Configuration.display`、`GDPSession.requestReso
 | 关掉 Retina、退出全屏 | 1920×1028，然后 816×460 | 正常 |
 | 拖窗口角放大 | 1056×618（拖动中没有请求，松手后一次） | 正常 |
 | 拖窗口角缩小 | 976×566 | 正常 |
+
+这里全屏时的 1920×1028 是工具栏还一直显示的时候量的；现在全屏默认收起工具栏，会话视图是 1920×1080（[full-screen.md](full-screen.md)）。
 
 宽度取到 16 的倍数之前，同一台 host 上 856×460 等宽度会花屏，过程见上面“踩到的坑”。
 

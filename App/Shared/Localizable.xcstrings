@@ -958,6 +958,34 @@
         }
       }
     },
+    "Hide Toolbar in Full Screen" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar la barra de herramientas en pantalla completa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルスクリーンでツールバーを隠す"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全屏时隐藏工具栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全螢幕時隱藏工具列"
+          }
+        }
+      }
+    },
     "Keep the password in the Keychain and sign in with one tap next time." : {
       "localizations" : {
         "es" : {
