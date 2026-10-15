@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- The ghost: a dome over a skirt that flares and trails off to the lower left; the eyes are holes. -->
+    <clipPath id="ghost">
+      <path clip-rule="evenodd" d="M300 440 A210 210 0 0 1 720 440 C720 560 735 650 790 725 C730 785 670 700 605 760 C545 815 480 730 415 790 C365 836 310 805 250 838 C292 760 300 640 300 440 Z M416 430 a34 48 0 1 0 68 0 a34 48 0 1 0 -68 0 Z M536 430 a34 48 0 1 0 68 0 a34 48 0 1 0 -68 0 Z"/>
+    </clipPath>
+  </defs>
+  <!-- Six bands of the spectrum, red at the top; each overlaps the next so no seam shows. -->
+  <g clip-path="url(#ghost)" transform="translate(0 -18)">
+    <rect x="240" y="190" width="560" height="134" fill="#FF4D5E"/>
+    <rect x="240" y="320" width="560" height="104" fill="#FF9F2E"/>
+    <rect x="240" y="420" width="560" height="104" fill="#FFD83A"/>
+    <rect x="240" y="520" width="560" height="104" fill="#34D883"/>
+    <rect x="240" y="620" width="560" height="104" fill="#2E9BFF"/>
+    <rect x="240" y="720" width="560" height="140" fill="#8B5CFF"/>
+  </g>
+</svg>

@@ -1,0 +1,47 @@
+{
+  "fill": {
+    "linear-gradient": [
+      "srgb:0.16471,0.18431,0.43137,1.00000",
+      "srgb:0.04706,0.03922,0.10196,1.00000"
+    ],
+    "orientation": {
+      "start": {
+        "x": 0.2,
+        "y": 0
+      },
+      "stop": {
+        "x": 0.8,
+        "y": 1
+      }
+    }
+  },
+  "groups": [
+    {
+      "layers": [
+        {
+          "image-name": "ghost.svg",
+          "name": "ghost",
+          "fill-specializations": [
+            {
+              "appearance": "tinted",
+              "value": {
+                "solid": "srgb:1.00000,1.00000,1.00000,1.00000"
+              }
+            }
+          ]
+        }
+      ],
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
+      },
+      "translucency": {
+        "enabled": false,
+        "value": 0.5
+      }
+    }
+  ],
+  "supported-platforms": {
+    "squares": "shared"
+  }
+}
