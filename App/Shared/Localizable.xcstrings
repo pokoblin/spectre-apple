@@ -24,6 +24,24 @@
             }
           }
         },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld carácter no se puede escribir con la distribución estadounidense del host. Para otras escrituras, usa el método de entrada del host."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld caracteres no se pueden escribir con la distribución estadounidense del host. Para otras escrituras, usa el método de entrada del host."
+                }
+              }
+            }
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -46,6 +64,12 @@
     },
     "A %@ session is running; you'll return to it." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hay una sesión de %@ en curso; volverás a ella."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -68,6 +92,12 @@
     },
     "Another client took this session over." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro cliente tomó el control de esta sesión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -90,6 +120,12 @@
     },
     "Cancel" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cancelar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -112,6 +148,12 @@
     },
     "Capture Mouse" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capturar ratón"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -134,6 +176,12 @@
     },
     "Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Captura el ratón para juegos y vistas 3D: movimiento relativo y puntero bloqueado (Ctrl+Cmd+G)"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -156,6 +204,12 @@
     },
     "Choose a desktop" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un escritorio"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -178,6 +232,12 @@
     },
     "Choose a host" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige un host"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -200,6 +260,12 @@
     },
     "Clipboard" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Portapapeles"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -222,6 +288,12 @@
     },
     "Connect" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -244,6 +316,12 @@
     },
     "Connect to a ghost host" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conéctate a un host de ghost"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -266,6 +344,12 @@
     },
     "Connect with the saved password" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar con la contraseña guardada"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -288,6 +372,12 @@
     },
     "Connection lost" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión perdida"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -310,6 +400,12 @@
     },
     "Continue" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -332,6 +428,12 @@
     },
     "Desktop" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escritorio"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -354,6 +456,12 @@
     },
     "Disconnect" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -376,6 +484,12 @@
     },
     "Disconnected." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectado."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -398,6 +512,12 @@
     },
     "Disconnected: %@." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectado: %@."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -420,6 +540,12 @@
     },
     "End the desktop session" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Termina la sesión de escritorio"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -442,6 +568,12 @@
     },
     "Fill in this server and username" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rellena este servidor y nombre de usuario"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -464,6 +596,12 @@
     },
     "First connection to %@" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primera conexión a %@"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -486,6 +624,12 @@
     },
     "Forget" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -508,6 +652,12 @@
     },
     "Forget %@" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar %@"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -530,6 +680,12 @@
     },
     "Forget Saved Fingerprint…" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar huella guardada…"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -552,6 +708,12 @@
     },
     "Forget Saved Password" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar contraseña guardada"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -574,6 +736,12 @@
     },
     "Forget This Login" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar este inicio de sesión"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -596,6 +764,12 @@
     },
     "Forget the saved fingerprint?" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Olvidar la huella guardada?"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -618,6 +792,12 @@
     },
     "Forward game controllers to the remote desktop, up to four" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía los mandos al escritorio remoto, hasta cuatro"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -640,6 +820,12 @@
     },
     "Forwarding: %@" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando: %@"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -662,6 +848,12 @@
     },
     "Gamepads" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandos"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -684,6 +876,12 @@
     },
     "Gamepads (%lld)" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mandos (%lld)"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -706,6 +904,12 @@
     },
     "Keep this in the Keychain and sign in with one tap next time. Leave one-time codes unticked." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guárdalo en el llavero e inicia sesión con un toque la próxima vez. No lo marques para códigos de un solo uso."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -728,6 +932,12 @@
     },
     "Keyboard" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teclado"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -750,6 +960,12 @@
     },
     "Leave the session running and disconnect" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconecta y deja la sesión en marcha"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -772,6 +988,12 @@
     },
     "Log Out" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cerrar sesión"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -794,6 +1016,12 @@
     },
     "Log out of the remote desktop?" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cerrar la sesión del escritorio remoto?"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -816,6 +1044,12 @@
     },
     "Microphone" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Micrófono"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -838,6 +1072,12 @@
     },
     "Mute" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silenciar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -860,6 +1100,12 @@
     },
     "Mute the remote desktop's sound on this device" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silencia el sonido del escritorio remoto en este dispositivo"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -882,6 +1128,12 @@
     },
     "No hosts are assigned to you." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No tienes hosts asignados."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -904,6 +1156,12 @@
     },
     "Nothing has been sent to the server yet. If you trust it, Spectre remembers this fingerprint and warns you if it ever changes." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no se ha enviado nada al servidor. Si confías en él, Spectre recordará esta huella y te avisará si alguna vez cambia."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -926,6 +1184,12 @@
     },
     "OK" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aceptar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -948,6 +1212,12 @@
     },
     "Offline" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -970,6 +1240,12 @@
     },
     "Online" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En línea"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -992,6 +1268,12 @@
     },
     "Opening the session…" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abriendo la sesión…"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1014,6 +1296,12 @@
     },
     "Play the remote desktop's sound" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reproduce el sonido del escritorio remoto"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1036,6 +1324,12 @@
     },
     "Preparing the demo host…" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando el host de demostración…"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1058,6 +1352,12 @@
     },
     "Presented now" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presentada ahora"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1080,6 +1380,12 @@
     },
     "Recent" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recientes"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1108,6 +1414,12 @@
             "value" : "Reconnecting… (attempt %1$lld of %2$lld)"
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reconectando… (intento %lld de %lld)"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1130,6 +1442,12 @@
     },
     "Remember" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1152,6 +1470,12 @@
     },
     "Saved" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardada"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1174,6 +1498,12 @@
     },
     "Send Copies Automatically" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar copias automáticamente"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1196,6 +1526,12 @@
     },
     "Send this device's clipboard to the remote desktop" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía el portapapeles de este dispositivo al escritorio remoto"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1218,6 +1554,12 @@
     },
     "Send your microphone to the remote desktop (use headphones, or it hears its own sound)" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía tu micrófono al escritorio remoto (usa auriculares o captará su propio sonido)"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1240,6 +1582,12 @@
     },
     "Server" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidor"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1262,6 +1610,12 @@
     },
     "Session running" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión en curso"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1284,6 +1638,12 @@
     },
     "Share Clipboard" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir portapapeles"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1306,6 +1666,12 @@
     },
     "Share the clipboard with the remote desktop: text copied on either side can be pasted on the other" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparte el portapapeles con el escritorio remoto: el texto copiado en un lado se puede pegar en el otro"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1328,6 +1694,12 @@
     },
     "Someone else is viewing this session. Sign in again and choose to take it over." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otra persona está viendo esta sesión. Vuelve a iniciar sesión y elige tomar el control."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1350,6 +1722,12 @@
     },
     "Someone is viewing it from another device. Taking over disconnects them; the session keeps running." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alguien la está viendo desde otro dispositivo. Al tomar el control se le desconecta; la sesión sigue en marcha."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1372,6 +1750,12 @@
     },
     "Spectre hasn't seen this server before. Check that its certificate fingerprint matches the one its administrator gave you before you sign in." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre no ha visto antes este servidor. Antes de iniciar sesión, comprueba que la huella de su certificado coincide con la que te dio su administrador."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1394,6 +1778,12 @@
     },
     "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre no tiene permiso para usar el micrófono. Actívalo en Ajustes del Sistema → Privacidad y seguridad → Micrófono."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1416,6 +1806,12 @@
     },
     "Start" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1438,6 +1834,12 @@
     },
     "Statistics" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estadísticas"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1460,6 +1862,12 @@
     },
     "Stop sending your microphone" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja de enviar tu micrófono"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1482,6 +1890,12 @@
     },
     "Take over from the other viewer" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tomar el control del otro espectador"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1504,6 +1918,12 @@
     },
     "The app was in the background." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La app estaba en segundo plano."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1526,6 +1946,12 @@
     },
     "The certificate of %@ has changed" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El certificado de %@ ha cambiado"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1548,6 +1974,12 @@
     },
     "The connection was lost and could not be restored." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perdió la conexión y no se pudo restablecer."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1570,6 +2002,12 @@
     },
     "The connection was lost. Sign in again to continue." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perdió la conexión. Vuelve a iniciar sesión para continuar."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1592,6 +2030,12 @@
     },
     "The connection was lost. Sign in again." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se perdió la conexión. Vuelve a iniciar sesión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1614,6 +2058,12 @@
     },
     "The demo could not start: %@" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo iniciar la demostración: %@"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1636,6 +2086,12 @@
     },
     "The host can't send any video format this device decodes." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El host no puede enviar ningún formato de vídeo que este dispositivo pueda decodificar."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1658,6 +2114,12 @@
     },
     "The microphone didn't start: %@." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El micrófono no se inició: %@."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1680,6 +2142,12 @@
     },
     "The next connection to %@ will ask you to verify its new fingerprint." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La próxima conexión a %@ te pedirá que verifiques su nueva huella."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1702,6 +2170,12 @@
     },
     "The server did not answer." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor no respondió."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1724,6 +2198,12 @@
     },
     "The session ended." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión terminó."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1752,6 +2232,12 @@
             "value" : "The session ended: %1$@ (code %2$lld)."
           }
         },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión terminó: %@ (código %lld)."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1774,6 +2260,12 @@
     },
     "The session host presented a different certificate than the login promised." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El host de la sesión presentó un certificado distinto del que indicó el inicio de sesión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1796,6 +2288,12 @@
     },
     "The session refused the login token. Sign in again." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La sesión rechazó el token de inicio de sesión. Vuelve a iniciar sesión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1818,6 +2316,12 @@
     },
     "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto puede significar que alguien está interceptando la conexión. Spectre no ha enviado tu nombre de usuario. A menos que el administrador del servidor te haya dicho que se cambió su certificado, no continúes."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1840,6 +2344,12 @@
     },
     "This ends the desktop session itself, not just this connection." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto termina la propia sesión de escritorio, no solo esta conexión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1862,6 +2372,12 @@
     },
     "Touch" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Táctil"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1884,6 +2400,12 @@
     },
     "Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Táctil: el puntero va donde tocas. Trackpad: la pantalla funciona como el trackpad de un portátil."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1906,6 +2428,12 @@
     },
     "Trackpad" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Trackpad"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1928,6 +2456,12 @@
     },
     "Trust and Continue" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confiar y continuar"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1950,6 +2484,12 @@
     },
     "Try the demo host" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Probar el host de demostración"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1972,6 +2512,12 @@
     },
     "Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escribe en el escritorio remoto con el teclado en pantalla (se supone que el host usa la distribución estadounidense)"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -1994,6 +2540,12 @@
     },
     "Unmute" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Activar sonido"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2016,6 +2568,12 @@
     },
     "Username" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre de usuario"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2038,6 +2596,12 @@
     },
     "You logged in at the host itself, which ended this session." : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciaste sesión en el propio host, lo que terminó esta sesión."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2060,6 +2624,12 @@
     },
     "Your session" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu sesión"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2082,6 +2652,12 @@
     },
     "host or host:port" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "host o host:puerto"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2104,6 +2680,12 @@
     },
     "iOS asks before Spectre reads what other apps copied, unless allowed in Settings" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iOS pregunta antes de que Spectre lea lo que copiaron otras apps, salvo que lo permitas en Ajustes"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
@@ -2126,6 +2708,12 @@
     },
     "password: demo" : {
       "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "contraseña: demo"
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
