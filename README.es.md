@@ -21,9 +21,10 @@ Funciona:
 - **Vídeo**: H.264 y HEVC, decodificados por hardware con VideoToolbox y entregados a Metal sin copias; estadísticas de pérdida de fotogramas y de latencia enviadas al host (StatsReport). Véanse [docs/session-client.md](docs/session-client.md) y [docs/prototype-findings.md](docs/prototype-findings.md).
 - **Entrada**: teclas enviadas por posición física; ratón con posiciones absolutas, todos los botones y desplazamiento suave, más un modo capturado que envía movimiento relativo; el cursor remoto se dibuja localmente; en iPad, teclados físicos, trackpads y ratones, y los dedos en modo «toque directo» o «trackpad». Véase [docs/input.md](docs/input.md).
 - **Audio**: el sonido del escritorio remoto (Opus, decodificado con el códec del propio sistema) a través de un búfer de jitter de 60 ms que oculta los paquetes perdidos; se puede silenciar desde la barra de herramientas. El micrófono, enviado al escritorio remoto mientras lo tengas activado. Véase [docs/audio.md](docs/audio.md).
+- **Portapapeles**: texto en ambos sentidos (§7.9), desactivado por defecto y activable en la barra de herramientas. En el Mac lo copiado se envía cuando Spectre está activa; en iPad, un botón de pegar envía el portapapeles sin el aviso de pegado del sistema, o lo copiado puede enviarse automáticamente. Véase [docs/clipboard.md](docs/clipboard.md).
 - **Control de sesión**: desconectar (la sesión remota sigue abierta) y cerrar sesión (termina la sesión remota).
 
-Pendiente: portapapeles, mandos, la capa de refinamiento sin pérdidas (refine), teclado en pantalla, AV1 y PyroWave.
+Pendiente: mandos, la capa de refinamiento sin pérdidas (refine), teclado en pantalla, AV1 y PyroWave.
 
 ## Compilación
 
@@ -143,7 +144,7 @@ Modo de medición: mide durante N segundos tras un calentamiento de 2 segundos, 
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Otras opciones: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 sin límite>`, `--screen <índice de pantalla>`, `--rate <Hz del display link>`, `--min-present-ms <ms>`.
+Otras opciones: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 sin límite>`, `--screen <índice de pantalla>`, `--rate <Hz del display link>`, `--min-present-ms <ms>`, `--host-clipboard <texto>` (el portapapeles inicial del host loopback).
 
 ### Simulador de iOS y iPadOS
 
@@ -183,6 +184,7 @@ En el simulador VideoToolbox decodifica por software y no hay `presentedTime`, a
 - [docs/login.md](docs/login.md): inicio de sesión en el lobby, confianza en certificados, la demo
 - [docs/input.md](docs/input.md): teclado, ratón, cursor, toque
 - [docs/audio.md](docs/audio.md): audio, búfer de jitter, decodificación Opus
+- [docs/clipboard.md](docs/clipboard.md): el portapapeles en Mac y en iPad, supresión del eco, el aviso de pegado
 
 ## Licencia
 

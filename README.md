@@ -21,9 +21,10 @@ Working:
 - **Video**: H.264 and HEVC, decoded in hardware by VideoToolbox and handed to Metal without copies; frame loss and latency statistics reported back to the host (StatsReport). See [docs/session-client.md](docs/session-client.md) and [docs/prototype-findings.md](docs/prototype-findings.md).
 - **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
 - **Audio**: the remote desktop's sound (Opus, decoded by the system's own codec) through a 60 ms jitter buffer that conceals lost packets; mute from the toolbar. The microphone, sent to the remote desktop while you turn it on. See [docs/audio.md](docs/audio.md).
+- **Clipboard**: text in both directions (§7.9), off by default, switched in the toolbar. On the Mac copies are sent when Spectre is active; on iPad a paste button sends the clipboard without the system's paste prompt, or copies can be sent automatically. See [docs/clipboard.md](docs/clipboard.md).
 - **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
 
-Not done yet: clipboard, gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
+Not done yet: gamepads, the lossless refinement layer (refine), an on-screen keyboard, AV1 and PyroWave.
 
 ## Building
 
@@ -143,7 +144,7 @@ Benchmark mode: measures for N seconds after a 2-second warm-up, prints the stat
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Other options: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 for no limit>`, `--screen <screen index>`, `--rate <display link Hz>`, `--min-present-ms <ms>`.
+Other options: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 for no limit>`, `--screen <screen index>`, `--rate <display link Hz>`, `--min-present-ms <ms>`, `--host-clipboard <text>` (the loopback host's clipboard to start with).
 
 ### iOS and iPadOS simulator
 
@@ -183,6 +184,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 - [docs/login.md](docs/login.md): lobby login, certificate trust, the demo
 - [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
 - [docs/audio.md](docs/audio.md): audio, jitter buffer, Opus decoding
+- [docs/clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
 
 ## License
 

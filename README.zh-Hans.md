@@ -19,9 +19,10 @@
 - **视频**：H.264 / HEVC，VideoToolbox 硬件解码，零拷贝交给 Metal 显示；向 host 回报丢帧和延迟统计（StatsReport）。见 [docs/session-client.md](docs/session-client.md)、[docs/prototype-findings.md](docs/prototype-findings.md)。
 - **输入**：键盘按物理位置转发；鼠标支持绝对坐标、各按键和平滑滚动，可以捕获鼠标发送相对移动；显示远端光标；iPad 支持硬件键盘、触控板和鼠标，手指可以选“直接触摸”或“触控板”两种用法。见 [docs/input.md](docs/input.md)。
 - **音频**：播放远端桌面的声音（Opus，用系统自带的解码器），60 ms 的抖动缓冲，丢包时做补偿；工具栏可以静音。打开麦克风后会把它发给远端桌面。见 [docs/audio.md](docs/audio.md)。
+- **剪贴板**：文本双向同步（§7.9），默认关闭，在工具栏里打开。Mac 上在 Spectre 处于活跃状态时发送复制的内容；iPad 上用粘贴按钮发送，不会弹出系统的粘贴提示，也可以选择自动发送。见 [docs/clipboard.md](docs/clipboard.md)。
 - **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
 
-还没有做：剪贴板、手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
+还没有做：手柄、无损细化层（refine）、屏幕软键盘、AV1 / PyroWave。
 
 ## 构建
 
@@ -141,7 +142,7 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --co
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-其他参数：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N，0 为不限>`、`--screen <屏幕序号>`、`--rate <display link Hz>`、`--min-present-ms <ms>`。
+其他参数：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N，0 为不限>`、`--screen <屏幕序号>`、`--rate <display link Hz>`、`--min-present-ms <ms>`、`--host-clipboard <文本>`（loopback host 一开始的剪贴板内容）。
 
 ### iOS / iPadOS 模拟器
 
@@ -181,6 +182,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/login.md](docs/login.md)：lobby 登录、证书信任、demo
 - [docs/input.md](docs/input.md)：键盘、鼠标、光标、触摸
 - [docs/audio.md](docs/audio.md)：音频、抖动缓冲、Opus 解码
+- [docs/clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪贴板、回声抑制、粘贴提示
 
 ## 许可证
 
