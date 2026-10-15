@@ -28,6 +28,8 @@ public final class MacSessionView: MTKView {
 
     private var keyMonitor: Any?
     private var trackingArea: NSTrackingArea?
+    /// The menu bar was put away for a capture in full screen.
+    private var hidMenuBar = false
     private var observers: [NSObjectProtocol] = []
 
     public override var acceptsFirstResponder: Bool { input != nil }
@@ -190,13 +192,28 @@ public final class MacSessionView: MTKView {
     /// Locks the local pointer (hidden, disconnected from the mouse, so
     /// moves arrive as deltas and clicks stay in this window) or frees it
     /// where the host's pointer is.
+    ///
+    /// It is locked in the middle of this view, not where the host's pointer
+    /// is: in full screen that is often the top edge, where the toolbar was
+    /// just brought down to press Capture Mouse, and the menu bar there would
+    /// take every move. A pointer that no longer moves never tells the system
+    /// to put the menu bar and the toolbar away again either, so in full
+    /// screen they are put away here until the capture ends.
     private func capture(_ on: Bool) -> Bool {
         if on {
             guard let window, window.isKeyWindow else { return false }
-            warpPointer(to: mapping.viewPoint(input?.sender.lastPosition ?? CGPoint(x: 0.5, y: 0.5)))
+            warpPointer(to: CGPoint(x: bounds.midX, y: bounds.midY))
             CGAssociateMouseAndMouseCursorPosition(0)
             NSCursor.hide()
+            if window.styleMask.contains(.fullScreen) {
+                NSMenu.setMenuBarVisible(false)
+                hidMenuBar = true
+            }
         } else {
+            if hidMenuBar {
+                NSMenu.setMenuBarVisible(true)
+                hidMenuBar = false
+            }
             CGAssociateMouseAndMouseCursorPosition(1)
             if let p = input?.hostPosition ?? input?.sender.lastPosition { warpPointer(to: mapping.viewPoint(p)) }
             NSCursor.unhide()

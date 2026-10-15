@@ -65,7 +65,8 @@ Cmd+Tab、Cmd+Space、Mission Control 等系统快捷键由系统先拦截，到
 
 **捕获模式**：给游戏和 3D 视图用，相对移动（§8.2）。Ctrl+Cmd+G 或工具栏的 Capture Mouse 按钮切换。
 
-- 进入：把本地指针移到远端指针所在的位置，`CGAssociateMouseAndMouseCursorPosition(false)` 断开指针和鼠标的关联，然后隐藏指针。此后鼠标只产生 delta，点击也留在这个窗口里。
+- 进入：把本地指针移到会话视图的正中央，`CGAssociateMouseAndMouseCursorPosition(false)` 断开指针和鼠标的关联，然后隐藏指针。此后鼠标只产生 delta，点击也留在这个窗口里。远端指针不受影响，从它原来的位置开始做相对移动。全屏时还会用 `NSMenu.setMenuBarVisible(false)` 收起菜单栏和工具栏，捕获结束时恢复（见 [full-screen.md](full-screen.md)）。
+  - 以前是移到远端指针所在的位置。全屏时这个位置常常在屏幕最顶上（为了点 Capture Mouse，刚把指针推到顶边唤出工具栏），指针就被锁在菜单栏里，鼠标移动全被菜单栏收走，远端指针动不了。移到中央总是在自己的窗口里。
 - 相对移动：`deltaX/deltaY`（AppKit 鼠标事件的 delta 向右、向下为正，与 §8.2 相同）除以 `pointsPerVideoPixel`，换成 host 像素。效果是远端光标在屏幕上移动的距离，和本地指针本来会移动的距离一样。
 - 光标：只有 host 知道指针在哪里，它用 `CursorPosition` 报告（§7.4），Metal 叠加层把 host 的光标形状画在那里。host 报告之前，先画在最后一次绝对移动的位置。
 - 退出：Ctrl+Cmd+G，或者窗口失去 key 状态、App 失活、会话结束。退出时恢复关联，把本地指针移到 host 指针所在的位置，再显示指针；下一次绝对移动一定会发出（相对移动已经改变了 host 指针的位置）。

@@ -21,6 +21,10 @@ macOS 全屏时，系统默认一直显示窗口的工具栏，画面从工具�
 - **AppKit 的 `.autoHideToolbar` 用不上**：本来想不用 SwiftUI 的修饰符，在进入全屏、切换选项时自己设置 `NSApp.presentationOptions`，加上或去掉 `.autoHideToolbar`。实测在全屏中设成 3077（`.fullScreen | .autoHideToolbar | .autoHideMenuBar | .autoHideDock`）后，读回来仍是 1029，没有 `.autoHideToolbar`，也没有任何报错。窗口全屏时的 presentation options 由窗口的 delegate（`window(_:willUseFullScreenPresentationOptions:)`）决定，而这个 delegate 归 SwiftUI 所有。另外 App 不在前台时 `NSApp.presentationOptions` 读出来是 0，`currentSystemPresentationOptions` 在全屏中也只有 1024（`.fullScreen`）。
 - **SwiftUI 修饰符不随设置刷新**：在全屏中把 `.onHover` 改成 `.visible`（或者反过来），工具栏保持原样，要等下一次进入全屏才变。所以才有上面的“退出再进入”。
 
+- **全屏时捕获鼠标，指针动不了**（0.1.5 里的问题）：要在全屏时点 Capture Mouse，得先把指针推到顶边唤出工具栏，这时最后一次绝对移动把远端指针放在了画面最顶上（y≈0.001）。捕获时本地指针原来是移到远端指针的位置再锁住，结果锁在了 y=1079（菜单栏高 30 点）的菜单栏里，鼠标的移动全给了菜单栏，送不到会话视图。现在锁在会话视图的中央（见 [input.md](input.md)）。
+  - 锁到中央之后，菜单栏和工具栏仍然不收起：系统要看到指针离开顶部才会收起它们，而锁住的指针一动不动。它们会一直盖在画面顶部，直到捕获结束。所以全屏时捕获期间用 `NSMenu.setMenuBarVisible(false)` 收起菜单栏，工具栏跟着一起收起；捕获结束时 `setMenuBarVisible(true)`，回到自动隐藏，推到顶边还能唤出。捕获期间唤不出工具栏，用 Ctrl+Cmd+G 结束捕获。
+  - computer-use 合成的鼠标移动会直接移动指针，复现不了“锁在菜单栏里收不到移动”这一步；这一点是从锁定位置（日志里的 `NSEvent.mouseLocation`）和用户的报告推断的，没有用真实鼠标在修复前后对比过。
+
 ## 验证
 
 macOS 27，Debug 版，`--source loopback`，1920×1080 点的 DELL U2725QE。为了不和已经在跑的正式版（同一个 bundle id）混在一起，测试版用 `PRODUCT_BUNDLE_IDENTIFIER=org.ghost.spectre.apple.fsdev` 构建。会话视图的尺寸用临时加在 `sessionViewChanged` 里的日志看。
@@ -35,4 +39,6 @@ macOS 27，Debug 版，`--source loopback`，1920×1080 点的 DELL U2725QE。�
 | 窗口模式下切换选项 | 1280×748 | 窗口不动 |
 | 全屏时强制结束，再启动（恢复成全屏） | 1920×1028 → 1280×748 → 1920×1080 | 自动退出再进入，工具栏收起 |
 
-**还没验证的**：连接真实 host 时远端分辨率的变化（按上面的视图尺寸，全屏时应该请求 1920×1080，而不是以前的 1920×1028）；带刘海的 MacBook 内置屏幕。
+**全屏时捕获鼠标**（同样的环境，在唤出的工具栏上点 Capture Mouse）：修复前本地指针锁在 (1451, 1079)，工具栏和菜单栏一直显示；修复后锁在 (960, 540)，菜单栏和工具栏立即收起，画面铺满，Metal 画的远端光标在顶边原来的位置；在画面里点一下再按 Ctrl+Cmd+G 结束捕获后，推到顶边又能唤出菜单栏和工具栏，移开后收起。窗口模式下捕获时菜单栏照常显示，结束捕获正常。
+
+**还没验证的**：连接真实 host 时远端分辨率的变化（按上面的视图尺寸，全屏时应该请求 1920×1080，而不是以前的 1920×1028）；带刘海的 MacBook 内置屏幕；全屏捕获时用真实鼠标移动远端指针（computer-use 做不到，见上面）。
