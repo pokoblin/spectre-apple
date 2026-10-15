@@ -93,8 +93,6 @@ final class PlaybackModel {
     private var loopback: LoopbackHost?
     private var remote: RemoteSession?
     private var remoteConfig: GDPSession.Configuration?
-    /// Objects the session depends on (the demo's in-process servers).
-    private var keepAlive: [AnyObject] = []
     /// Set for a session opened from the login screen: called once when it ends.
     private var onEnded: ((String) -> Void)?
 
@@ -218,14 +216,13 @@ final class PlaybackModel {
     }
 
     /// A session opened from the login screen.
-    convenience init(session config: GDPSession.Configuration, title: String, keepAlive: [AnyObject] = [],
+    convenience init(session config: GDPSession.Configuration, title: String,
          onEnded: @escaping (String) -> Void) {
         self.init(arguments: [])
         remoteConfig = config
         source = .remote
         streamInfo = title
         self.title = title
-        self.keepAlive = keepAlive
         self.onEnded = onEnded
     }
 
@@ -281,9 +278,9 @@ final class PlaybackModel {
 
     var isRemoteSession: Bool { source == .remote }
 
-    /// Statistics start shown for the test sources and the demo, where they
-    /// are the point, and hidden over a real host's desktop.
-    var showsStatisticsByDefault: Bool { !isRemoteSession || testHost != nil }
+    /// Statistics start shown for the test sources, where they are the
+    /// point, and hidden over a real host's desktop.
+    var showsStatisticsByDefault: Bool { !isRemoteSession }
 
     private func reportEnded(_ message: String) {
         guard let onEnded, !endReported else { return }
@@ -328,8 +325,8 @@ final class PlaybackModel {
         player = nil
         loopback?.stop()
         loopback = nil
-        hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
-        hostClipboardPrinted = testHost?.observed.clipboardMessages ?? 0
+        hostInputPrinted = 0
+        hostClipboardPrinted = 0
         sessionText = ""
     }
 
@@ -790,10 +787,8 @@ final class PlaybackModel {
         return text
     }
 
-    /// The in-process test host behind this session, if any (loopback or the demo).
-    private var testHost: GDPTestHost? {
-        loopback?.host ?? keepAlive.lazy.compactMap { ($0 as? DemoServer)?.host.host }.first
-    }
+    /// The in-process test host behind this session, if any (loopback).
+    private var testHost: GDPTestHost? { loopback?.host }
 
     /// Prints each input event the in-process test host received since the last call.
     private func printHostInput() {

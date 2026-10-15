@@ -71,7 +71,7 @@ Cmd+Tab、Cmd+Space、Mission Control 等系统快捷键由系统先拦截，到
 - 退出：Ctrl+Cmd+G，或者窗口失去 key 状态、App 失活、会话结束。退出时恢复关联，把本地指针移到 host 指针所在的位置，再显示指针；下一次绝对移动一定会发出（相对移动已经改变了 host 指针的位置）。
 - 沙盒里可以用 `CGAssociateMouseAndMouseCursorPosition` 和 `CGWarpMouseCursorPosition`，不需要辅助功能权限。
 
-**测试 host 的指针**：`GDPTestHost` 打开 `simulatePointer` 后，会像 wraith 一样维护一个指针：绝对移动放置它，相对移动按输出像素移动它（夹在画面内），每批相对移动之后回报一次 `CursorPosition`（§7.4）。loopback 和 demo 默认打开，所以在 demo 里也能看到捕获模式下的光标移动。
+**测试 host 的指针**：`GDPTestHost` 打开 `simulatePointer` 后，会像 wraith 一样维护一个指针：绝对移动放置它，相对移动按输出像素移动它（夹在画面内），每批相对移动之后回报一次 `CursorPosition`（§7.4）。loopback 默认打开，所以在 loopback 里也能看到捕获模式下的光标移动。
 
 ### macOS 实测（loopback）
 
@@ -161,7 +161,7 @@ host 不把指针画进视频，只发 `CursorShape`（BGRA 预乘，最大 384�
 
 **坐标映射**：`PointerMapping` 用和渲染器相同的 `VideoRenderer.fitViewport`（在 drawable 像素里计算和取整），所以指针的黑边和画面的黑边完全重合。落在黑边上的点会夹到画面边缘。
 
-**测试 host 的光标**：测试 host 接受会话后发一个 2×2 的白点；loopback 和 demo 的 `LoopbackHost` 在每次接受会话后改发一个 25×25 的十字准星，更容易看清。
+**测试 host 的光标**：测试 host 接受会话后发一个 2×2 的白点；loopback 的 `LoopbackHost` 在每次接受会话后改发一个 25×25 的十字准星，更容易看清。
 
 macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里）：指针在画面上时，系统光标是 16.7×16.7 点（25 像素 × 0.667），热点在 (8, 8)；移到画面外变回箭头（28×40）。
 
@@ -175,7 +175,7 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 - 空桌面上点击、打字本来就没有变化，host 只在画面变化时编码新帧（wraith 日志：之后每分钟一帧，是顶栏时钟）。
 - 顶栏被 Mac 窗口的标题栏和工具栏挡住了：视频原先一直铺到窗口顶上（`ignoresSafeArea`），所以看起来只有一片蓝。现在 macOS 上视频从工具栏下方开始；iOS 上仍然铺满，iPad 的按钮本来就叠在画面上。
 
-统计浮层原先总是打开，盖住远端桌面的左上角。现在连真实 host 时默认关闭（工具栏按钮随时打开），loopback、direct 和 demo 仍然默认打开，因为在那里看统计和 host 收到的输入就是目的。
+统计浮层原先总是打开，盖住远端桌面的左上角。现在连真实 host 时默认关闭（工具栏按钮随时打开），loopback 和 direct 仍然默认打开，因为在那里看统计和 host 收到的输入就是目的。
 
 **结束会话**：原先直接关掉窗口或退出 App，连接就跟着进程消失了，host 要等 QUIC 的空闲超时（约 25 秒）才发现 viewer 走了。现在：
 

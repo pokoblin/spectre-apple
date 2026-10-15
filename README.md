@@ -90,8 +90,6 @@ To run on a device, choose a development team for the target in Xcode.
 
 The app opens on the login screen: enter the server (`host[:port]`, port 4442 by default) and your user name, answer the server's prompts, then pick a desktop to start the session. On the first connection you are asked to confirm the server's certificate fingerprint.
 
-**No server?** Tap **Try the demo host** (user demo, password demo): the app starts a test lobby and a test host inside itself and goes through the whole login and session flow, showing a test stream, with the statistics overlay listing the input the host received.
-
 **Keyboard and mouse**: keys are sent by physical position, and the remote keyboard layout decides which characters they type. Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these three shortcuts stay local:
 
 | Shortcut | Action |
@@ -105,7 +103,7 @@ The app opens on the login screen: enter the server (`host[:port]`, port 4442 by
 - **Touch**: the pointer goes where you touch. Tap to left-click, long-press to right-click, drag with one finger to left-drag, drag with two fingers to scroll, and tap with two or three fingers to right- or middle-click.
 - **Trackpad**: the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
-**Sound**: the remote desktop's sound plays when the host sends it (wraith does when it can capture the session's audio). The toolbar's **Mute** button silences it on this device only; the setting is remembered. The demo and loopback host beep once a second.
+**Sound**: the remote desktop's sound plays when the host sends it (wraith does when it can capture the session's audio). The toolbar's **Mute** button silences it on this device only; the setting is remembered. The loopback test host beeps once a second.
 
 **Microphone**: the toolbar's **Microphone** button sends your microphone to the remote desktop, where it is the session's default recording device. It is off at the start of every session; the first time, the system asks for permission. Off releases the device. There is no echo cancellation yet, so use headphones, or the remote desktop hears its own sound back.
 
@@ -186,7 +184,7 @@ In the simulator VideoToolbox decodes in software and there is no `presentedTime
 
 - [docs/prototype-findings.md](docs/prototype-findings.md): the prototype's three technical risks and how each was settled (calling libgdp from Swift, zero-copy presentation, cross-compiling for iOS)
 - [docs/session-client.md](docs/session-client.md): the session layer, checked against §6–§11 of the specification
-- [docs/login.md](docs/login.md): lobby login, certificate trust, the demo
+- [docs/login.md](docs/login.md): lobby login, certificate trust
 - [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
 - [docs/audio.md](docs/audio.md): audio, jitter buffer, Opus decoding
 - [docs/clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt

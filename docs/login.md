@@ -12,7 +12,7 @@
 
 ```
 App/Shared/LoginView      每一步一个卡片：表单 → 信任确认 / 证书已变 → 提示 → 选设备 → 选桌面
-App/Shared/AppModel       登录页 ↔ 会话页；最近登录；演示服务器
+App/Shared/AppModel       登录页 ↔ 会话页；最近登录
   └ SpectreKit.LoginFlow  与界面无关的状态机（@MainActor @Observable）
       ├ KnownHosts        TOFU 指纹，JSON 文件，按 主机名:端口
       ├ ServerAddress     解析 host、host:port、[v6]、[v6]:port，默认端口 4442
@@ -39,11 +39,11 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；演示服务�
 - **iOS 上不做 CA 校验**：libgdp 在 Apple 平台上从 `/etc/ssl/cert.pem` 读系统根证书，iOS 沙盒里没有这个文件。所以 iOS 上 `trustSystemCAs` 默认关闭，CA 签发的证书也按 TOFU 处理，这是 §2.3 允许的（证书验证不通过时必须退回到指纹固定）。要在 iOS 上做 CA 校验，需要 libgdp 把对端证书链交出来，再交给 Security.framework 验证，可以以后向上游提。
 - **密码默认不保存**：勾选密码提问下的 Remember 才存进 Keychain，之后在最近列表里点一下就能登录，见 [saved-logins.md](saved-logins.md)。系统的"密码"自动填充照常可用（密码框设置了 `textContentType(.password)`）。
 
-## 测试服务器和演示
+## 测试服务器
 
 `gdpcore::TestLobby` 是照 §4/§5 写的最小 lobby 服务端：一个账号、按顺序给出的提示、桌面类型列表、可选的已运行会话（可以设成有人在看）、可选的 broker 设备列表（含离线设备和第二因素提示）、认证后拒绝的错误码，最后 Redirect 到指定的会话 host。它和 TestHost 都改用共用的 `ServerLoop`（证书 + 监听 + 线程 + 命令队列）。
 
-App 登录页的 **Try the demo host** 会在 App 内同时启动 TestLobby（用户 demo，密码 demo，三种桌面）和 LoopbackHost（经 QUIC 播放测试码流），并把地址填进表单。没有服务器也能走完整个流程，包括首次连接的信任确认。
+登录页原先有 **Try the demo host**，在 App 内同时启动 TestLobby 和 LoopbackHost，没有服务器也能走完整个登录流程。2026-10-15 去掉了。TestLobby 现在只给测试用；不登录就想看会话，用 `--source loopback`。
 
 ## 测试
 

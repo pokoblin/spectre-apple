@@ -20,7 +20,7 @@ App/Shared/PlaybackModel          每个会话提供 `clipboard`；connect 时�
 
 | 规范 | 实现 |
 |---|---|
-| §6.7 capability | 三种来源（远端、loopback、demo）都在 SessionHello 里提供 `clipboard`。Accept 里生效了才开始监视本地剪贴板，工具栏也才显示开关；host 不支持时什么都不发 |
+| §6.7 capability | 两种来源（远端、loopback）都在 SessionHello 里提供 `clipboard`。Accept 里生效了才开始监视本地剪贴板，工具栏也才显示开关；host 不支持时什么都不发 |
 | §7.9 只有 `text/plain` | 收到其他 MIME 的直接丢掉；发出的一律是 `text/plain` |
 | §7.9 空内容、超过 1 047 552 字节 | 两个方向都丢弃，C++ 层和 Swift 层（`ClipboardEchoFilter`，按 UTF-8 字节数算）各查一次。本地剪贴板里没有可读文本（比如复制的是图片）就什么都不发，不会“清空” host 的剪贴板 |
 | §7.9 UTF-8 | `GDPSession` 用 `String(validating:as: UTF8.self)` 解码，不合法的丢掉，不做替换字符 |

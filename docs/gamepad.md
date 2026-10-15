@@ -20,7 +20,7 @@ App/Shared/PlaybackModel          每个会话提供 `gamepad`；Accept 里生�
 
 | 规范 | 实现 |
 |---|---|
-| §8.5 只有 `gamepad` 生效时 | 三种来源（远端、loopback、demo）都在 SessionHello 里提供 `gamepad`。没生效时 C++ 层三种消息一律不发，App 也不创建转发器、不显示开关 |
+| §8.5 只有 `gamepad` 生效时 | 两种来源（远端、loopback）都在 SessionHello 里提供 `gamepad`。没生效时 C++ 层三种消息一律不发，App 也不创建转发器、不显示开关 |
 | §8.5 最多 4 个槽位 | 按接入顺序分配最小的空闲槽位，第 5 个不转发；某个手柄断开后，它的槽位留给下一个接入的。C++ 层再挡一次 ≥ 4 的槽位 |
 | §8.5 `GamepadConnect` / `GamepadDisconnect` | 接入时发 Connect（`name` 取 `vendorName`，没有时取 `productCategory`），断开时发 Disconnect。会话开始、或者中途打开开关时，已经接着的手柄补发 Connect |
 | §8.5 `GamepadState` 是完整状态 | 每次都发全部 6 个轴、26 个按钮；和上一次发出的完全相同就不发。不做节流（见下） |

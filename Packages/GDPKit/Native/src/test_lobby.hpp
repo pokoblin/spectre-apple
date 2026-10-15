@@ -1,7 +1,7 @@
 // A minimal lobby server (gdp-spec.md §4, and §5's broker additions),
-// written from the spec, for tests and the app's demo login: one account
-// with a scripted list of prompts, a list of desktop types, optionally a
-// device list, and a Redirect to a session host of the caller's choosing.
+// written from the spec, for tests: one account with a scripted list of
+// prompts, a list of desktop types, optionally a device list, and a
+// Redirect to a session host of the caller's choosing.
 // Runs its own thread; every public method is thread-safe.
 #pragma once
 

@@ -133,25 +133,6 @@ struct LoginView: View {
                     }
                 }
             }
-
-            Divider()
-            HStack {
-                if let status = app.demoStatus {
-                    ProgressView().controlSize(.small)
-                    Text(status).font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Button("Try the demo host") {
-                        Task {
-                            guard let demo = await app.startDemo() else { return }
-                            serverText = demo.server.description
-                            username = demo.username
-                        }
-                    }
-                    .font(.caption)
-                    Spacer()
-                    Text("password: demo").font(.caption).foregroundStyle(.tertiary)
-                }
-            }
         }
     }
 

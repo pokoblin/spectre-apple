@@ -1,5 +1,5 @@
 // A minimal GDP session host (the wraith side of gdp-spec.md §6-§10),
-// written from the spec, for tests and the app's loopback demo: listens on
+// written from the spec, for tests and the app's loopback source: listens on
 // 127.0.0.1 with a throwaway certificate and a static token (§6.11),
 // authenticates one viewer, accepts it, streams whatever video frames it is
 // given as datagrams, and records everything the client sends.

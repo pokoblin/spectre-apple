@@ -2,7 +2,7 @@ import Foundation
 import GDPCore
 
 /// A minimal GDP session host on 127.0.0.1 (static token, gdp-spec.md
-/// §6.11), for tests and the app's loopback demo. It accepts one viewer,
+/// §6.11), for tests and the app's loopback source. It accepts one viewer,
 /// streams the frames it is given as video datagrams and records what the
 /// client sends. Thread-safe.
 public final class GDPTestHost: @unchecked Sendable {

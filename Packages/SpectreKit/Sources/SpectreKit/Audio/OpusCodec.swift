@@ -119,7 +119,7 @@ public final class OpusDecoder {
     public func reset() { converter.reset() }
 }
 
-/// PCM to Opus packets through the system codec: the loopback and demo
+/// PCM to Opus packets through the system codec: the loopback
 /// host's test tone, and the tests' packets. One packet per call.
 public final class OpusEncoder {
     public let format: OpusFormat

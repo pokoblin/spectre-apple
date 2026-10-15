@@ -28,8 +28,6 @@ final class AppModel {
     private(set) var recent: [RecentLogin] = []
     /// The recent logins with a saved login in the Keychain (docs/saved-logins.md).
     private(set) var savedRecent: Set<RecentLogin> = []
-    private(set) var demo: DemoServer?
-    private(set) var demoStatus: String?
     /// What the session's login answered and chose, to sign in again after
     /// a lost connection. Memory only, gone when the session ends.
     private var recipe: LoginFlow.Recipe?
@@ -85,9 +83,8 @@ final class AppModel {
         guard !signingInAgain else { return } // signInAgain takes it
         recipe = login.recipe
         remember(RecentLogin(server: ticket.server.description, username: ticket.username))
-        let keep: [AnyObject] = demo.map { [$0] } ?? []
-        let model = PlaybackModel(session: ticket.configuration, title: "\(ticket.username)@\(ticket.server)",
-                                  keepAlive: keep) { [weak self] message in
+        let title = "\(ticket.username)@\(ticket.server)"
+        let model = PlaybackModel(session: ticket.configuration, title: title) { [weak self] message in
             self?.sessionEnded(message)
         }
         model.reconnection = { [weak self] allowTakeOver in
@@ -141,21 +138,6 @@ final class AppModel {
         screen = .login
     }
 
-    /// Starts the in-process demo servers and returns where to sign in.
-    func startDemo() async -> (server: ServerAddress, username: String, password: String)? {
-        if let demo { return (demo.address, DemoServer.username, DemoServer.password) }
-        demoStatus = String(localized: "Preparing the demo host…")
-        defer { demoStatus = nil }
-        do {
-            let server = try await DemoServer.start()
-            demo = server
-            return (server.address, DemoServer.username, DemoServer.password)
-        } catch {
-            lastSessionEnd = String(localized: "The demo could not start: \(String(describing: error))")
-            return nil
-        }
-    }
-
     /// Forgets a recent login, and its saved password with it.
     func forgetRecent(_ entry: RecentLogin) {
         forgetSavedLogin(entry)
@@ -173,40 +155,5 @@ final class AppModel {
 
     private func save() {
         if let data = try? JSONEncoder().encode(recent) { UserDefaults.standard.set(data, forKey: Self.recentKey) }
-    }
-}
-
-/// A host and a lobby in this process, so the login and the session can be
-/// tried without a server: a test lobby (password "demo") that redirects to
-/// a loopback host streaming the test pattern over real QUIC.
-final class DemoServer: Sendable {
-    static let username = "demo"
-    static let password = "demo"
-
-    let host: LoopbackHost
-    let lobby: GDPTestLobby
-    let address: ServerAddress
-
-    private init(host: LoopbackHost, lobby: GDPTestLobby) {
-        self.host = host
-        self.lobby = lobby
-        address = ServerAddress(host: "127.0.0.1", port: lobby.port)
-    }
-
-    deinit { host.stop() }
-
-    static func start() async throws -> DemoServer {
-        let stream = try await Task.detached(priority: .userInitiated) {
-            try TestStreamEncoder.encode(codec: .h264, frameCount: 300) // 5 s, looped
-        }.value
-        let host = try LoopbackHost(stream: stream)
-        var config = GDPTestLobby.Configuration()
-        config.username = username
-        config.prompts = [.init("Password: ", expected: password)]
-        config.sessionTypes = [("gnome", "GNOME"), ("plasma", "KDE Plasma"), ("sway", "Sway")]
-        config.redirect(to: host.host)
-        let lobby = try GDPTestLobby(config)
-        host.start()
-        return DemoServer(host: host, lobby: lobby)
     }
 }

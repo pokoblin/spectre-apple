@@ -258,7 +258,7 @@ public final class GDPLobby: @unchecked Sendable {
     }
 }
 
-/// A minimal lobby server on 127.0.0.1 (§4, §5), for tests and the demo login.
+/// A minimal lobby server on 127.0.0.1 (§4, §5), for tests.
 public final class GDPTestLobby: @unchecked Sendable {
     public struct Prompt: Sendable {
         public var text: String

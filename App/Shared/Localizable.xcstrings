@@ -1322,34 +1322,6 @@
         }
       }
     },
-    "Preparing the demo host…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preparando el host de demostración…"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デモホストを準備しています…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在准备演示主机…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在準備示範主機…"
-          }
-        }
-      }
-    },
     "Presented now" : {
       "localizations" : {
         "es" : {
@@ -2056,34 +2028,6 @@
         }
       }
     },
-    "The demo could not start: %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No se pudo iniciar la demostración: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デモを開始できませんでした：%@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "演示无法启动：%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "示範無法啟動：%@"
-          }
-        }
-      }
-    },
     "The host can't send any video format this device decodes." : {
       "localizations" : {
         "es" : {
@@ -2482,34 +2426,6 @@
         }
       }
     },
-    "Try the demo host" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Probar el host de demostración"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デモホストを試す"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "试用演示主机"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "試用示範主機"
-          }
-        }
-      }
-    },
     "Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)" : {
       "localizations" : {
         "es" : {
@@ -2702,34 +2618,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spectre 讀取其他 App 拷貝的內容前，iOS 會先詢問，除非已在「設定」中允許"
-          }
-        }
-      }
-    },
-    "password: demo" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "contraseña: demo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "パスワード：demo"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "密码：demo"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "密碼：demo"
           }
         }
       }

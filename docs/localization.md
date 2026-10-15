@@ -64,7 +64,6 @@ Packages/SpectreKit/Tests/SpectreKitTests/LocalizationTests.swift
 | Microphone | 麦克风 | 麥克風 | マイク | Micrófono |
 | Mute / Unmute | 静音 / 取消静音 | 靜音 / 取消靜音 | 消音 / 消音解除 | Silenciar / Activar sonido |
 | Statistics | 统计 | 統計 | 統計 | Estadísticas |
-| demo host | 演示主机 | 示範主機 | デモホスト | host de demostración |
 | Keychain | 钥匙串 | 鑰匙圈 | キーチェーン | llavero |
 
 - 西班牙语用西班牙的说法（ratón、portátil、vídeo），称呼用 tú，和 Apple 的西班牙语界面一致。

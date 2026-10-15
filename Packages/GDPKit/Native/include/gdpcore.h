@@ -344,7 +344,7 @@ void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_
 
 // ---------------------------------------------------------------------------
 // Test host: a minimal session host on 127.0.0.1 (static token, §6.11), for
-// tests and the app's loopback demo. Runs its own thread; every function is
+// tests and the app's loopback source. Runs its own thread; every function is
 // thread-safe.
 
 typedef struct gdpc_test_host gdpc_test_host;
@@ -616,8 +616,8 @@ void gdpc_lobby_select_device(gdpc_lobby *lobby, const char *device_id);
 // `type_id`: one of the offered ids, or "" for the default (§4.6).
 void gdpc_lobby_open_session(gdpc_lobby *lobby, const char *type_id);
 
-// Test lobby: a minimal lobby server on 127.0.0.1 (§4, §5), for tests and
-// the demo login. Thread-safe.
+// Test lobby: a minimal lobby server on 127.0.0.1 (§4, §5), for tests.
+// Thread-safe.
 
 typedef struct gdpc_test_lobby gdpc_test_lobby;
 

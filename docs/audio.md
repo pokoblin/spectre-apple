@@ -74,7 +74,7 @@ Core Audio 实时线程：AVAudioSourceNode 只做拷贝，不够的部分填静
 
 - `RemoteSession` 收到 Accept 时，如果 `audio` 是能解的格式（见上），就建一个 `SessionAudioPlayer`，在自己的串行队列上启动（不阻塞网络队列），之后的音频包直接从网络队列交给它。格式不支持或者 host 没发 `audio`，就把原因记在 `audioUnavailable` 里，会话照常进行（§6.8）。会话结束时停止播放。
 - 静音设置在 `RemoteSession.isAudioMuted` 上，播放器建立之前设置的也算数。
-- **loopback 和 demo**：`LoopbackHost` 在 Accept 里声明 wraith 的格式，每 10 ms 发一个包：每秒一声 0.1 秒的 880 Hz 提示音（音量 0.2，前后各 5 ms 淡入淡出），其余是静音包。这一秒的 100 个包在启动时用系统编码器编好，之后循环发送；`seq` 和 `pts` 像真实 host 那样由测试 host 生成。`--bench` 时不发声音，因为测的是视频。
+- **loopback**：`LoopbackHost` 在 Accept 里声明 wraith 的格式，每 10 ms 发一个包：每秒一声 0.1 秒的 880 Hz 提示音（音量 0.2，前后各 5 ms 淡入淡出），其余是静音包。这一秒的 100 个包在启动时用系统编码器编好，之后循环发送；`seq` 和 `pts` 像真实 host 那样由测试 host 生成。`--bench` 时不发声音，因为测的是视频。
 - 启动时 stdout 会打印 `session: audio opus 48000 Hz, 2 ch, 10 ms`，或者没有音频的原因。
 
 ## 界面和统计
@@ -171,7 +171,7 @@ AVAudioEngine.inputNode（设备格式）→ AVAudioSinkNode（实时线程，�
 - **总是提供 capability**：`RemoteSession.connect` 会在 SessionHello 的 capability 里加上 `microphone`。capability 在整个连接期间固定，不提供的话会话中途就没法再开麦克风。提供了只表示"可以发"，麦克风本身仍然关着，直到用户打开（§10.1）。代价是：wraith 会把 `gdp-mic` 设为远端默认的录音设备，没开麦克风时它就是静音。
 - Accept 时：`microphone` 生效、而且格式能编（`OpusFormat` 认得，系统编码器也建得起来），就记下 `microphoneFormat`；否则把原因记在 `microphoneUnavailable` 里（"the host takes no microphone"，或者是什么格式），会话照常进行。
 - `setMicrophone(true)`：先请求权限（第一次会弹系统授权框），再在 `RemoteSession` 的音频队列上建立 `MicrophoneCapture` 并启动，每个包直接交给 `GDPSession.sendMicrophone`。`setMicrophone(false)` 停止采集、释放设备。会话结束时自动关闭。每个会话开始时麦克风都是关的，不记住上次的状态。
-- loopback 和 demo 的测试 host 也支持这个 capability，所以不连真实 host 也能看到它收到了什么。
+- loopback 的测试 host 也支持这个 capability，所以不连真实 host 也能看到它收到了什么。
 
 测试（`MicrophoneEndToEndTests`，GDPTestHost → QUIC）：
 - 客户端没被要求也会提供 `microphone`。
@@ -188,7 +188,7 @@ AVAudioEngine.inputNode（设备格式）→ AVAudioSinkNode（实时线程，�
   mic on (48000 Hz, 1 ch), 1408 packets, level -23 dBFS, sent 1408, dropped 0 | host received 1408, latest -24 dBFS
   ```
 
-  依次是：设备的格式、编出的包数、最近一包的电平、会话实际发出和丢弃的包数。连的是 App 内的测试 host（loopback 或 demo）时，还会显示 host 收到的包数，以及它最新收到的那一包解码后的电平，也就是远端会"听到"的声音。没有麦克风时显示原因。
+  依次是：设备的格式、编出的包数、最近一包的电平、会话实际发出和丢弃的包数。连的是 App 内的测试 host（loopback）时，还会显示 host 收到的包数，以及它最新收到的那一包解码后的电平，也就是远端会"听到"的声音。没有麦克风时显示原因。
 
 ## 实测（loopback，2026-10-15）
 
