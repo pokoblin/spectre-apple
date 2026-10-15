@@ -35,7 +35,9 @@ GDPKit 原来就有这两样（`Configuration.display`、`GDPSession.requestReso
 
 ## 踩到的坑
 
-- **wraith 在宽度不是 16 的倍数时花屏**（N100 上的 vaapi HEVC）：画面整体向一侧斜着错位，像是行跨度算错了。在真实 host 上逐个试宽度（高度都是 460）：808、824、856 花屏；768、816 正常；高度 460 本身不是 16 的倍数，但没有问题。客户端这边没有问题：`decodedBarsRenderTheirColours` 现在也用 824×460 和 856×460 跑（VideoToolbox 编码，H.264 和 HEVC 都跑），在色条区域的上下两处取样颜色都对，说明解码和渲染能正确处理这类宽度（编码时补齐到 16 的倍数，再按 conformance window 裁掉）。所以问题在 host 的采集或编码上。我在这边跑不了 host，具体是哪一步没有确认。客户端的做法是只请求 16 的倍数的宽度（`ResolutionFollower.widthAlignment`）。这值得报告给 ghost 上游。
+- **wraith 在宽度不是 16 的倍数时花屏**（N100 上的 vaapi HEVC）：画面整体向一侧斜着错位，像是行跨度算错了。在真实 host 上逐个试宽度（高度都是 460）：808、824、856 花屏；768、816 正常；高度 460 本身不是 16 的倍数，但没有问题。客户端这边没有问题：`decodedBarsRenderTheirColours` 现在也用 824×460 和 856×460 跑（VideoToolbox 编码，H.264 和 HEVC 都跑），在色条区域的上下两处取样颜色都对，说明解码和渲染能正确处理这类宽度（编码时补齐到 16 的倍数，再按 conformance window 裁掉）。所以问题在 host 的采集或编码上。我在这边跑不了 host，具体是哪一步没有确认。客户端的做法是只请求 16 的倍数的宽度（`ResolutionFollower.widthAlignment`）。
+  - **在 host 端修复后复测**（2026-10-15）：在 fork 的 ghost 里修了 wraith，装到同一台 host 上，再用临时去掉对齐的客户端（只要求偶数）请求 990、856、824、808 宽（高度 566），画面都正常，修复有效。
+  - **对齐先保留**：上游现成的 wraith 用 vaapi 时仍会花屏，而客户端没法知道 host 有没有这个修复：协议里没有版本号，`SessionAccept.encoder` 要连上之后才知道，Hello 里的尺寸在那之前就发出去了。保留的代价只是宽度最多少 15 像素。等上游合并修复并发布新版本后，把 `widthAlignment` 改回 2，再改对应的测试和这里的说明。
 - **macOS 上连接时会多改一次尺寸**：第一次量尺寸时工具栏还没布局好，Hello 里请求的高度多出 20 点（856×480），工具栏出现后又发了一次 `ResolutionChange`（856×460）。结果是会话开始时 host 的编码器多重开了一次，画面没有问题。
 - **Retina 模式下远程桌面的界面很小**：按像素请求时，GNOME 拿到的是 3840×2056 这样的尺寸，但仍按 1 倍缩放显示。`DisplayDescriptor.scale` 这一项 host 会忽略（§6.2：只看宽和高），所以需要用户自己在远程桌面里把缩放设成 200%。这也是默认按点请求的原因之一。
 
