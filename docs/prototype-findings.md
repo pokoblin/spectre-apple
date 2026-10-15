@@ -157,6 +157,7 @@ Annex B 访问单元（§9.4）
 - **Metal 呈现计时**：模拟器 SDK 里没有 `MTLDrawable.addPresentedHandler` / `presentedTime`，也没有 `present(_:afterMinimumDuration:)`，都是编译错误。模拟器上"解码 → 上屏"改用 GPU 完成时间近似（`VideoPresenter.measuresOnScreenTime == false`），所以模拟器的显示耗时数字不能和 macOS 直接比较。
 - **零拷贝检查**：模拟器返回的 `MTLTexture.iosurface` 是同一个 IOSurface 的另一个包装对象（用 `===` 判断会失败），而且色度纹理的 `iosurfacePlane` 报的是 0（内容其实是 plane 1）。所以检查改成比较 `IOSurfaceGetID`，plane 下标只在真机和 macOS 上检查。macOS 上两项检查都通过。
 - **CA 根证书**：见风险 1 的已知问题。iOS 真机上没有 `/etc/ssl/cert.pem`，模拟器和宿主机共用文件系统，所以这个问题在模拟器上看不出来。
+- **SIGPIPE**（2026-10-16，iPad 真机）：首次登录时同意局域网访问后，App 直接消失，也没有崩溃报告。`devicectl device process launch --console` 显示进程死于 signal 13。原因是 iOS 把正在用的 UDP socket 作废了，libgdp 的 `sendmsg` 没有设置 `SO_NOSIGPIPE`，发送时就触发了 SIGPIPE。现在 GDPKit 会在第一个原生 socket 打开之前把 SIGPIPE 设成忽略（`GDP.ignoreBrokenPipes`），这样发送只会返回 EPIPE。模拟器不会作废 socket，所以模拟器上复现不了。
 
 ## 总结
 
