@@ -22,7 +22,7 @@ public protocol PointerLockHost: UIViewController {
 ///
 /// The system pointer is hidden over the picture: iPadOS can't show a
 /// bitmap pointer, so the host's cursor is drawn by the presenter.
-public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
+public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyInput {
     public var input: SessionInput? {
         didSet {
             guard oldValue !== input else { return }
@@ -30,11 +30,15 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
             oldValue?.captureHandler = nil
             oldValue?.onDisplayChange = nil
             oldValue?.onTouchModeChange = nil
+            oldValue?.onTouchKeyboardChange = nil
+            oldValue?.showsTouchKeyboard = false
+            keyboardBar = nil
             endTouches()
             touchMapper = nil
             input?.captureHandler = { [weak self] on in self?.capture(on) ?? false }
             input?.onDisplayChange = { [weak self] in self?.layoutChanged() }
             input?.onTouchModeChange = { [weak self] in self?.touchModeChanged() }
+            input?.onTouchKeyboardChange = { [weak self] in self?.touchKeyboardChanged() }
             if input != nil, window != nil { becomeFirstResponder() }
         }
     }
@@ -100,12 +104,66 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate {
         observers = [
             center.addObserver(forName: UIScene.willDeactivateNotification, object: window.windowScene,
                                queue: .main, using: lost),
+            // The keyboard put away by the system (its own hide key, a hardware
+            // keyboard attached): the switch follows.
+            center.addObserver(forName: UIResponder.keyboardDidHideNotification, object: nil, queue: .main) {
+                [weak self] _ in MainActor.assumeIsolated { self?.input?.showsTouchKeyboard = false }
+            },
         ]
         if input != nil { becomeFirstResponder() }
     }
 
     isolated deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+    }
+
+    // MARK: - Touch keyboard
+
+    // The touch keyboard comes from adopting UIKeyInput: it shows for a first
+    // responder that adopts it, unless `inputView` replaces it. Hardware keys
+    // never reach insertText: pressesBegan below takes them and doesn't call
+    // super. Everything that would change what was typed is off.
+    public var keyboardType: UIKeyboardType = .asciiCapable // the host's input method does CJK
+    public var autocorrectionType: UITextAutocorrectionType = .no
+    public var autocapitalizationType: UITextAutocapitalizationType = .none
+    public var spellCheckingType: UITextSpellCheckingType = .no
+    public var smartQuotesType: UITextSmartQuotesType = .no
+    public var smartDashesType: UITextSmartDashesType = .no
+    public var smartInsertDeleteType: UITextSmartInsertDeleteType = .no
+    public var inlinePredictionType: UITextInlinePredictionType = .no
+    public var keyboardAppearance: UIKeyboardAppearance = .dark
+
+    /// Always: so that Backspace on an "empty" field still reaches the host.
+    public var hasText: Bool { true }
+
+    public func insertText(_ text: String) {
+        input?.type(text)
+        keyboardBar?.refresh()
+    }
+
+    public func deleteBackward() {
+        input?.typer.press(HIDUsage.deleteOrBackspace)
+        keyboardBar?.refresh()
+    }
+
+    private let noKeyboard = UIView(frame: .zero)
+    private var keyboardBar: TouchKeyboardBar?
+
+    /// Hidden: an empty input view stands in for the keyboard.
+    public override var inputView: UIView? { input?.showsTouchKeyboard == true ? nil : noKeyboard }
+
+    public override var inputAccessoryView: UIView? {
+        guard let input, input.showsTouchKeyboard else { return nil }
+        if keyboardBar == nil {
+            keyboardBar = TouchKeyboardBar(typer: input.typer) { [weak input] in input?.showsTouchKeyboard = false }
+        }
+        return keyboardBar
+    }
+
+    private func touchKeyboardChanged() {
+        if input?.showsTouchKeyboard == true, !isFirstResponder { becomeFirstResponder() }
+        keyboardBar?.refresh()
+        reloadInputViews()
     }
 
     // MARK: - Keyboard

@@ -36,6 +36,7 @@ public final class TextTyper {
     public private(set) var latches: [Modifier: Latch] = [:]
     @ObservationIgnored public var layout: KeyboardLayout
     @ObservationIgnored private let sender: InputSender
+    @ObservationIgnored private var held: (usage: UInt32, modifiers: [UInt32])?
 
     public init(sender: InputSender, layout: KeyboardLayout = .usQWERTY) {
         self.sender = sender
@@ -69,20 +70,49 @@ public final class TextTyper {
         return skipped
     }
 
-    /// A key that isn't a character (Backspace, Esc, an arrow, F5),
-    /// with whatever modifiers are latched.
+    /// A key that isn't a character (Backspace, Esc, F5), with whatever
+    /// modifiers are latched: pressed and released.
     public func press(_ usage: UInt32) { press(usage, shift: false) }
 
-    /// Drops every latch, locked ones included (the keyboard went away).
-    public func clearLatches() { latches = [:] }
+    /// The same, held until ``endHold()`` (a finger on an on-screen key),
+    /// so the host repeats it as it would a physical key.
+    public func beginHold(_ usage: UInt32) {
+        endHold()
+        let modifiers = latchedUsages()
+        for m in modifiers { sender.key(m, pressed: true) }
+        sender.key(usage, pressed: true)
+        held = (usage, modifiers)
+    }
+
+    public func endHold() {
+        guard let (usage, modifiers) = held else { return }
+        held = nil
+        sender.key(usage, pressed: false)
+        for m in modifiers.reversed() { sender.key(m, pressed: false) }
+        clearOnceLatches()
+    }
+
+    /// Drops every latch, locked ones included, and lets go of a held key
+    /// (the keyboard went away).
+    public func clearLatches() {
+        endHold()
+        latches = [:]
+    }
 
     private func press(_ usage: UInt32, shift: Bool) {
-        var modifiers = Modifier.allCases.filter { latch($0) != .off }.map(\.usage)
+        endHold()
+        var modifiers = latchedUsages()
         if shift, !modifiers.contains(HIDUsage.leftShift) { modifiers.append(HIDUsage.leftShift) }
         for m in modifiers { sender.key(m, pressed: true) }
         sender.key(usage, pressed: true)
         sender.key(usage, pressed: false)
         for m in modifiers.reversed() { sender.key(m, pressed: false) }
+        clearOnceLatches()
+    }
+
+    private func latchedUsages() -> [UInt32] { Modifier.allCases.filter { latch($0) != .off }.map(\.usage) }
+
+    private func clearOnceLatches() {
         for (modifier, latch) in latches where latch == .once { latches[modifier] = .off }
     }
 }

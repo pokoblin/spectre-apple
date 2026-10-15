@@ -10,6 +10,9 @@ import Observation
 @Observable
 public final class SessionInput {
     @ObservationIgnored public let sender: InputSender
+    /// Characters typed on a keyboard that only gives characters (the touch
+    /// keyboard on iOS), with the sticky modifiers that keyboard lacks.
+    @ObservationIgnored public let typer: TextTyper
     /// Draws the cursor over the picture when the platform can't (see ``drawsCursorOverlay``).
     @ObservationIgnored public weak var presenter: VideoPresenter?
 
@@ -49,6 +52,7 @@ public final class SessionInput {
 
     public init(sink: InputSink, presenter: VideoPresenter? = nil) {
         sender = InputSender(sink: sink)
+        typer = TextTyper(sender: sender)
         self.presenter = presenter
     }
 
@@ -153,6 +157,33 @@ public final class SessionInput {
 
     /// A lock key reported once per toggle: pressed and released.
     public func tapKey(_ usage: UInt32) { sender.tap(usage) }
+
+    // MARK: Touch keyboard
+
+    /// Characters the host's layout has no key for, last time some were
+    /// skipped; `serial` tells repeats apart, so the UI can show each one.
+    public struct Untypable: Equatable, Sendable {
+        public var count: Int
+        public var serial: Int
+    }
+
+    /// Whether the touch keyboard is up (iOS). The view shows or hides it.
+    public var showsTouchKeyboard = false {
+        didSet {
+            guard showsTouchKeyboard != oldValue else { return }
+            if !showsTouchKeyboard { typer.clearLatches() }
+            onTouchKeyboardChange?()
+        }
+    }
+    @ObservationIgnored public var onTouchKeyboardChange: (() -> Void)?
+    public private(set) var untypable: Untypable?
+
+    /// Text from the touch keyboard (or dictation): typed as key strokes on
+    /// the host's layout, skipping what it can't type.
+    public func type(_ text: String) {
+        let skipped = typer.type(text)
+        if skipped > 0 { untypable = Untypable(count: skipped, serial: (untypable?.serial ?? 0) + 1) }
+    }
 
     // MARK: Focus
 

@@ -112,4 +112,46 @@ struct TextTyperTests {
         #expect(typer.latch(.alt) == .off)
         #expect(sink.events.isEmpty)
     }
+
+    @Test func aHeldKeyStaysDownUntilLetGo() {
+        typer.tap(.control)
+        typer.beginHold(HIDUsage.leftArrow)
+        #expect(sink.events == [.key(Self.ctrl, true), .key(HIDUsage.leftArrow, true)])
+        #expect(typer.latch(.control) == .once) // until the key is let go
+        typer.endHold()
+        #expect(sink.events.suffix(2) == [.key(HIDUsage.leftArrow, false), .key(Self.ctrl, false)])
+        #expect(typer.latch(.control) == .off)
+        typer.endHold() // nothing held: nothing sent
+        #expect(sink.events.count == 4)
+    }
+
+    @Test func typingOrClearingLetsGoOfAHeldKey() {
+        typer.beginHold(HIDUsage.upArrow)
+        typer.type("a")
+        typer.beginHold(HIDUsage.downArrow)
+        typer.clearLatches()
+        #expect(sink.events == [
+            .key(HIDUsage.upArrow, true), .key(HIDUsage.upArrow, false),
+            .key(HIDUsage.a, true), .key(HIDUsage.a, false),
+            .key(HIDUsage.downArrow, true), .key(HIDUsage.downArrow, false),
+        ])
+    }
+
+    @Test func sessionInputCountsWhatItCouldNotType() {
+        let input = SessionInput(sink: sink)
+        input.type("ok")
+        #expect(input.untypable == nil)
+        input.type("é!")
+        #expect(input.untypable == SessionInput.Untypable(count: 1, serial: 1))
+        input.type("中文")
+        #expect(input.untypable == SessionInput.Untypable(count: 2, serial: 2))
+    }
+
+    @Test func hidingTheKeyboardDropsTheLatches() {
+        let input = SessionInput(sink: sink)
+        input.showsTouchKeyboard = true
+        input.typer.lock(.control)
+        input.showsTouchKeyboard = false
+        #expect(input.typer.latch(.control) == .off)
+    }
 }
