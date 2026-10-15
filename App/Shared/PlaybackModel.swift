@@ -1,4 +1,5 @@
 import Foundation
+import Network
 #if os(macOS)
 import AppKit
 #else
@@ -32,6 +33,8 @@ final class PlaybackModel {
         case encoding(VideoCodec, Double)
         case connecting(String)
         case playing
+        /// The connection was lost; trying again (docs/reconnect.md).
+        case reconnecting(attempt: Int, of: Int, reason: String)
         case failed(String)
     }
 
@@ -44,6 +47,9 @@ final class PlaybackModel {
     private(set) var statsText = ""
     private(set) var sessionText = ""
     private(set) var streamInfo = ""
+    /// A remote session's title (user@server, or the --connect target),
+    /// which `streamInfo` extends with the codec once accepted.
+    private var title = ""
     var codec: VideoCodec = .h264 {
         // Only a user's change replays; init's assignment comes before start().
         didSet { if codec != oldValue, phase != .idle { Task { await play() } } }
@@ -91,6 +97,43 @@ final class PlaybackModel {
     private var keepAlive: [AnyObject] = []
     /// Set for a session opened from the login screen: called once when it ends.
     private var onEnded: ((String) -> Void)?
+
+    /// Where a lost session's next configuration comes from.
+    enum Reconnection {
+        case configuration(GDPSession.Configuration)
+        /// Not this time (no answer, the host busy): wait and try again.
+        case retry(String)
+        /// Trying again won't help: end with this message.
+        case stop(String)
+        /// Signing in again needs the user (a new question, a device gone):
+        /// the login screen takes over.
+        case userNeeded
+    }
+    /// Set for a session opened from the login screen, whose token can't be
+    /// used twice (§4.8): signs in again, `allowTakeOver` if the session
+    /// may be taken over without asking. Without it the last configuration
+    /// is used again (a static token, the loopback host).
+    var reconnection: ((_ allowTakeOver: Bool) async -> Reconnection)?
+    /// Called when signing in again needs the user.
+    var onNeedsLogin: ((String) -> Void)?
+    /// The configuration of the session (or attempt) last connected.
+    private var lastConfig: GDPSession.Configuration?
+    private var reconnectTask: Task<Void, Never>?
+    /// The outcome of the reconnect attempt under way.
+    private var attempt: CheckedContinuation<RemoteSession.State, Never>?
+    /// When this client's connection was lost without being closed (the
+    /// host may still count it as attached), for take-over (ReconnectPolicy).
+    private var lostAt: Date?
+    /// Set when the background time ran out and this client closed the connection itself.
+    private var closedForBackground = false
+    /// Skips the rest of the wait before the next attempt (the app back in
+    /// front, the network back).
+    private var retryNow = false
+    private let pathMonitor = NWPathMonitor()
+    #if os(iOS)
+    private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
+    private var lifecycleObservers: [NSObjectProtocol] = []
+    #endif
     private var endReported = false
     private var streams: [VideoCodec: TestStream] = [:]
     private var ticker: Task<Void, Never>?
@@ -142,12 +185,36 @@ final class PlaybackModel {
                 config.decoders = ["videotoolbox"]
                 remoteConfig = config
                 streamInfo = target
+                title = target
                 source = .remote
             } else {
                 failure = "--connect HOST:PORT needs --token and --fingerprint (64 hex digits)"
             }
         }
         if let failure { phase = .failed(failure) }
+        pathMonitor.pathUpdateHandler = { [weak self] path in
+            guard path.status == .satisfied else { return }
+            Task { @MainActor in self?.retryNow = true }
+        }
+        pathMonitor.start(queue: .main)
+        #if os(iOS)
+        let center = NotificationCenter.default
+        lifecycleObservers = [
+            center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) {
+                [weak self] _ in MainActor.assumeIsolated { self?.enteredBackground() }
+            },
+            center.addObserver(forName: UIApplication.willEnterForegroundNotification, object: nil, queue: .main) {
+                [weak self] _ in MainActor.assumeIsolated { self?.enteringForeground() }
+            },
+        ]
+        #endif
+    }
+
+    isolated deinit {
+        pathMonitor.cancel()
+        #if os(iOS)
+        lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+        #endif
     }
 
     /// A session opened from the login screen.
@@ -157,6 +224,7 @@ final class PlaybackModel {
         remoteConfig = config
         source = .remote
         streamInfo = title
+        self.title = title
         self.keepAlive = keepAlive
         self.onEnded = onEnded
     }
@@ -199,6 +267,7 @@ final class PlaybackModel {
     }
 
     func disconnect() {
+        if reconnectTask != nil { return cancelReconnect() }
         guard let remote else { return reportEnded("Disconnected.") }
         input?.end() // §8.2: release what is held before detaching
         remote.close()
@@ -252,22 +321,29 @@ final class PlaybackModel {
     private func stopAll() {
         if let activity { ProcessInfo.processInfo.endActivity(activity) }
         activity = nil
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        endSession()
+        player?.stop()
+        player = nil
+        loopback?.stop()
+        loopback = nil
+        hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
+        hostClipboardPrinted = testHost?.observed.clipboardMessages ?? 0
+        sessionText = ""
+    }
+
+    /// Lets go of the session (not the test sources): what a reconnect replaces.
+    private func endSession() {
         input?.end()
         input = nil
         endClipboard()
         endGamepads()
-        player?.stop()
-        player = nil
-        loopback?.stop()
         remote?.close()
         remote = nil
-        loopback = nil
         hasAudio = false
         hasMicrophone = false
         isMicrophoneOn = false
-        hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
-        hostClipboardPrinted = testHost?.observed.clipboardMessages ?? 0
-        sessionText = ""
     }
 
     private func play() async {
@@ -383,6 +459,7 @@ final class PlaybackModel {
                 [weak self] _ in MainActor.assumeIsolated { self?.appWillTerminate() }
             }
         }
+        lastConfig = config
         var config = config
         for capability in [GDPSession.Capability.clipboard, GDPSession.Capability.gamepad]
             where !config.capabilities.contains(capability) {
@@ -392,7 +469,13 @@ final class PlaybackModel {
             try remote.connect(config)
             input = remote.session.map { SessionInput(sink: $0, presenter: presenter) }
         } catch {
-            phase = .failed("connect: \(error)")
+            if let attempt {
+                // A reconnect attempt that couldn't even start: as good as lost.
+                self.attempt = nil
+                attempt.resume(returning: .ended(GDPSession.Ending(code: 0, reason: error.description, connectionLost: true)))
+            } else {
+                phase = .failed("connect: \(error)")
+            }
         }
     }
 
@@ -400,8 +483,14 @@ final class PlaybackModel {
         guard remote === self.remote else { return } // a session we already replaced
         switch state {
         case .connecting:
-            phase = .connecting(streamInfo)
+            if attempt == nil { phase = .connecting(streamInfo) } // reconnecting shows its own progress
         case let .established(accept):
+            lostAt = nil
+            closedForBackground = false
+            if let attempt {
+                self.attempt = nil
+                attempt.resume(returning: state)
+            }
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
             hasAudio = remote.audio != nil
@@ -412,7 +501,7 @@ final class PlaybackModel {
             } else {
                 print("session: no audio: \(remote.audioUnavailable ?? "?")")
             }
-            if source == .remote { streamInfo = "\(streamInfo) — \(accept.codec) \(size), \(accept.encoder)" }
+            if source == .remote { streamInfo = "\(title) — \(accept.codec) \(size), \(accept.encoder)" }
             if accept.capabilities.contains(GDPSession.Capability.clipboard) {
                 clipboardInEffect = true
                 clipboardSync?.start()
@@ -431,6 +520,17 @@ final class PlaybackModel {
             input = nil
             endClipboard()
             endGamepads()
+            if let attempt {
+                self.attempt = nil
+                attempt.resume(returning: state)
+                return
+            }
+            if canReconnect, ReconnectPolicy.reconnects(after: ending) || closedForBackground {
+                // Lost without a close, the host may still count this client attached.
+                if !closedForBackground { lostAt = Date() }
+                startReconnecting(reason: closedForBackground ? "The app was in the background." : ending.reason)
+                return
+            }
             if onEnded != nil {
                 reportEnded(Self.explain(ending))
             } else if !(phase == .idle) {
@@ -438,6 +538,145 @@ final class PlaybackModel {
             }
         }
     }
+
+    // MARK: - Reconnecting
+
+    /// A session that can be opened again: a real or loopback host, not the decoder test.
+    private var canReconnect: Bool { (source == .remote || source == .loopback) && bench == nil }
+
+    private func startReconnecting(reason: String) {
+        reconnectTask?.cancel()
+        reconnectTask = Task { [weak self] in await self?.reconnect(reason: reason) }
+    }
+
+    /// The user gave up waiting.
+    func cancelReconnect() {
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        end("Disconnected.")
+    }
+
+    private func reconnect(reason: String) async {
+        var reason = reason // the latest failure, shown on the card
+        let delays = ReconnectPolicy.delays
+        for (i, delay) in delays.enumerated() {
+            phase = .reconnecting(attempt: i + 1, of: delays.count, reason: reason)
+            guard await wait(delay) else { return }
+            let takeOver = ReconnectPolicy.takesOverAutomatically(lostAt: lostAt)
+            var config: GDPSession.Configuration
+            if let reconnection {
+                switch await reconnection(takeOver) {
+                case let .configuration(c): config = c
+                case let .retry(why):
+                    print("session: reconnect \(i + 1) of \(delays.count): \(why)")
+                    reason = why
+                    continue
+                case let .stop(message):
+                    reconnectTask = nil
+                    return end(message)
+                case .userNeeded:
+                    reconnectTask = nil
+                    let handOff = onNeedsLogin
+                    stopAll()
+                    handOff?("The connection was lost. Sign in again to continue.")
+                    return
+                }
+            } else if let last = lastConfig {
+                config = last
+                config.takeOver = takeOver
+            } else {
+                return
+            }
+            if Task.isCancelled { return }
+            print("session: reconnect \(i + 1) of \(delays.count)\(takeOver ? " (may take over)" : "")")
+            let outcome = await withCheckedContinuation { continuation in
+                attempt = continuation
+                endSession()
+                connect(config)
+            }
+            switch outcome {
+            case .established:
+                reconnectTask = nil
+                return
+            case let .ended(ending) where ReconnectPolicy.reconnects(after: ending):
+                if lostAt == nil, !closedForBackground { lostAt = Date() }
+                reason = ending.reason
+                continue
+            case let .ended(ending):
+                reconnectTask = nil
+                return end(Self.explain(ending))
+            case .connecting:
+                continue
+            }
+        }
+        reconnectTask = nil
+        end("The connection was lost and could not be restored.")
+    }
+
+    /// Ends a session that won't come back: back to the login screen, or
+    /// (the command line's sources) a message over the picture.
+    private func end(_ message: String) {
+        endSession()
+        if onEnded != nil { reportEnded(message) } else { phase = .failed(message) }
+    }
+
+    /// Waits `delay`, cut short by `retryNow`; on iOS also until the app is
+    /// in front (a suspended app's attempt would only time out). False if cancelled.
+    private func wait(_ delay: Duration) async -> Bool {
+        retryNow = false
+        let end = ContinuousClock.now + delay
+        while ContinuousClock.now < end, !retryNow {
+            guard (try? await Task.sleep(for: .milliseconds(100))) != nil else { return false }
+        }
+        #if os(iOS)
+        while UIApplication.shared.applicationState != .active {
+            guard (try? await Task.sleep(for: .milliseconds(200))) != nil else { return false }
+        }
+        #endif
+        return !Task.isCancelled
+    }
+
+    // MARK: - Background (iOS)
+
+    #if os(iOS)
+    /// In the background an app may not draw and is soon suspended: stop
+    /// decoding and keep the connection for the time the system gives
+    /// (about 30 s), enough for a quick visit to another app.
+    private func enteredBackground() {
+        guard let remote, phase == .playing else { return }
+        remote.suspendVideo()
+        backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Remote desktop session") { [weak self] in
+            MainActor.assumeIsolated { self?.backgroundTimeRanOut() }
+        }
+        print("session: in the background, video paused")
+    }
+
+    /// Before the system suspends the app: close properly, so the host
+    /// knows the viewer left (the desktop session keeps running), and
+    /// reconnect on return.
+    private func backgroundTimeRanOut() {
+        print("session: background time ran out, closing")
+        closedForBackground = true
+        input?.end()
+        remote?.session?.closeAndWait(timeout: 0.5)
+        endBackgroundTask()
+    }
+
+    private func enteringForeground() {
+        endBackgroundTask()
+        retryNow = true
+        if let remote, phase == .playing, !closedForBackground {
+            remote.resumeVideo()
+            print("session: back in front, video resumed")
+        }
+    }
+
+    private func endBackgroundTask() {
+        guard backgroundTask != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(backgroundTask)
+        backgroundTask = .invalid
+    }
+    #endif
 
     private func endGamepads() {
         gamepads?.stop()

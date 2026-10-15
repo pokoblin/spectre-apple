@@ -62,6 +62,9 @@ struct SessionView: View {
                 UntypableNotice(input: input)
             }
             #endif
+            if case let .reconnecting(attempt, total, reason) = model.phase {
+                ReconnectingCard(attempt: attempt, total: total, reason: reason) { model.cancelReconnect() }
+            }
         }
         #if os(macOS)
         .toolbar {
@@ -187,6 +190,8 @@ struct SessionView: View {
                     .frame(width: 280)
             case let .connecting(target):
                 ProgressView("Connecting to \(target)…")
+            case let .reconnecting(attempt, total, _):
+                Text("Reconnecting (\(attempt) of \(total))…")
             case .playing:
                 Text(model.streamInfo)
                 Text(model.statsText)
@@ -289,3 +294,28 @@ private struct UntypableNotice: View {
     }
 }
 #endif
+
+/// Over the last picture while a lost connection is being restored.
+private struct ReconnectingCard: View {
+    let attempt: Int
+    let total: Int
+    let reason: String
+    let cancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+            Text("Connection lost").font(.headline)
+            Text("Reconnecting… (attempt \(attempt) of \(total))").font(.callout)
+            if !reason.isEmpty {
+                Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            Button("Cancel", role: .cancel, action: cancel)
+                .buttonStyle(.bordered)
+        }
+        .padding(20)
+        .frame(maxWidth: 320)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
