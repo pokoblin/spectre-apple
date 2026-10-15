@@ -100,6 +100,9 @@ struct SessionView: View {
         if let clipboard = model.clipboard {
             ClipboardControls(clipboard: clipboard)
         }
+        if let gamepads = model.gamepads {
+            GamepadControls(gamepads: gamepads)
+        }
         #if os(iOS)
         if let input = model.input {
             Button {
@@ -214,6 +217,25 @@ private struct ClipboardControls: View {
             }
             .help("Send this device's clipboard to the remote desktop")
         }
+        #endif
+    }
+}
+
+/// Forwarding game controllers to the remote desktop (gdp-spec.md §8.5).
+private struct GamepadControls: View {
+    @Bindable var gamepads: GamepadForwarder
+
+    var body: some View {
+        let names = gamepads.slots.sorted { $0.key < $1.key }.map(\.value)
+        Toggle(isOn: $gamepads.isEnabled) {
+            Label(gamepads.isEnabled && !names.isEmpty ? "Gamepads (\(names.count))" : "Gamepads",
+                  systemImage: gamepads.isEnabled ? "gamecontroller.fill" : "gamecontroller")
+        }
+        .help(names.isEmpty
+            ? "Forward game controllers to the remote desktop, up to four"
+            : "Forwarding: " + names.joined(separator: ", "))
+        #if os(iOS)
+        .toggleStyle(.button)
         #endif
     }
 }

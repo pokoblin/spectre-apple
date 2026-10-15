@@ -79,6 +79,8 @@ final class PlaybackModel {
     var clipboard: ClipboardSync? { clipboardInEffect ? clipboardSync : nil }
     private var clipboardSync: ClipboardSync?
     private var clipboardInEffect = false
+    /// The session's gamepads, once established with `gamepad` in effect (gdp-spec.md §8.5).
+    private(set) var gamepads: GamepadForwarder?
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
@@ -253,6 +255,7 @@ final class PlaybackModel {
         input?.end()
         input = nil
         endClipboard()
+        endGamepads()
         player?.stop()
         player = nil
         loopback?.stop()
@@ -381,8 +384,9 @@ final class PlaybackModel {
             }
         }
         var config = config
-        if !config.capabilities.contains(GDPSession.Capability.clipboard) {
-            config.capabilities.append(GDPSession.Capability.clipboard)
+        for capability in [GDPSession.Capability.clipboard, GDPSession.Capability.gamepad]
+            where !config.capabilities.contains(capability) {
+            config.capabilities.append(capability)
         }
         do {
             try remote.connect(config)
@@ -413,6 +417,11 @@ final class PlaybackModel {
                 clipboardInEffect = true
                 clipboardSync?.start()
             }
+            if accept.capabilities.contains(GDPSession.Capability.gamepad), let session = remote.session {
+                let forwarder = GamepadForwarder(sink: session)
+                forwarder.start()
+                gamepads = forwarder
+            }
             stats.reset()
             phase = .playing
             startTicker()
@@ -421,12 +430,18 @@ final class PlaybackModel {
             input?.end()
             input = nil
             endClipboard()
+            endGamepads()
             if onEnded != nil {
                 reportEnded(Self.explain(ending))
             } else if !(phase == .idle) {
                 phase = .failed("session ended: \(ending)")
             }
         }
+    }
+
+    private func endGamepads() {
+        gamepads?.stop()
+        gamepads = nil
     }
 
     private func endClipboard() {

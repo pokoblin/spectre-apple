@@ -28,8 +28,9 @@ public final class LoopbackHost: @unchecked Sendable {
         // Keep a pointer as wraith does, so a captured mouse moves the cursor (§7.4).
         config.simulatePointer = true
         // Take the microphone, so the demo shows what the host receives (§10.1),
-        // and keep a clipboard: what the viewer copies comes back on the next attach.
-        config.capabilities = ["microphone", GDPSession.Capability.clipboard]
+        // gamepads (§8.5), and keep a clipboard: what the viewer copies comes
+        // back on the next attach.
+        config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard]
         config.clipboard = clipboard
         beep = audio ? Self.encodeBeep() : []
         config.audio = !beep.isEmpty
