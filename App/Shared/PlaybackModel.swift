@@ -16,6 +16,8 @@ import SpectreKit
 /// - direct: the test stream fed straight to the decoder, no network;
 /// - remote: a real host, `--connect HOST:PORT --token TOKEN --fingerprint SHA256`
 ///   (a wraith started with a static token, gdp-spec.md §6.11).
+///
+/// `--host-clipboard TEXT` gives the loopback host a clipboard to send on attach.
 @MainActor
 @Observable
 final class PlaybackModel {
@@ -73,6 +75,10 @@ final class PlaybackModel {
     let presenter: VideoPresenter?
     /// The session's input, while there is a session to send it to.
     private(set) var input: SessionInput?
+    /// The session's clipboard sync, once established with `clipboard` in effect (gdp-spec.md §7.9).
+    var clipboard: ClipboardSync? { clipboardInEffect ? clipboardSync : nil }
+    private var clipboardSync: ClipboardSync?
+    private var clipboardInEffect = false
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
@@ -89,6 +95,8 @@ final class PlaybackModel {
     private let bench: BenchOptions?
     private var benchScreen: Int?
     private var hostInputPrinted = 0
+    private var hostClipboardPrinted: UInt32 = 0
+    private var hostClipboard: String?
     private var terminationObserver: NSObjectProtocol?
     /// Held while a stream plays: keeps App Nap from throttling the timers
     /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
@@ -122,6 +130,7 @@ final class PlaybackModel {
         if let ms = value("--min-present-ms").flatMap(Double.init) { presenter?.minimumPresentDuration = ms / 1000 }
         if let n = value("--in-flight").flatMap(Int.init) { presenter?.maxFramesInFlight = n > 0 ? n : nil }
         benchScreen = value("--screen").flatMap(Int.init)
+        hostClipboard = value("--host-clipboard")
         if let target = value("--connect") {
             let parts = target.split(separator: ":")
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
@@ -243,6 +252,7 @@ final class PlaybackModel {
         activity = nil
         input?.end()
         input = nil
+        endClipboard()
         player?.stop()
         player = nil
         loopback?.stop()
@@ -253,6 +263,7 @@ final class PlaybackModel {
         hasMicrophone = false
         isMicrophoneOn = false
         hostInputPrinted = testHost?.observed.inputEventCount ?? 0 // the demo's host outlives a session
+        hostClipboardPrinted = testHost?.observed.clipboardMessages ?? 0
         sessionText = ""
     }
 
@@ -281,7 +292,7 @@ final class PlaybackModel {
             } else {
                 do {
                     // No test tone in a bench run: it measures video.
-                    let host = try LoopbackHost(stream: stream, audio: bench == nil)
+                    let host = try LoopbackHost(stream: stream, audio: bench == nil, clipboard: hostClipboard)
                     loopback = host
                     connect(host.sessionConfiguration())
                     host.start()
@@ -343,10 +354,22 @@ final class PlaybackModel {
         remote.onCursorPosition = { [weak self] position in
             Task { @MainActor in self?.input?.hostCursorPosition(position) }
         }
+        remote.onClipboardText = { [weak self] text in
+            Task { @MainActor in
+                print("clipboard: host sent \(text.utf8.count) bytes")
+                self?.clipboardSync?.hostChanged(text)
+            }
+        }
         remote.onStateChange = { [weak self] state in
             Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
         }
         self.remote = remote
+        // Created now, not at SessionAccept: the host's clipboard follows
+        // the accept immediately (§7.9) and must find it there.
+        clipboardSync = ClipboardSync(pasteboard: SystemPasteboard()) { [weak remote] text in
+            print("clipboard: sent \(text.utf8.count) bytes")
+            remote?.session?.sendClipboardText(text)
+        }
         if terminationObserver == nil {
             #if os(macOS)
             let name = NSApplication.willTerminateNotification
@@ -356,6 +379,10 @@ final class PlaybackModel {
             terminationObserver = NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] _ in MainActor.assumeIsolated { self?.appWillTerminate() }
             }
+        }
+        var config = config
+        if !config.capabilities.contains(GDPSession.Capability.clipboard) {
+            config.capabilities.append(GDPSession.Capability.clipboard)
         }
         do {
             try remote.connect(config)
@@ -382,6 +409,10 @@ final class PlaybackModel {
                 print("session: no audio: \(remote.audioUnavailable ?? "?")")
             }
             if source == .remote { streamInfo = "\(streamInfo) — \(accept.codec) \(size), \(accept.encoder)" }
+            if accept.capabilities.contains(GDPSession.Capability.clipboard) {
+                clipboardInEffect = true
+                clipboardSync?.start()
+            }
             stats.reset()
             phase = .playing
             startTicker()
@@ -389,12 +420,19 @@ final class PlaybackModel {
             print("session: ended: \(ending)")
             input?.end()
             input = nil
+            endClipboard()
             if onEnded != nil {
                 reportEnded(Self.explain(ending))
             } else if !(phase == .idle) {
                 phase = .failed("session ended: \(ending)")
             }
         }
+    }
+
+    private func endClipboard() {
+        clipboardSync?.stop()
+        clipboardSync = nil
+        clipboardInEffect = false
     }
 
     private func startTicker() {
@@ -509,6 +547,13 @@ final class PlaybackModel {
         let events = host.inputEvents(from: hostInputPrinted)
         hostInputPrinted += events.count
         for e in events { print("host input: \(e)") }
+        let clipboardMessages = host.observed.clipboardMessages
+        if clipboardMessages != hostClipboardPrinted {
+            hostClipboardPrinted = clipboardMessages
+            let text = String(decoding: host.lastClipboard, as: UTF8.self)
+            let shown = text.count > 80 ? String(text.prefix(80)) + "…" : text
+            print("host clipboard: \(shown.debugDescription) (\(host.observed.lastClipboardMime), \(text.utf8.count) bytes)")
+        }
     }
 
     /// What the test host received on the input stream (gdp-spec.md §8.2).

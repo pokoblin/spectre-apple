@@ -66,14 +66,13 @@ public protocol LocalPasteboard: AnyObject {
 /// One session's clipboard sync (gdp-spec.md §7.9, capability `clipboard`).
 ///
 /// The host's text is written to the local clipboard as it arrives. Local
-/// changes are found by watching the pasteboard's change count: on the Mac
-/// when the app becomes active and twice a second while it is; on iOS, where
-/// reading another app's text shows the system's paste prompt, only if the
-/// user turned on ``sendsAutomatically`` (when the app becomes active and on
-/// changes while it is), otherwise through an explicit ``send(_:)`` from a
-/// paste button. What was on the clipboard before the session (or before
-/// the user turned syncing on) is never sent: connecting must not overwrite
-/// the desktop's clipboard (§7.9).
+/// changes are found by watching the pasteboard's change count, when the app
+/// becomes active and twice a second while it is. On iOS, where reading
+/// another app's text shows the system's paste prompt, that happens only if
+/// the user turned on ``sendsAutomatically``; otherwise the user sends with
+/// an explicit ``send(_:)`` from a paste button. What was on the clipboard
+/// before the session (or before the user turned syncing on) is never sent:
+/// connecting must not overwrite the desktop's clipboard (§7.9).
 @MainActor
 @Observable
 public final class ClipboardSync {
@@ -158,26 +157,30 @@ public final class ClipboardSync {
         rebaseline()
         let center = NotificationCenter.default
         #if os(macOS)
-        observers.append(center.addObserver(forName: NSApplication.didBecomeActiveNotification, object: nil,
-                                            queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.checkLocal() }
-        })
+        let names = [NSApplication.didBecomeActiveNotification]
+        #else
+        // changedNotification doesn't report another app's copy while this
+        // one stays active (Split View, Universal Clipboard): the poll does.
+        let names = [UIApplication.didBecomeActiveNotification, UIPasteboard.changedNotification]
+        #endif
+        for name in names {
+            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.checkLocal() }
+            })
+        }
         let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
+                #if os(macOS)
                 guard NSApplication.shared.isActive else { return }
+                #else
+                guard UIApplication.shared.applicationState == .active else { return }
+                #endif
                 self?.checkLocal()
             }
         }
         timer.tolerance = 0.1
         RunLoop.main.add(timer, forMode: .common)
         pollTimer = timer
-        #else
-        for name in [UIApplication.didBecomeActiveNotification, UIPasteboard.changedNotification] {
-            observers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.checkLocal() }
-            })
-        }
-        #endif
     }
 
     public func stop() {

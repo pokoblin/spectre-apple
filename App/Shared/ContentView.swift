@@ -97,6 +97,9 @@ struct SessionView: View {
             .toggleStyle(.button)
             #endif
         }
+        if let clipboard = model.clipboard {
+            ClipboardControls(clipboard: clipboard)
+        }
         #if os(iOS)
         if let input = model.input {
             Button {
@@ -179,5 +182,38 @@ struct SessionView: View {
         .foregroundStyle(.white)
         .padding(8)
         .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+    }
+}
+
+/// Sharing the clipboard with the remote desktop (gdp-spec.md §7.9).
+private struct ClipboardControls: View {
+    @Bindable var clipboard: ClipboardSync
+
+    var body: some View {
+        #if os(macOS)
+        Toggle(isOn: $clipboard.isEnabled) {
+            Label("Clipboard", systemImage: clipboard.isEnabled ? "doc.on.clipboard.fill" : "doc.on.clipboard")
+        }
+        .help("Share the clipboard with the remote desktop: text copied on either side can be pasted on the other")
+        #else
+        Menu {
+            Toggle("Share Clipboard", isOn: $clipboard.isEnabled)
+            Section("iOS asks before Spectre reads what other apps copied, unless allowed in Settings") {
+                Toggle("Send Copies Automatically", isOn: $clipboard.sendsAutomatically)
+                    .disabled(!clipboard.isEnabled)
+            }
+        } label: {
+            Label("Clipboard", systemImage: clipboard.isEnabled ? "doc.on.clipboard.fill" : "doc.on.clipboard")
+        }
+        if clipboard.isEnabled && !clipboard.sendsAutomatically {
+            // The system's paste button reads the clipboard without the paste
+            // prompt; what it reads goes to the host's clipboard.
+            PasteButton(payloadType: String.self) { strings in
+                guard let text = strings.first else { return }
+                Task { @MainActor in clipboard.send(text) }
+            }
+            .help("Send this device's clipboard to the remote desktop")
+        }
+        #endif
     }
 }

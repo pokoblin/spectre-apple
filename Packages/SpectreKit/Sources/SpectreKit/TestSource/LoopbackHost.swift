@@ -19,15 +19,18 @@ public final class LoopbackHost: @unchecked Sendable {
     private let beep: [[UInt8]]
     private var beepIndex = 0 // queue only
 
-    public init(stream: TestStream, audio: Bool = true) throws(GDPTestHost.Failure) {
+    /// `clipboard`: the host's clipboard text to start with (gdp-spec.md §7.9).
+    public init(stream: TestStream, audio: Bool = true, clipboard: String? = nil) throws(GDPTestHost.Failure) {
         var config = GDPTestHost.Configuration()
         config.codecs = [stream.codec.rawValue]
         config.width = UInt32(stream.width)
         config.height = UInt32(stream.height)
         // Keep a pointer as wraith does, so a captured mouse moves the cursor (§7.4).
         config.simulatePointer = true
-        // Take the microphone, so the demo shows what the host receives (§10.1).
-        config.capabilities = ["microphone"]
+        // Take the microphone, so the demo shows what the host receives (§10.1),
+        // and keep a clipboard: what the viewer copies comes back on the next attach.
+        config.capabilities = ["microphone", GDPSession.Capability.clipboard]
+        config.clipboard = clipboard
         beep = audio ? Self.encodeBeep() : []
         config.audio = !beep.isEmpty
         host = try GDPTestHost(config)
