@@ -40,6 +40,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
             input?.onTouchModeChange = { [weak self] in self?.touchModeChanged() }
             input?.onTouchKeyboardChange = { [weak self] in self?.touchKeyboardChanged() }
             if input != nil, window != nil { becomeFirstResponder() }
+            placeTrackpadCursor()
         }
     }
 
@@ -343,10 +344,24 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         touchMapper?.mode = input.touchMode
         // The trackpad's cursor is the client's to show: put it where the pointer is.
         if input.touchMode == .trackpad, let mapper = touchMapper { input.move(to: mapper.cursor) }
+        placeTrackpadCursor()
     }
 
     private func layoutChanged() {
         touchMapper?.mapping = mapping
+        placeTrackpadCursor()
+    }
+
+    /// In trackpad mode the first tap clicks wherever the cursor is, so the
+    /// cursor must be on screen before any finger moves it: once there is a
+    /// picture, the pointer goes to the mapper's cursor (the middle at first).
+    private func placeTrackpadCursor() {
+        guard let input, input.touchMode == .trackpad, !input.isCaptured, touchMapper == nil else { return }
+        let mapping = mapping
+        guard !mapping.videoRect.isEmpty else { return }
+        let mapper = TouchPointerMapper(mode: .trackpad, mapping: mapping)
+        touchMapper = mapper
+        input.move(to: mapper.cursor)
     }
 
     // MARK: - Capture
