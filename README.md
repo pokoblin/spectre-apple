@@ -32,6 +32,7 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 **Picture and sound**
 
 - H.264 and HEVC, decoded in hardware by VideoToolbox and shown with Metal without copying frames; frame loss and latency are reported back to the host.
+- The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the toolbar turns this off, or asks for the full Retina resolution.
 - The remote desktop's sound, with a jitter buffer that conceals lost packets, and a mute button.
 - Your microphone, sent to the remote desktop while you turn it on.
 
@@ -244,6 +245,7 @@ The notes under [`docs/`](docs/) record how each part works, what was measured a
 - [saved-logins.md](docs/saved-logins.md): saved passwords in the Keychain, one-tap sign-in
 - [reconnect.md](docs/reconnect.md): reconnecting a lost session, replaying the login, iOS in the background
 - [keep-alive.md](docs/keep-alive.md): QUIC keep-alive, and how long a lost connection takes to notice
+- [resolution.md](docs/resolution.md): resizing the remote desktop to fit the window
 - [input.md](docs/input.md): keyboard, mouse, cursor and touch
 - [keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
 - [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone

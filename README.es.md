@@ -32,6 +32,7 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 **Imagen y sonido**
 
 - H.264 y HEVC, decodificados por hardware con VideoToolbox y mostrados con Metal sin copiar fotogramas; las pérdidas de fotogramas y la latencia se comunican al host.
+- El escritorio remoto se ajusta al tamaño de la ventana, o de la pantalla en iPad y iPhone. **Resolución** en la barra de herramientas lo desactiva o pide la resolución Retina completa.
 - El sonido del escritorio remoto, con un búfer de fluctuación que disimula los paquetes perdidos, y un botón para silenciarlo.
 - Tu micrófono, enviado al escritorio remoto mientras lo tengas activado.
 
@@ -244,6 +245,7 @@ Las notas de [`docs/`](docs/) explican cómo funciona cada parte, qué se midió
 - [saved-logins.md](docs/saved-logins.md): contraseñas guardadas en el llavero, inicio de sesión con un toque
 - [reconnect.md](docs/reconnect.md): reconexión de una sesión perdida, repetición del inicio de sesión, iOS en segundo plano
 - [keep-alive.md](docs/keep-alive.md): keep-alive de QUIC, y cuánto se tarda en detectar una conexión perdida
+- [resolution.md](docs/resolution.md): ajustar el escritorio remoto al tamaño de la ventana
 - [input.md](docs/input.md): teclado, ratón, cursor y toques
 - [keyboard.md](docs/keyboard.md): el teclado en pantalla en iOS, de caracteres a teclas, la barra de teclas
 - [audio.md](docs/audio.md): sonido, búfer de fluctuación, decodificación Opus, micrófono

@@ -32,6 +32,7 @@ spectre-apple 是受 ghost 启发的独立第三方客户端，并非 ghost 官�
 **画面与声音**
 
 - H.264 和 HEVC 由 VideoToolbox 硬件解码，交给 Metal 显示，全程不复制帧；丢帧和延迟统计会回报给主机。
+- 远程桌面的大小跟随窗口（iPad 和 iPhone 上是屏幕）。工具栏的**分辨率**菜单可以关掉这个功能，或者改为按 Retina 的完整分辨率请求。
 - 远程桌面的声音，带能掩盖丢包的抖动缓冲，可以静音。
 - 打开麦克风后，把本机麦克风发送到远程桌面。
 
@@ -244,6 +245,7 @@ iOS 上 App 从 UIKit 的 app delegate 启动，这样根视图控制器才能�
 - [saved-logins.md](docs/saved-logins.md)：钥匙串里保存的密码，一键登录
 - [reconnect.md](docs/reconnect.md)：断线重连、重放登录、iOS 后台
 - [keep-alive.md](docs/keep-alive.md)：QUIC 保活，以及断线要多久才能发现
+- [resolution.md](docs/resolution.md)：远程桌面的分辨率跟随窗口
 - [input.md](docs/input.md)：键盘、鼠标、光标和触摸
 - [keyboard.md](docs/keyboard.md)：iOS 屏幕键盘、字符到按键的转换、按键栏
 - [audio.md](docs/audio.md)：声音、抖动缓冲、Opus 解码、麦克风

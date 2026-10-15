@@ -32,6 +32,7 @@ spectre-apple は ghost に触発された独立したサードパーティ製�
 **映像と音声**
 
 - H.264 と HEVC を VideoToolbox でハードウェアデコードし、フレームをコピーせずに Metal で表示します。フレームの損失と遅延の統計はホストに報告されます。
+- リモートデスクトップのサイズはウインドウ（iPad と iPhone では画面）に合わせて変わります。ツールバーの**解像度**メニューでこれをオフにしたり、Retina のフル解像度を要求したりできます。
 - リモートデスクトップの音声。パケット損失を補うジッタバッファ付きで、消音もできます。
 - オンにしている間、マイクの音声をリモートデスクトップに送ります。
 
@@ -244,6 +245,7 @@ iOS では、ルートビューコントローラがポインタをロックで�
 - [saved-logins.md](docs/saved-logins.md)：キーチェーンに保存したパスワード、ワンタップでのサインイン
 - [reconnect.md](docs/reconnect.md)：切れたセッションの再接続、ログインの再実行、iOS のバックグラウンド
 - [keep-alive.md](docs/keep-alive.md)：QUIC のキープアライブと、切断の検出にかかる時間
+- [resolution.md](docs/resolution.md)：リモートデスクトップの解像度をウインドウに合わせる
 - [input.md](docs/input.md)：キーボード、マウス、カーソル、タッチ
 - [keyboard.md](docs/keyboard.md)：iOS のオンスクリーンキーボード、文字からキーへの変換、キーバー
 - [audio.md](docs/audio.md)：音声、ジッタバッファ、Opus のデコード、マイク
