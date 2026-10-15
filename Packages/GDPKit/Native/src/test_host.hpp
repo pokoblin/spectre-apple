@@ -47,6 +47,10 @@ public:
 		// and after a batch of input that moved it relatively, report it
 		// with CursorPosition (§7.4).
 		bool simulate_pointer = false;
+		// The host's clipboard text to start with; sent right after
+		// SessionAccept when `clipboard` is in effect (§7.9). Text the
+		// viewer sends replaces it, so the next viewer gets that.
+		std::string clipboard;
 	};
 
 	// One input event as received (§8.2, §8.3), in order.
@@ -131,6 +135,10 @@ public:
 		double pointer_x = 0.5, pointer_y = 0.5; // with simulate_pointer
 		uint32_t cursor_positions_sent = 0;
 		bool input_before_accept = false;
+		// ClipboardData from the viewer, as received (not validated).
+		uint32_t clipboard_messages = 0;
+		std::string last_clipboard_mime;
+		std::string last_clipboard;
 
 		// §10.1: packets on channel 0x03 from the viewer under `microphone`,
 		// and those dropped (no capability, not accepted, not the viewer).
@@ -167,6 +175,9 @@ public:
 	void send_network_profile(int32_t profile);
 	void send_gateway_path(uint32_t upstream_rtt_us);
 	void send_diagnostics_request();
+	// Sends ClipboardData as given, even if invalid (tests); a text/plain
+	// one also becomes the host's clipboard.
+	void send_clipboard(std::string mime_type, std::string data);
 	void close(uint64_t code);
 
 	// Whether a keyframe was asked for (KeyframeRequest, or a newly reported

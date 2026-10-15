@@ -130,6 +130,9 @@ struct gdpc_session {
 		cb.diagnostics_requested = [this] {
 			if (callbacks.diagnostics_requested) callbacks.diagnostics_requested(callbacks.ctx);
 		};
+		cb.clipboard_text = [this](const uint8_t *text, size_t len) {
+			if (callbacks.clipboard_text) callbacks.clipboard_text(callbacks.ctx, text, len);
+		};
 		return cb;
 	}
 };
@@ -196,6 +199,10 @@ void gdpc_session_send_logout(gdpc_session *session) { session->client.send_logo
 
 void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *text, size_t len) {
 	session->client.send_diagnostics_report(text, len);
+}
+
+void gdpc_session_send_clipboard_text(gdpc_session *session, const uint8_t *text, size_t len) {
+	session->client.send_clipboard_text(text, len);
 }
 
 void gdpc_session_send_key(gdpc_session *session, uint32_t hid_usage, bool pressed) {
@@ -270,6 +277,7 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	config.ping_before_accept = c->ping_before_accept;
 	config.first_frame_id = c->first_frame_id;
 	config.simulate_pointer = c->simulate_pointer;
+	if (c->clipboard) config.clipboard = c->clipboard;
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -327,6 +335,10 @@ void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rt
 }
 
 void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host) { host->host.send_diagnostics_request(); }
+
+void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, const uint8_t *data, size_t len) {
+	host->host.send_clipboard(mime_type ? mime_type : "", std::string(reinterpret_cast<const char *>(data), len));
+}
 void gdpc_test_host_close(gdpc_test_host *host, uint64_t code) { host->host.close(code); }
 bool gdpc_test_host_take_keyframe_wanted(gdpc_test_host *host) { return host->host.take_keyframe_wanted(); }
 
@@ -402,6 +414,8 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->pointer_x = o.pointer_x;
 	out->pointer_y = o.pointer_y;
 	out->cursor_positions_sent = o.cursor_positions_sent;
+	out->clipboard_messages = o.clipboard_messages;
+	copy_string(out->last_clipboard_mime, sizeof(out->last_clipboard_mime), o.last_clipboard_mime);
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 
@@ -443,6 +457,12 @@ bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, 
 	*len = p.opus.size();
 	std::copy(p.opus.begin(), p.opus.begin() + static_cast<ptrdiff_t>(std::min(cap, p.opus.size())), opus);
 	return true;
+}
+
+size_t gdpc_test_host_last_clipboard(const gdpc_test_host *host, uint8_t *out, size_t cap) {
+	auto o = host->host.observed();
+	std::copy_n(o.last_clipboard.begin(), std::min(cap, o.last_clipboard.size()), out);
+	return o.last_clipboard.size();
 }
 
 } // extern "C"

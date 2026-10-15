@@ -41,6 +41,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §7.6 KeyframeRequest | 需要关键帧时发出，同一个流每秒最多一次 |
 | §7.7 Ping/Pong | 建立后收到 Ping 立即回 Pong（nonce 相同） |
 | §6.10 GatewayPath | 记下上游 RTT，加到 StatsReport 的 `rtt_us` 和统计显示里 |
+| §7.9 剪贴板 | 只有 `clipboard` 生效时才处理和发送 `ClipboardData`：MIME 不是 `text/plain`、内容为空、超过 1 047 552 字节的一律丢弃，也不会发出；Swift 层再丢掉不是合法 UTF-8 的内容。建立之前不发。回声抑制和平台剪贴板在 SpectreKit，见 [clipboard.md](clipboard.md) |
 | §7.10 Logout | 发 LogoutRequest；以 host 关闭时的 `SESSION_ENDED`(40) 作为完成信号 |
 | §7.11 诊断 | 收到请求后回调上层；每个请求只回答一次，超过 512 KiB 的部分截掉 |
 | §8 输入 | 键盘（HID usage）、指针移动（绝对/相对）、按键（`BTN_*`）、滚轮（以 notch 为单位）、触摸。建立之前不发；`client_time_us` 取单调时钟 |
@@ -70,7 +71,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 
 ## 没有实现的
 
-- capability：`clipboard`、`refine`、`gamepad`、`hid`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。（`microphone` 已经实现，`RemoteSession` 总是提供，见 [audio.md](audio.md)。）
+- capability：`refine`、`gamepad`、`hid`。实现之前不会在 SessionHello 里提供，所以 host 也不会启用它们。（`microphone` 已经实现，`RemoteSession` 总是提供，见 [audio.md](audio.md)；`clipboard` 也已实现，见 [clipboard.md](clipboard.md)。）
 - 额外的流（§2.2 的 `StreamOpen`）：客户端不授予额外流的额度，收到也不会处理。
 - AV1、PyroWave（VideoToolbox 解不了 PyroWave；AV1 要看硬件，以后再评估）。
 - ~~lobby 阶段（`LobbyClient`、§4）~~：已完成，见 [login.md](login.md)。
@@ -80,7 +81,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 `gdpcore::TestHost` 是照规范写的最小会话 host，在自己的线程里驱动 libgdp 的 `Transport`。它在 127.0.0.1 上监听，用现场生成的证书和静态 token：
 
 - 校验 SessionHello：认证前单帧上限 16 KiB，第一帧必须是 SessionHello，否则以 `AUTH_FAILED` 关闭；token 不对也是 `AUTH_FAILED`；同一时间只允许一个 viewer，另一个连接要 take_over 才能顶替。
-- 按客户端的偏好选择 codec，capability 取双方的交集；发送 Accept 和光标；按 §7.2 的规则响应 ResolutionChange；收到 Logout 后以 `SESSION_ENDED` 关闭。
+- 按客户端的偏好选择 codec，capability 取双方的交集；发送 Accept、光标和（`clipboard` 生效时）自己的剪贴板；记住 viewer 发来的剪贴板文本，下一个 viewer 连上时发给它；按 §7.2 的规则响应 ResolutionChange；收到 Logout 后以 `SESSION_ENDED` 关闭。
 - 把视频帧切成 datagram 发送（可以指定丢弃某些分片，模拟丢包），也能发送音频、Ping、光标、DisplaysChanged、网络 profile、GatewayPath、诊断请求。音频可以由调用方给出 `seq` 和 `pts`（测乱序、丢包），也可以像真实 host 那样由测试 host 自己编号（从 Accept 时的 0 开始）、用会话时钟打 `pts`（`sendAudio`）；Accept 里的音频格式可以配置（测不支持的格式）。
 - 可以故意出错：选一个客户端没提供的 codec、用指定的码拒绝、发 Reject、在 Accept 之前发 Ping、让 frame_id 从任意值开始。
 - 记录收到的一切，包括每份 StatsReport 的字段和所有被报告为丢失的 frame_id。收到 KeyframeRequest 或有新的丢失时会标记"需要关键帧"。

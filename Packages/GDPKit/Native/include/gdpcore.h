@@ -272,6 +272,9 @@ typedef struct {
     void (*network_profile_changed)(void *ctx, int32_t profile);
     // Answer with gdpc_session_send_diagnostics_report().
     void (*diagnostics_requested)(void *ctx);
+    // The host's clipboard text, UTF-8 as sent (§7.9): only with `clipboard`
+    // in effect, never empty or over 1 047 552 bytes.
+    void (*clipboard_text)(void *ctx, const uint8_t *text, size_t len);
 } gdpc_session_callbacks;
 
 typedef struct {
@@ -315,6 +318,9 @@ void gdpc_session_request_keyframe(gdpc_session *session, uint32_t stream_id);
 void gdpc_session_request_resolution(gdpc_session *session, uint32_t stream_id, uint32_t width, uint32_t height);
 void gdpc_session_send_logout(gdpc_session *session);
 void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *text, size_t len);
+// A local clipboard change, UTF-8 (§7.9). Dropped before establishment,
+// without `clipboard` in effect, and when empty or over 1 047 552 bytes.
+void gdpc_session_send_clipboard_text(gdpc_session *session, const uint8_t *text, size_t len);
 
 void gdpc_session_send_key(gdpc_session *session, uint32_t hid_usage, bool pressed);
 void gdpc_session_send_pointer_motion(gdpc_session *session, double dx, double dy, bool absolute);
@@ -364,6 +370,10 @@ typedef struct {
     // moves it (output pixels, clamped), and a batch of input that moved it
     // relatively is answered with CursorPosition (§7.4).
     bool simulate_pointer;
+    // NULL, or the host's clipboard text to start with, sent right after
+    // SessionAccept when `clipboard` is in effect (§7.9). Text the viewer
+    // sends replaces it.
+    const char *clipboard;
 } gdpc_test_host_config;
 
 // One input event the test host received (§8.2, §8.3).
@@ -449,6 +459,8 @@ typedef struct {
     char viewer_close_reason[128];
     double pointer_x, pointer_y;     // with simulate_pointer
     uint32_t cursor_positions_sent;
+    uint32_t clipboard_messages;     // ClipboardData from the viewer; see gdpc_test_host_last_clipboard
+    char last_clipboard_mime[64];
 
     uint32_t frames_sent;
     uint32_t next_frame_id;
@@ -480,6 +492,9 @@ void gdpc_test_host_send_displays_changed(gdpc_test_host *host, uint32_t width, 
 void gdpc_test_host_send_network_profile(gdpc_test_host *host, int32_t profile);
 void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rtt_us);
 void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host);
+// Sends ClipboardData as given, even if invalid; a text/plain one also
+// becomes the host's clipboard.
+void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, const uint8_t *data, size_t len);
 void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 // Whether a keyframe was asked for (KeyframeRequest or a newly reported
 // loss) since the last call.
@@ -495,6 +510,9 @@ bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, 
 // The most recent microphone packet (also after the first minute); false before any.
 bool gdpc_test_host_latest_microphone_packet(const gdpc_test_host *host, uint16_t *seq, uint32_t *pts, uint8_t *opus,
     size_t cap, size_t *len);
+// The data of the latest ClipboardData from the viewer: copies up to `cap`
+// bytes and returns its full length.
+size_t gdpc_test_host_last_clipboard(const gdpc_test_host *host, uint8_t *out, size_t cap);
 
 // ---------------------------------------------------------------------------
 // Lobby (§4, §5): logging in to a host agent or a broker, ending in a

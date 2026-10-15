@@ -115,6 +115,9 @@ public:
 		std::function<void(double x, double y)> cursor_position;
 		std::function<void(int32_t profile)> network_profile_changed;
 		std::function<void()> diagnostics_requested;
+		// The host's clipboard text, UTF-8 as sent (§7.9): only with
+		// `clipboard` in effect, never empty or over the size limit.
+		std::function<void(const uint8_t *text, size_t len)> clipboard_text;
 	};
 
 	struct LinkStats {
@@ -156,6 +159,9 @@ public:
 	void send_logout();
 	// The answer to the latest DiagnosticsRequest; ignored without one pending.
 	void send_diagnostics_report(const uint8_t *text, size_t len);
+	// A local clipboard change (§7.9). Dropped before establishment, without
+	// `clipboard` in effect, and when empty or over the size limit.
+	void send_clipboard_text(const uint8_t *text, size_t len);
 
 	// Input (§8.2, §8.3).
 	void send_key(uint32_t hid_usage, bool pressed);
@@ -205,6 +211,7 @@ private:
 	uint16_t microphone_seq_ = 0;
 	uint64_t microphone_sent_ = 0;
 	uint64_t microphone_dropped_ = 0;
+	bool clipboard_ = false;                // `clipboard` among them
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}

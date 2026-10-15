@@ -192,6 +192,9 @@ public final class GDPSession: @unchecked Sendable {
         public var networkProfileChanged: (@Sendable (NetworkProfile) -> Void)?
         /// Answer with ``GDPSession/sendDiagnosticsReport(_:)``.
         public var diagnosticsRequested: (@Sendable () -> Void)?
+        /// The host's clipboard text (§7.9): only with ``Capability/clipboard``
+        /// in effect, never empty; text that isn't valid UTF-8 is dropped.
+        public var clipboardText: (@Sendable (String) -> Void)?
 
         public init() {}
     }
@@ -201,6 +204,14 @@ public final class GDPSession: @unchecked Sendable {
     }
 
     public static let statsInterval: DispatchTimeInterval = .milliseconds(250) // §7.5
+
+    /// Capability names (§6.7) this client can offer.
+    public enum Capability {
+        public static let clipboard = "clipboard"
+    }
+
+    /// The most clipboard text either peer sends, in UTF-8 bytes (§7.9).
+    public static let maxClipboardBytes = 1_047_552
 
     public let queue: DispatchQueue
     private let handlers: Handlers
@@ -261,6 +272,12 @@ public final class GDPSession: @unchecked Sendable {
                 GDPSession.from(ctx).handlers.networkProfileChanged?(NetworkProfile(rawValue: p) ?? .auto)
             }
             callbacks.diagnostics_requested = { ctx in GDPSession.from(ctx).handlers.diagnosticsRequested?() }
+            callbacks.clipboard_text = { ctx, data, len in
+                guard let text = String(validating: UnsafeBufferPointer(start: data, count: len), as: UTF8.self) else {
+                    return
+                }
+                GDPSession.from(ctx).handlers.clipboardText?(text)
+            }
 
             let h = gdpc_session_create(&callbacks)!
             var errorBuffer = [CChar](repeating: 0, count: 256)
@@ -371,6 +388,13 @@ public final class GDPSession: @unchecked Sendable {
 
     public func sendDiagnosticsReport(_ text: Data) {
         async { h in text.withUnsafeBytes { gdpc_session_send_diagnostics_report(h, $0.baseAddress, $0.count) } }
+    }
+
+    /// A local clipboard change (§7.9). Dropped before establishment, without
+    /// ``Capability/clipboard`` in effect, and when empty or over ``maxClipboardBytes``.
+    public func sendClipboardText(_ text: String) {
+        let data = Data(text.utf8)
+        async { h in data.withUnsafeBytes { gdpc_session_send_clipboard_text(h, $0.baseAddress, $0.count) } }
     }
 
     // Input (§8.2, §8.3).

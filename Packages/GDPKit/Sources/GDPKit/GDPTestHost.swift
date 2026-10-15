@@ -29,6 +29,10 @@ public final class GDPTestHost: @unchecked Sendable {
         /// Keep a pointer like a host does and, after input that moved it
         /// relatively, report it with CursorPosition (gdp-spec.md §7.4).
         public var simulatePointer = false
+        /// The host's clipboard text to start with, sent right after
+        /// SessionAccept when `clipboard` is in effect (§7.9). Text the
+        /// viewer sends replaces it.
+        public var clipboard: String?
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -80,6 +84,10 @@ public final class GDPTestHost: @unchecked Sendable {
         /// The simulated pointer (``Configuration/simulatePointer``), 0...1.
         public var pointer: (x: Double, y: Double)
         public var cursorPositionsSent: UInt32
+        /// ClipboardData messages from the viewer, and the MIME type of the
+        /// latest (its data: ``GDPTestHost/lastClipboard``).
+        public var clipboardMessages: UInt32
+        public var lastClipboardMime: String
         /// The accepted viewer's connection ended: its close code and the transport's reason.
         public var viewerClosed: Bool
         public var viewerCloseCode: UInt64
@@ -146,6 +154,7 @@ public final class GDPTestHost: @unchecked Sendable {
                         withOptionalCString(config.audioFormat.codec) { audioCodec in
                         withOptionalCString(config.forceCodec) { force in
                             withOptionalCString(config.rejectReason) { reject in
+                            withOptionalCString(config.clipboard) { clipboard in
                                 var c = gdpc_test_host_config()
                                 c.scratch_dir = dir
                                 c.token = token
@@ -170,7 +179,9 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.ping_before_accept = config.pingBeforeAccept
                                 c.first_frame_id = config.firstFrameID
                                 c.simulate_pointer = config.simulatePointer
+                                c.clipboard = clipboard
                                 return gdpc_test_host_create(&c, &error, error.count)
+                            }
                             }
                         }
                         }
@@ -235,6 +246,22 @@ public final class GDPTestHost: @unchecked Sendable {
         gdpc_test_host_send_gateway_path(handle, upstreamRTTMicroseconds)
     }
     public func sendDiagnosticsRequest() { gdpc_test_host_send_diagnostics_request(handle) }
+    /// Sends ClipboardData as given, even if invalid; a `text/plain` one
+    /// also becomes the host's clipboard.
+    public func sendClipboard(_ data: some Collection<UInt8>, mimeType: String = "text/plain") {
+        data.withContiguousBytes { buf in
+            gdpc_test_host_send_clipboard(handle, mimeType, buf.baseAddress, buf.count)
+        }
+    }
+    public func sendClipboard(_ text: String) { sendClipboard(Array(text.utf8)) }
+
+    /// The data of the latest ClipboardData from the viewer.
+    public var lastClipboard: [UInt8] {
+        let length = gdpc_test_host_last_clipboard(handle, nil, 0)
+        var out = [UInt8](repeating: 0, count: length)
+        let n = out.withUnsafeMutableBufferPointer { gdpc_test_host_last_clipboard(handle, $0.baseAddress, $0.count) }
+        return Array(out.prefix(min(n, length)))
+    }
     public func close(code: UInt64) { gdpc_test_host_close(handle, code) }
 
     /// Whether a keyframe was asked for (KeyframeRequest, or a newly
@@ -306,6 +333,7 @@ public final class GDPTestHost: @unchecked Sendable {
             axisVerticalSum: o.axis_vertical_sum, axisHorizontalSum: o.axis_horizontal_sum, touches: o.touches,
             inputBeforeAccept: o.input_before_accept, inputEventCount: Int(o.input_event_count),
             pointer: (o.pointer_x, o.pointer_y), cursorPositionsSent: o.cursor_positions_sent,
+            clipboardMessages: o.clipboard_messages, lastClipboardMime: s(o.last_clipboard_mime),
             viewerClosed: o.viewer_closed, viewerCloseCode: o.viewer_close_code,
             viewerCloseReason: s(o.viewer_close_reason),
             framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size,

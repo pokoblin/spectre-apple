@@ -22,6 +22,7 @@ final class Recorder: Sendable {
         var profiles: [GDPSession.NetworkProfile] = []
         var diagnosticsRequests = 0
         var audio: [(UInt16, UInt32, [UInt8])] = []
+        var clipboards: [String] = []
     }
 
     let state = Mutex(State())
@@ -48,6 +49,7 @@ final class Recorder: Sendable {
             self.state.withLock { $0.diagnosticsRequests += 1 }
             onDiagnostics?()
         }
+        h.clipboardText = { t in self.state.withLock { $0.clipboards.append(t) } }
         return h
     }
 }
@@ -540,5 +542,91 @@ struct ControlTests {
         #expect(await eventually { rec.snapshot.ending != nil })
         #expect(rec.snapshot.ending?.code == 42)
         #expect(rec.snapshot.ending?.reason.isEmpty == false)
+    }
+}
+
+@Suite("Clipboard (§7.9)")
+struct ClipboardTests {
+    func clipboardHost(_ text: String? = nil) throws -> GDPTestHost {
+        var hc = GDPTestHost.Configuration()
+        hc.capabilities = ["clipboard"]
+        hc.clipboard = text
+        return try GDPTestHost(hc)
+    }
+
+    @Test func hostClipboardArrivesRightAfterAccept() async throws {
+        let host = try clipboardHost("from the desktop")
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = [GDPSession.Capability.clipboard] }
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.capabilities == ["clipboard"])
+        #expect(await eventually { rec.snapshot.clipboards == ["from the desktop"] })
+        host.sendClipboard("über ✓ 剪贴板")
+        #expect(await eventually { rec.snapshot.clipboards.count == 2 })
+        #expect(rec.snapshot.clipboards.last == "über ✓ 剪贴板")
+    }
+
+    @Test func invalidHostClipboardIsDropped() async throws {
+        let host = try clipboardHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = ["clipboard"] }
+        defer { withExtendedLifetime(session) {} }
+        let largest = [UInt8](repeating: UInt8(ascii: "a"), count: GDPSession.maxClipboardBytes)
+        host.sendClipboard(Array("<b>html</b>".utf8), mimeType: "text/html")
+        host.sendClipboard([UInt8]())
+        host.sendClipboard(largest + [UInt8(ascii: "a")])
+        host.sendClipboard([0x66, 0xff, 0xfe]) // not UTF-8
+        host.sendClipboard(largest)
+        host.sendClipboard("last")
+        #expect(await eventually { rec.snapshot.clipboards.last == "last" })
+        #expect(rec.snapshot.clipboards.map(\.utf8.count) == [GDPSession.maxClipboardBytes, 4])
+    }
+
+    @Test func nothingCrossesWithoutTheCapability() async throws {
+        // The host supports it, the client doesn't offer it.
+        let host = try clipboardHost("secret")
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        #expect(rec.snapshot.accept?.capabilities.isEmpty == true)
+        host.sendClipboard("ignored")
+        session.sendClipboardText("not sent")
+        host.sendPing(nonce: 5) // round trip: whatever was sent before it has arrived
+        #expect(await eventually { host.observed.pongs == 1 })
+        #expect(rec.snapshot.clipboards.isEmpty)
+        #expect(host.observed.clipboardMessages == 0)
+
+        // The client offers it, the host doesn't support it.
+        let other = try GDPTestHost()
+        let rec2 = Recorder()
+        let session2 = try await connected(other, rec2) { $0.capabilities = ["clipboard"] }
+        defer { withExtendedLifetime(session2) {} }
+        session2.sendClipboardText("not sent")
+        other.sendPing(nonce: 6)
+        #expect(await eventually { other.observed.pongs == 1 })
+        #expect(other.observed.clipboardMessages == 0)
+    }
+
+    @Test func clientClipboardReachesTheHost() async throws {
+        let host = try clipboardHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = ["clipboard"] }
+        session.sendClipboardText("")
+        session.sendClipboardText(String(repeating: "é", count: GDPSession.maxClipboardBytes / 2 + 1)) // 2 bytes each
+        session.sendClipboardText("copied on the Mac ⌘")
+        #expect(await eventually { host.observed.clipboardMessages > 0 })
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(host.observed.clipboardMessages == 1) // the empty and the oversized one were not sent
+        #expect(host.observed.lastClipboardMime == "text/plain")
+        #expect(host.lastClipboard == Array("copied on the Mac ⌘".utf8))
+        #expect(rec.snapshot.clipboards.isEmpty) // a host without a clipboard sends nothing on attach
+
+        // It is now the host's clipboard, which the next viewer gets on attach.
+        session.close()
+        #expect(await eventually { rec.snapshot.ending != nil })
+        let rec2 = Recorder()
+        let session2 = try await connected(host, rec2) { $0.capabilities = ["clipboard"] }
+        defer { withExtendedLifetime(session2) {} }
+        #expect(await eventually { rec2.snapshot.clipboards == ["copied on the Mac ⌘"] })
     }
 }

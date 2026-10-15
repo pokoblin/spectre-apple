@@ -2,6 +2,7 @@
 
 #include "server_loop.hpp"
 
+#include "gdp/clipboard.hpp"
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
@@ -35,6 +36,7 @@ struct TestHost::Impl {
 		bool hello_seen = false;
 		bool accepted = false;
 		bool microphone = false; // negotiated (§10.1)
+		bool clipboard = false; // `clipboard` in effect
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
 		uint64_t close_code = 0;
@@ -59,6 +61,7 @@ struct TestHost::Impl {
 	uint16_t next_audio_seq = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
+	std::string clipboard;
 
 	~Impl() { loop.stop(); }
 
@@ -222,6 +225,7 @@ struct TestHost::Impl {
 		for (const auto &c : gdp::negotiate_capabilities(offered_caps, cfg.capabilities)) {
 			accept->add_capabilities(c);
 			if (c == "microphone") p.microphone = true;
+			if (c == gdp::kCapabilityClipboard) p.clipboard = true;
 		}
 		if (p.microphone) {
 			auto *m = accept->mutable_microphone();
@@ -253,6 +257,14 @@ struct TestHost::Impl {
 		c->set_height(2);
 		c->set_argb8888(std::string(16, '\xff'));
 		send(p, cursor);
+
+		// §7.9: and the current clipboard text, if there is any.
+		if (p.clipboard && !clipboard.empty()) {
+			gdp::session::ControlEnvelope clip;
+			clip.mutable_clipboard()->set_mime_type(gdp::kClipboardMimeText);
+			clip.mutable_clipboard()->set_data(clipboard);
+			send(p, clip);
+		}
 
 		std::lock_guard lock(mu);
 		obs.accepted = true;
@@ -360,6 +372,18 @@ struct TestHost::Impl {
 		case E::kDiagnosticsReport: {
 			std::lock_guard lock(mu);
 			obs.diagnostics_report = env.diagnostics_report().text();
+			break;
+		}
+		case E::kClipboard: {
+			const auto &c = env.clipboard();
+			if (p.clipboard && c.mime_type() == gdp::kClipboardMimeText && !c.data().empty() &&
+				c.data().size() <= gdp::kMaxClipboardBytes) {
+				clipboard = c.data();
+			}
+			std::lock_guard lock(mu);
+			obs.clipboard_messages++;
+			obs.last_clipboard_mime = c.mime_type();
+			obs.last_clipboard = c.data();
 			break;
 		}
 		default:
@@ -485,6 +509,7 @@ TestHost::~TestHost() = default;
 bool TestHost::start(const Config &config, std::string *error) {
 	Impl &m = *impl_;
 	m.cfg = config;
+	m.clipboard = config.clipboard;
 	if (!m.loop.start(
 			config.scratch_dir, [&m](std::unique_ptr<gdp::Connection> conn) { m.on_new_connection(std::move(conn)); },
 			[&m] { m.tick(); }, error)) {
@@ -592,6 +617,17 @@ void TestHost::send_diagnostics_request() {
 		if (!m->viewer) return;
 		gdp::session::ControlEnvelope env;
 		env.mutable_diagnostics_request();
+		m->send(*m->viewer, env);
+	});
+}
+
+void TestHost::send_clipboard(std::string mime_type, std::string data) {
+	impl_->post([m = impl_.get(), mime_type = std::move(mime_type), data = std::move(data)] {
+		if (mime_type == gdp::kClipboardMimeText && !data.empty()) m->clipboard = data;
+		if (!m->viewer) return;
+		gdp::session::ControlEnvelope env;
+		env.mutable_clipboard()->set_mime_type(mime_type);
+		env.mutable_clipboard()->set_data(data);
 		m->send(*m->viewer, env);
 	});
 }

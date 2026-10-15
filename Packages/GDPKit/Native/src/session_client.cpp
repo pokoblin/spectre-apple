@@ -1,6 +1,7 @@
 #include "session_client.hpp"
 
 #include "gdp/cert_fingerprint.hpp"
+#include "gdp/clipboard.hpp"
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
@@ -215,6 +216,14 @@ bool SessionClient::handle_envelope(const gdp::session::ControlEnvelope &env) {
 		diagnostics_pending_ = true;
 		if (cb_.diagnostics_requested) cb_.diagnostics_requested();
 		break;
+	case E::kClipboard: {
+		const auto &c = env.clipboard();
+		// §7.9: text/plain only, never empty, never over the limit.
+		if (!clipboard_ || c.mime_type() != gdp::kClipboardMimeText) break;
+		if (c.data().empty() || c.data().size() > gdp::kMaxClipboardBytes) break;
+		if (cb_.clipboard_text) cb_.clipboard_text(reinterpret_cast<const uint8_t *>(c.data().data()), c.data().size());
+		break;
+	}
 	default:
 		// A second SessionAccept/Reject, client-to-host messages, messages of
 		// capabilities not in effect, and anything newer: ignored (§3.1, §7.1).
@@ -265,6 +274,7 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	capabilities_ = info.capabilities;
 	microphone_ = info.has_microphone;
 	microphone_seq_ = 0; // §10.1
+	clipboard_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityClipboard) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
@@ -433,6 +443,15 @@ void SessionClient::send_diagnostics_report(const uint8_t *text, size_t len) {
 	diagnostics_pending_ = false;
 	gdp::session::ControlEnvelope env;
 	env.mutable_diagnostics_report()->set_text(reinterpret_cast<const char *>(text), std::min(len, kMaxDiagnosticsText));
+	send_control(env);
+}
+
+void SessionClient::send_clipboard_text(const uint8_t *text, size_t len) {
+	if (!accepted_ || !clipboard_ || len == 0 || len > gdp::kMaxClipboardBytes) return;
+	gdp::session::ControlEnvelope env;
+	auto *c = env.mutable_clipboard();
+	c->set_mime_type(gdp::kClipboardMimeText);
+	c->set_data(reinterpret_cast<const char *>(text), len);
 	send_control(env);
 }
 
