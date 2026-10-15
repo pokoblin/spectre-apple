@@ -1,46 +1,86 @@
+<div align="center">
+
+<img src="docs/images/app-icon.png" width="128" alt="The Spectre icon">
+
 # spectre-apple
 
-<img src="docs/images/app-icon.png" width="128" align="right" alt="The Spectre icon">
+**Spectre**, a native client for the [ghost](https://github.com/jsaiko/ghost) remote desktop on Mac, iPad and iPhone
 
-**English** | [简体中文](README.zh-Hans.md) | [繁體中文](README.zh-Hant.md) | [Español](README.es.md)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%20%7C%20iPadOS%20%7C%20iOS%2027-lightgrey)](#requirements)
+[![Swift 6](https://img.shields.io/badge/Swift-6-F05138?logo=swift&logoColor=white)](https://www.swift.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-A native Apple client for the [ghost](https://github.com/jsaiko/ghost) remote desktop, for macOS, iPadOS and iOS (Apple silicon / arm64 only). The app is called **Spectre**; its bundle ID is `org.ghost.spectre.apple`.
+**English** | [简体中文](README.zh-Hans.md) | [繁體中文](README.zh-Hant.md) | [日本語](README.ja.md) | [Español](README.es.md)
 
-> **Acknowledgements**: this project is inspired by [ghost](https://github.com/jsaiko/ghost) by [Joseph Saiko](https://saiko.dev), a complete remote desktop system made up of the GDP protocol, the wraith host and the spectre client for Linux. spectre-apple brings Apple devices to ghost: it uses ghost's protocol library, libgdp, is written from ghost's published protocol specification and design documents, and borrows the name Spectre from the upstream client. Many thanks to the author for open-sourcing ghost and for releasing libgdp and the protocol specification under the MIT license; this project would not exist without them. spectre-apple is an independent, third-party client and is not part of the ghost project.
+</div>
 
-![A session on iPad in trackpad mode, with the remote cursor drawn by Metal](docs/images/ipad-trackpad-mode.jpg)
+![Spectre on the Mac, connected to a GNOME desktop on an Ubuntu host](docs/images/macos-session.webp)
 
-- **Protocol**: upstream's C++ libgdp (QUIC with ngtcp2 and OpenSSL, protobuf, zstd), built as static libraries into an xcframework and exposed to Swift through a thin C ABI.
-- **Platform**: Swift 6, SwiftUI, Metal and VideoToolbox. The client side of sessions, login and input is written from the GDP specification (`third_party/ghost/docs/spec/gdp-spec.md`).
+ghost is an open-source remote desktop system: a host (wraith) streams a Linux desktop over the GDP protocol, and a client shows it and sends input back. spectre-apple brings that client to Apple devices as a native app, written in Swift with SwiftUI, Metal and VideoToolbox, on top of ghost's own protocol library, libgdp.
 
-The design notes and measurements under [`docs/`](docs/) are written in Simplified Chinese.
+spectre-apple is an independent, third-party client inspired by ghost; it is not part of the ghost project. See [Acknowledgements](#acknowledgements).
 
-## Status
+## Features
 
-Working:
+**Signing in**
 
-- **Login**: lobby login (§4, §5); the server's certificate is confirmed on first connection and remembered (trust on first use), and the remembered fingerprints can be reviewed and forgotten under **Trusted Servers…** on the login screen; the password typed on the login form answers the server's first password prompt, and any further prompts (a one-time code) are asked in turn; choosing a device and a desktop session; taking over a running session. See [docs/login.md](docs/login.md).
-- **Video**: H.264 and HEVC, decoded in hardware by VideoToolbox and handed to Metal without copies; frame loss and latency statistics reported back to the host (StatsReport). See [docs/session-client.md](docs/session-client.md) and [docs/prototype-findings.md](docs/prototype-findings.md).
-- **Input**: keys sent by physical position; the mouse with absolute positions, all buttons and smooth scrolling, plus a captured mode that sends relative motion; the remote cursor drawn locally; on iPad, hardware keyboards, trackpads and mice, and fingers in either a "direct touch" or a "trackpad" mode. See [docs/input.md](docs/input.md).
-- **Audio**: the remote desktop's sound (Opus, decoded by the system's own codec) through a 60 ms jitter buffer that conceals lost packets; mute from the toolbar. The microphone, sent to the remote desktop while you turn it on. See [docs/audio.md](docs/audio.md).
-- **Clipboard**: text in both directions (§7.9), off by default, switched in the toolbar. On the Mac copies are sent when Spectre is active; on iPad a paste button sends the clipboard without the system's paste prompt, or copies can be sent automatically. See [docs/clipboard.md](docs/clipboard.md).
-- **Gamepads**: up to four controllers forwarded as standard gamepads (§8.5), Home and Share included, off by default and switched in the toolbar. See [docs/gamepad.md](docs/gamepad.md).
-- **On-screen keyboard** (iPhone and iPad): the system keyboard types on the remote desktop, taken to use a US layout, with a key bar for Esc, Tab, sticky Ctrl/Shift/Alt/Super, arrows and function keys; the picture shrinks to fit above it. Chinese and other scripts go through the host's input method. See [docs/keyboard.md](docs/keyboard.md).
-- **Reconnecting**: a session whose connection is lost (Wi-Fi changing, the Mac asleep, iOS suspending the app) reconnects by itself, signing in again from answers kept in memory only; on iOS a short trip to another app keeps the connection. See [docs/reconnect.md](docs/reconnect.md).
-- **Saved passwords**: tick "Remember" under the password on the login form (or under a later password prompt) and the login is kept in the Keychain, on this device only; that recent login then connects with one tap. One-time codes are still asked each time, and a saved password the server refuses is forgotten. See [docs/saved-logins.md](docs/saved-logins.md).
-- **Languages**: English, Spanish, Simplified Chinese, Traditional Chinese and Japanese, following the system's language (English otherwise). See [docs/localization.md](docs/localization.md).
-- **Session control**: disconnect (the remote session keeps running) and log out (ends the remote session).
+- Sign in to a ghost server with your user name and password; further prompts, such as a one-time code, are asked in turn. Then choose a device and a desktop session, or take over one that is already running.
+- Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** on the login screen lists the remembered fingerprints and lets you forget them.
+- Tick **Remember** to keep a login in the Keychain, on this device only; a recent login then connects with one tap.
+- A lost connection (Wi-Fi changing, the Mac going to sleep, iOS suspending the app) reconnects by itself.
 
-Not done yet: the lossless refinement layer (refine), AV1 and PyroWave.
+**Picture and sound**
 
-## Building
+- H.264 and HEVC, decoded in hardware by VideoToolbox and shown with Metal without copying frames; frame loss and latency are reported back to the host.
+- The remote desktop's sound, with a jitter buffer that conceals lost packets, and a mute button.
+- Your microphone, sent to the remote desktop while you turn it on.
 
-### Requirements
+**Input**
 
-- Xcode 27 (with the iOS 27 simulator runtime)
+- Keys are sent by physical position, so the remote keyboard layout decides what they type.
+- Mouse with every button and smooth scrolling, and a captured mode with relative motion for games and 3D views. The remote cursor is drawn locally.
+- On iPad: hardware keyboards, trackpads and mice, and fingers in either a direct-touch or a trackpad mode.
+- On iPhone and iPad: the on-screen keyboard types on the remote desktop, with a key bar for Esc, Tab, modifiers, arrows and function keys.
+
+**Sharing**
+
+- Text clipboard in both directions, off until you switch it on.
+- Up to four game controllers, forwarded as standard gamepads.
+
+**And also**
+
+- Disconnect (the remote session keeps running) or log out (it ends).
+- The interface is in English, Simplified Chinese, Traditional Chinese, Japanese and Spanish, following the system's language.
+
+### Roadmap
+
+Not done yet:
+
+- The lossless refinement layer (refine), and the AV1 and PyroWave codecs
+- Echo cancellation for the microphone
+- Checking certificates issued by a certificate authority on iOS (for now they are trusted on first use, like any other)
+
+## Screenshots
+
+| Signing in on the Mac | iPad in trackpad mode |
+|---|---|
+| ![The login screen on the Mac](docs/images/macos-login.webp) | ![A session on iPad in trackpad mode, with the remote cursor drawn by Metal](docs/images/ipad-trackpad-mode.jpg) |
+
+## Requirements
+
+- A Mac with Apple silicon running macOS 27, or an iPhone or iPad running iOS or iPadOS 27 (arm64 only)
+- A ghost host to connect to (ghostd and wraith); see the [ghost](https://github.com/jsaiko/ghost) project for setting one up
+
+## Getting started
+
+There are no prebuilt releases yet, so Spectre is built from source.
+
+### Tools
+
+- Xcode 27, with the iOS 27 simulator runtime
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- `cmake` (3.25+) and `ninja`: `brew install cmake ninja`
-- [vcpkg](https://github.com/microsoft/vcpkg), preferably pinned to the commit upstream CI uses:
+- `cmake` (3.25 or later) and `ninja`: `brew install cmake ninja`
+- [vcpkg](https://github.com/microsoft/vcpkg), ideally at the commit upstream's CI uses:
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
@@ -54,60 +94,70 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 ~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ```
 
-If vcpkg is not in `~/src/vcpkg`, set `VCPKG_ROOT` for the commands below.
+If you keep vcpkg somewhere other than `~/src/vcpkg`, set `VCPKG_ROOT`.
 
-### Steps
+### Build
 
-1. Get the code, including the upstream ghost submodule:
+1. Clone the repository with the upstream ghost submodule (in an existing clone, run `git submodule update --init`):
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
    ```
 
-   In an existing clone, fetch the submodule with `git submodule update --init`.
-
-2. Build `GDPCore.xcframework`: libgdp and its dependencies (static vcpkg libraries) plus the C bridge, merged into `Packages/GDPKit/Artifacts/GDPCore.xcframework` (not committed). The first build of the dependencies takes a few minutes; later builds use vcpkg's binary cache. Logs go to `build/logs/`.
+2. Build `GDPCore.xcframework`, which holds libgdp, its dependencies and a small C bridge. It is written to `Packages/GDPKit/Artifacts/` and is not committed. The first build takes a few minutes; later ones reuse vcpkg's binary cache. Logs go to `build/logs/`.
 
    ```bash
    scripts/build-gdpcore.sh
    ```
 
-   It builds `macos`, `ios` and `ios-simulator` by default; name some of them to build only those, for example `scripts/build-gdpcore.sh macos`.
+   It builds the `macos`, `ios` and `ios-simulator` slices; name some of them to build only those, for example `scripts/build-gdpcore.sh macos`.
 
-3. Generate the Xcode project, open `Spectre.xcodeproj` and run the `Spectre` scheme:
+3. Generate the Xcode project, then open `Spectre.xcodeproj` and run the `Spectre` scheme:
 
    ```bash
    xcodegen generate
    ```
 
-   Or build the macOS app from the command line:
+   Or build the Mac app from the command line:
 
    ```bash
    xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
    ```
 
-To run on a device, choose a development team for the target in Xcode.
+4. To keep the Mac app, copy it to Applications:
 
-## Using it
+   ```bash
+   ditto build/DerivedData/Build/Products/Release/Spectre.app /Applications/Spectre.app
+   ```
 
-The app opens on the login screen: enter the server (`host[:port]`, port 4442 by default), your user name and password, then pick a desktop to start the session. Any further prompt from the server (a one-time code, say) is asked on its own; leave the password empty to answer every prompt that way. On the first connection you are asked to confirm the server's certificate fingerprint.
+To run Spectre on an iPhone or iPad, choose your development team for the target in Xcode.
 
-**Keyboard and mouse**: keys are sent by physical position, and the remote keyboard layout decides which characters they type. Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these three shortcuts stay local:
+## Usage
+
+Spectre opens on the login screen. Enter the server (`host` or `host:port`; the port defaults to 4442), your user name and password, and choose a desktop. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
+
+### Keyboard and mouse
+
+Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these shortcuts stay on your Mac:
 
 | Shortcut | Action |
 |---|---|
-| Ctrl+Cmd+G | Capture or release the mouse (relative motion for games and 3D views); also the Capture Mouse button in the toolbar |
+| Ctrl+Cmd+G | Capture or release the mouse (also the Capture Mouse button in the toolbar) |
 | Ctrl+Cmd+F | Full screen |
 | Cmd+Q | Quit |
 
-**Fingers on iPad and iPhone**: switch between two modes with the toolbar button.
+### Touch on iPad and iPhone
 
-- **Touch**: the pointer goes where you touch. Tap to left-click, long-press to right-click, drag with one finger to left-drag, drag with two fingers to scroll, and tap with two or three fingers to right- or middle-click.
+The toolbar switches between two modes:
+
+- **Touch**: the pointer goes where you touch. Tap to click, long-press to right-click, drag with one finger to drag, drag with two fingers to scroll, and tap with two or three fingers for a right or middle click.
 - **Trackpad**: the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
-**Sound**: the remote desktop's sound plays when the host sends it (wraith does when it can capture the session's audio). The toolbar's **Mute** button silences it on this device only; the setting is remembered. The loopback test host beeps once a second.
+### Sound and microphone
 
-**Microphone**: the toolbar's **Microphone** button sends your microphone to the remote desktop, where it is the session's default recording device. It is off at the start of every session; the first time, the system asks for permission. Off releases the device. There is no echo cancellation yet, so use headphones, or the remote desktop hears its own sound back.
+The remote desktop's sound plays whenever the host sends it (wraith does when it can capture the session's audio). **Mute** in the toolbar silences it on this device only, and the setting is remembered.
+
+**Microphone** in the toolbar sends your microphone to the remote desktop, where it becomes the session's default recording device. It starts off in every session, and the system asks for permission the first time. There is no echo cancellation yet, so use headphones, or the remote desktop will hear its own sound.
 
 ## Development
 
@@ -121,7 +171,7 @@ swift test --package-path Packages/GDPKit
 swift test --package-path Packages/SpectreKit
 ```
 
-Both packages have an in-process test host (and test lobby) for end-to-end tests over a real QUIC loopback connection. SpectreKit's tests also check the colours of H.264 and HEVC colour bars and render with Metal. To run them in the iPad simulator:
+Both packages include an in-process test host and test lobby, so the end-to-end tests run over a real QUIC connection on the loopback interface. SpectreKit's tests also decode H.264 and HEVC colour bars and render them with Metal. To run them in the iPad simulator:
 
 ```bash
 (cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
@@ -131,25 +181,25 @@ Both packages have an in-process test host (and test lobby) for end-to-end tests
 (cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
 ```
 
-### Skipping the login
+### Running without a server
 
-Started with any of the options below, the app skips the login and plays straight away. It first encodes a 10-second 1080p60 test stream with VideoToolbox (about 3 seconds), then loops it; the top left shows decode, presentation and session statistics, updated every second and also printed to stdout. The toolbar switches the source, H.264/HEVC and the presentation pacing. There are three sources:
+With any of the options below, Spectre skips the login and starts playing. It first encodes a 10-second 1080p60 test stream with VideoToolbox (about 3 seconds), then loops it. Decode, presentation and session statistics appear at the top left and are printed to stdout every second; the toolbar switches the source, the codec and the presentation pacing. There are three sources:
 
-- **Loopback** (the default): a test host inside the app sends the test stream over a real GDP session (QUIC on 127.0.0.1).
-- **Direct**: the test stream goes straight to the decoder, with no network.
-- **Remote**: a wraith started with a static token (§6.11):
+- **Loopback** (the default): a test host inside the app sends the stream over a real GDP session (QUIC on 127.0.0.1). It also beeps once a second, to test sound.
+- **Direct**: the stream goes straight to the decoder, with no network.
+- **Remote**: a wraith started with a static token (§6.11 of the specification):
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
 ```
 
-Benchmark mode: measures for N seconds after a 2-second warm-up, prints the statistics and exits.
+Benchmark mode measures for N seconds after a 2-second warm-up, prints the statistics and quits:
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Other options: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 for no limit>`, `--screen <screen index>`, `--rate <display link Hz>`, `--min-present-ms <ms>`, `--host-clipboard <text>` (the loopback host's clipboard to start with).
+Other options: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 for no limit>`, `--screen <screen index>`, `--rate <display link Hz>`, `--min-present-ms <ms>`, and `--host-clipboard <text>` (the loopback host's initial clipboard).
 
 ### iOS and iPadOS simulator
 
@@ -165,37 +215,54 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopback
 ```
 
-On iOS the app starts from a UIKit app delegate, so that its root view controller can lock the pointer (see [docs/input.md](docs/input.md)). If an older build (with the SwiftUI entry point) was installed, uninstall it once (`xcrun simctl uninstall booted org.ghost.spectre.apple`); otherwise the system restores the old window and it stays black.
+On iOS the app starts from a UIKit app delegate, so that its root view controller can lock the pointer (see [docs/input.md](docs/input.md)). If a build from before that change is installed, uninstall it once with `xcrun simctl uninstall booted org.ghost.spectre.apple`; otherwise the system restores the old window and it stays black.
 
-In the simulator VideoToolbox decodes in software and there is no `presentedTime`, so timings measured there can't be compared with a device or macOS.
+The simulator decodes video in software and reports no `presentedTime`, so its timings can't be compared with a device or a Mac.
 
-### Layout
+### Project layout
 
 | Path | Contents |
 |---|---|
-| `project.yml` | XcodeGen project (one multiplatform macOS + iOS app target) |
-| `App/` | Per-platform entry points and the UI (login, session) |
+| `project.yml` | The XcodeGen project: one multiplatform app target for macOS and iOS |
+| `App/` | The app: per-platform entry points, the login and session UI, the icon |
 | `Packages/GDPKit/` | The C bridge to libgdp (`Native/`) and its Swift wrapper: sessions, lobby, test host |
-| `Packages/SpectreKit/` | Shared code: session, VideoToolbox decoding, Metal presentation, input, login flow |
-| `scripts/` | Scripts that build the dependencies and the xcframework |
-| `docs/` | Design notes and measurements (in Simplified Chinese) |
-| `experiments/` | One-off experiments (such as a Swift/C++ interop probe), not part of the app build |
-| `third_party/ghost/` | Upstream ghost (git submodule, read-only) |
+| `Packages/SpectreKit/` | Shared code: the session, VideoToolbox decoding, Metal presentation, input, the login flow |
+| `scripts/` | Builds the dependencies and the xcframework |
+| `docs/` | Design notes and measurements, in Simplified Chinese |
+| `experiments/` | One-off experiments, such as a Swift/C++ interop probe; not part of the app |
+| `third_party/ghost/` | Upstream ghost, as a read-only git submodule |
 
-### Documents
+### Design notes
 
-- [docs/prototype-findings.md](docs/prototype-findings.md): the prototype's three technical risks and how each was settled (calling libgdp from Swift, zero-copy presentation, cross-compiling for iOS)
-- [docs/session-client.md](docs/session-client.md): the session layer, checked against §6–§11 of the specification
-- [docs/login.md](docs/login.md): lobby login, certificate trust
-- [docs/input.md](docs/input.md): keyboard, mouse, cursor, touch
-- [docs/audio.md](docs/audio.md): audio, jitter buffer, Opus decoding
-- [docs/clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
-- [docs/gamepad.md](docs/gamepad.md): gamepads, the button mapping, the Home button
-- [docs/keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
-- [docs/reconnect.md](docs/reconnect.md): reconnecting a lost session, replaying the login, iOS in the background
-- [docs/saved-logins.md](docs/saved-logins.md): saved passwords in the Keychain, one-tap sign-in
-- [docs/localization.md](docs/localization.md): the interface languages, the glossary, adding a string
-- [docs/keep-alive.md](docs/keep-alive.md): QUIC keep-alive, so an idle connection outlives the 30 s idle timeout, and how long a lost one takes to notice
+The notes under [`docs/`](docs/) record how each part works, what was measured and what went wrong along the way. They are written in Simplified Chinese.
+
+- [prototype-findings.md](docs/prototype-findings.md): the prototype's three technical risks and how each was settled (calling libgdp from Swift, zero-copy presentation, cross-compiling for iOS)
+- [session-client.md](docs/session-client.md): the session layer, checked against §6–§11 of the specification
+- [login.md](docs/login.md): lobby login and certificate trust
+- [saved-logins.md](docs/saved-logins.md): saved passwords in the Keychain, one-tap sign-in
+- [reconnect.md](docs/reconnect.md): reconnecting a lost session, replaying the login, iOS in the background
+- [keep-alive.md](docs/keep-alive.md): QUIC keep-alive, and how long a lost connection takes to notice
+- [input.md](docs/input.md): keyboard, mouse, cursor and touch
+- [keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
+- [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone
+- [clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
+- [gamepad.md](docs/gamepad.md): game controllers, the button mapping, the Home button
+- [localization.md](docs/localization.md): the interface languages, the glossary, adding a string
+- [app-icon.md](docs/app-icon.md): the app icon and how to change it
+
+## Contributing
+
+Issues and pull requests are welcome; for larger changes, please open an issue first. A few things to know:
+
+- The client is written from the GDP specification (`third_party/ghost/docs/spec/gdp-spec.md`) and public standards. Most of upstream ghost is GPL-3.0, so please don't copy or port code from it, including upstream's own spectre client; only `libgdp/` and the specification are MIT.
+- Run both packages' tests before sending a change, and update the matching note under `docs/` when behaviour changes.
+- New interface text needs translations for every language in the String Catalogs; see [docs/localization.md](docs/localization.md).
+
+## Acknowledgements
+
+spectre-apple is inspired by [ghost](https://github.com/jsaiko/ghost) by [Joseph Saiko](https://saiko.dev), a complete remote desktop system made up of the GDP protocol, the wraith host and the spectre client for Linux. This project uses ghost's protocol library, libgdp, is written from ghost's published protocol specification and design documents, and borrows the name Spectre from the upstream client. Many thanks to the author for open-sourcing ghost and for releasing libgdp and the protocol specification under the MIT license; this project would not exist without them.
+
+spectre-apple is an independent, third-party client and is not part of the ghost project.
 
 ## License
 
