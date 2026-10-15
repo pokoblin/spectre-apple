@@ -8,6 +8,12 @@
             "state" : "translated",
             "value" : "正在连接到 %@…"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在連線到 %@…"
+          }
         }
       }
     },
@@ -15,6 +21,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Delete"
@@ -29,6 +41,12 @@
             "state" : "translated",
             "value" : "下箭头"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下方向鍵"
+          }
         }
       }
     },
@@ -36,6 +54,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "End"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "End"
@@ -50,6 +74,12 @@
             "state" : "translated",
             "value" : "功能键"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "功能鍵"
+          }
         }
       }
     },
@@ -60,6 +90,12 @@
             "state" : "translated",
             "value" : "隐藏键盘"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏鍵盤"
+          }
         }
       }
     },
@@ -67,6 +103,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Home"
@@ -82,6 +124,12 @@
             "state" : "translated",
             "value" : "Insert"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert"
+          }
         }
       }
     },
@@ -92,6 +140,12 @@
             "state" : "translated",
             "value" : "左箭头"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "左方向鍵"
+          }
         }
       }
     },
@@ -99,6 +153,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menu"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Menu"
@@ -113,6 +173,12 @@
             "state" : "translated",
             "value" : "更多按键"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更多按鍵"
+          }
         }
       }
     },
@@ -120,6 +186,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Down"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Page Down"
@@ -135,6 +207,12 @@
             "state" : "translated",
             "value" : "Page Up"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Page Up"
+          }
         }
       }
     },
@@ -142,6 +220,12 @@
       "comment" : "A key on a PC keyboard",
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Print Screen"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Print Screen"
@@ -156,6 +240,12 @@
             "state" : "translated",
             "value" : "右箭头"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "右方向鍵"
+          }
         }
       }
     },
@@ -165,6 +255,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在登录 %@…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在登入 %@…"
           }
         }
       }
@@ -176,6 +272,12 @@
             "state" : "translated",
             "value" : "正在登录…"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在登入…"
+          }
         }
       }
     },
@@ -185,6 +287,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在启动会话…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在啟動工作階段…"
           }
         }
       }
@@ -196,6 +304,12 @@
             "state" : "translated",
             "value" : "这台主机上没有这种桌面。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這台主機上沒有這種桌面。"
+          }
         }
       }
     },
@@ -205,6 +319,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这台主机不属于你。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這台主機不屬於你。"
           }
         }
       }
@@ -216,6 +336,12 @@
             "state" : "translated",
             "value" : "这台主机不在线。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這台主機離線。"
+          }
         }
       }
     },
@@ -225,6 +351,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登录完成前连接就关闭了。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入完成前連線就關閉了。"
           }
         }
       }
@@ -236,6 +368,12 @@
             "state" : "translated",
             "value" : "登录完成前连接就关闭了：%@"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入完成前連線就關閉了：%@"
+          }
         }
       }
     },
@@ -245,6 +383,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "主机无法再容纳一个会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主機無法再容納一個工作階段。"
           }
         }
       }
@@ -256,6 +400,12 @@
             "state" : "translated",
             "value" : "代理服务器接受了密码，但主机拒绝了它。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代理伺服器接受了密碼，但主機拒絕了它。"
+          }
         }
       }
     },
@@ -265,6 +415,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登录失败。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入失敗。"
           }
         }
       }
@@ -276,6 +432,12 @@
             "state" : "translated",
             "value" : "保存的密码已失效。请重新登录。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存的密碼已失效。請重新登入。"
+          }
         }
       }
     },
@@ -285,6 +447,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "服务器没有为会话提供有效的证书指纹。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器沒有為工作階段提供有效的憑證指紋。"
           }
         }
       }
@@ -296,6 +464,12 @@
             "state" : "translated",
             "value" : "服务器使用的协议版本不同。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器使用的通訊協定版本不同。"
+          }
         }
       }
     },
@@ -305,6 +479,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "无法启动会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法啟動工作階段。"
           }
         }
       }
@@ -316,6 +496,12 @@
             "state" : "translated",
             "value" : "上箭头"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上方向鍵"
+          }
         }
       }
     },
@@ -326,6 +512,12 @@
             "state" : "translated",
             "value" : "用户名或密码错误。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用者名稱或密碼錯誤。"
+          }
         }
       }
     },
@@ -335,6 +527,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你已在主机本机登录。请先在那里注销。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你已在主機本機登入。請先在那裡登出。"
           }
         }
       }

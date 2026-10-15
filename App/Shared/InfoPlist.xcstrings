@@ -16,6 +16,12 @@
             "state" : "translated",
             "value" : "Spectre 会在你打开麦克风时，把麦克风的声音发送到远程桌面。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 會在你開啟麥克風時，將麥克風的聲音傳送到遠端桌面。"
+          }
         }
       }
     }

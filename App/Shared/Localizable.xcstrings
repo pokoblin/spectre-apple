@@ -29,6 +29,12 @@
             "state" : "translated",
             "value" : "有 %lld 个字符无法在主机的美式键盘布局上输入。其他文字请使用主机的输入法。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %lld 個字元無法在主機的美式鍵盤配置上輸入。其他文字請使用主機的輸入法。"
+          }
         }
       }
     },
@@ -38,6 +44,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有一个 %@ 会话正在运行，你将回到这个会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有一個 %@ 工作階段正在執行，你將回到這個工作階段。"
           }
         }
       }
@@ -49,12 +61,24 @@
             "state" : "translated",
             "value" : "另一个客户端接管了这个会话。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "另一個用戶端接管了這個工作階段。"
+          }
         }
       }
     },
     "Cancel" : {
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消"
@@ -69,6 +93,12 @@
             "state" : "translated",
             "value" : "捕获鼠标"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "擷取滑鼠"
+          }
         }
       }
     },
@@ -78,6 +108,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "为游戏和 3D 视图捕获鼠标：发送相对移动，锁定指针（Ctrl+Cmd+G）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為遊戲和 3D 檢視擷取滑鼠：傳送相對移動，鎖定指標（Ctrl+Cmd+G）"
           }
         }
       }
@@ -89,6 +125,12 @@
             "state" : "translated",
             "value" : "选择桌面"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇桌面"
+          }
         }
       }
     },
@@ -98,6 +140,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "选择主机"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇主機"
           }
         }
       }
@@ -109,6 +157,12 @@
             "state" : "translated",
             "value" : "剪贴板"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剪貼簿"
+          }
         }
       }
     },
@@ -118,6 +172,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線"
           }
         }
       }
@@ -129,6 +189,12 @@
             "state" : "translated",
             "value" : "连接到 ghost 主机"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線到 ghost 主機"
+          }
         }
       }
     },
@@ -138,6 +204,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "用保存的密码连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用儲存的密碼連線"
           }
         }
       }
@@ -149,6 +221,12 @@
             "state" : "translated",
             "value" : "连接已丢失"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線已中斷"
+          }
         }
       }
     },
@@ -159,12 +237,24 @@
             "state" : "translated",
             "value" : "继续"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續"
+          }
         }
       }
     },
     "Desktop" : {
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "桌面"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "桌面"
@@ -179,6 +269,12 @@
             "state" : "translated",
             "value" : "断开连接"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中斷連線"
+          }
         }
       }
     },
@@ -188,6 +284,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已断开连接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已中斷連線。"
           }
         }
       }
@@ -199,6 +301,12 @@
             "state" : "translated",
             "value" : "已断开连接：%@。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已中斷連線：%@。"
+          }
         }
       }
     },
@@ -208,6 +316,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "结束桌面会话"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結束桌面工作階段"
           }
         }
       }
@@ -219,6 +333,12 @@
             "state" : "translated",
             "value" : "填入这个服务器和用户名"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "填入這個伺服器和使用者名稱"
+          }
         }
       }
     },
@@ -228,6 +348,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首次连接到 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次連線到 %@"
           }
         }
       }
@@ -239,6 +365,12 @@
             "state" : "translated",
             "value" : "删除"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除"
+          }
         }
       }
     },
@@ -248,6 +380,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除 %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除 %@"
           }
         }
       }
@@ -259,6 +397,12 @@
             "state" : "translated",
             "value" : "删除保存的指纹…"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除儲存的指紋…"
+          }
         }
       }
     },
@@ -268,6 +412,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除保存的密码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除儲存的密碼"
           }
         }
       }
@@ -279,6 +429,12 @@
             "state" : "translated",
             "value" : "删除这条登录记录"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除這筆登入紀錄"
+          }
         }
       }
     },
@@ -288,6 +444,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "删除保存的指纹？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除儲存的指紋？"
           }
         }
       }
@@ -299,6 +461,12 @@
             "state" : "translated",
             "value" : "把游戏手柄转发到远程桌面，最多四个"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將遊戲控制器轉送到遠端桌面，最多四個"
+          }
         }
       }
     },
@@ -308,6 +476,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在转发：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在轉送：%@"
           }
         }
       }
@@ -319,6 +493,12 @@
             "state" : "translated",
             "value" : "手柄"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "遊戲控制器"
+          }
         }
       }
     },
@@ -328,6 +508,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "手柄（%lld）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "遊戲控制器（%lld）"
           }
         }
       }
@@ -339,6 +525,12 @@
             "state" : "translated",
             "value" : "保存到钥匙串，下次点一下即可登录。一次性验证码不要勾选。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存到鑰匙圈，下次點一下即可登入。一次性驗證碼請勿勾選。"
+          }
         }
       }
     },
@@ -348,6 +540,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "键盘"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鍵盤"
           }
         }
       }
@@ -359,6 +557,12 @@
             "state" : "translated",
             "value" : "断开连接，会话继续运行"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中斷連線，工作階段繼續執行"
+          }
         }
       }
     },
@@ -368,6 +572,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "注销"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登出"
           }
         }
       }
@@ -379,6 +589,12 @@
             "state" : "translated",
             "value" : "要注销远程桌面吗？"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要登出遠端桌面嗎？"
+          }
         }
       }
     },
@@ -388,6 +604,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "麦克风"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麥克風"
           }
         }
       }
@@ -399,6 +621,12 @@
             "state" : "translated",
             "value" : "静音"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靜音"
+          }
         }
       }
     },
@@ -408,6 +636,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在这台设备上将远程桌面静音"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在這台裝置上將遠端桌面靜音"
           }
         }
       }
@@ -419,6 +653,12 @@
             "state" : "translated",
             "value" : "没有分配给你的主机。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有指派給你的主機。"
+          }
         }
       }
     },
@@ -429,12 +669,24 @@
             "state" : "translated",
             "value" : "还没有向服务器发送任何内容。如果你信任它，Spectre 会记住这个指纹，并在它变化时提醒你。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未向伺服器傳送任何內容。如果你信任它，Spectre 會記住這個指紋，並在它變更時提醒你。"
+          }
         }
       }
     },
     "OK" : {
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "好"
@@ -449,6 +701,12 @@
             "state" : "translated",
             "value" : "离线"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離線"
+          }
         }
       }
     },
@@ -458,6 +716,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在線"
           }
         }
       }
@@ -469,6 +733,12 @@
             "state" : "translated",
             "value" : "正在打开会话…"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在開啟工作階段…"
+          }
         }
       }
     },
@@ -478,6 +748,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "播放远程桌面的声音"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "播放遠端桌面的聲音"
           }
         }
       }
@@ -489,6 +765,12 @@
             "state" : "translated",
             "value" : "正在准备演示主机…"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備示範主機…"
+          }
         }
       }
     },
@@ -499,12 +781,24 @@
             "state" : "translated",
             "value" : "本次出示的"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本次出示的"
+          }
         }
       }
     },
     "Recent" : {
       "localizations" : {
         "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近"
+          }
+        },
+        "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "最近"
@@ -525,6 +819,12 @@
             "state" : "translated",
             "value" : "正在重新连接…（第 %lld 次，共 %lld 次）"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在重新連線…（第 %lld 次，共 %lld 次）"
+          }
         }
       }
     },
@@ -534,6 +834,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "记住"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記住"
           }
         }
       }
@@ -545,6 +851,12 @@
             "state" : "translated",
             "value" : "已保存的"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存的"
+          }
         }
       }
     },
@@ -554,6 +866,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "自动发送拷贝的内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動傳送拷貝的內容"
           }
         }
       }
@@ -565,6 +883,12 @@
             "state" : "translated",
             "value" : "把这台设备的剪贴板发送到远程桌面"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將這台裝置的剪貼簿傳送到遠端桌面"
+          }
         }
       }
     },
@@ -574,6 +898,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "把你的麦克风发送到远程桌面（请戴耳机，否则它会听到自己的声音）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將你的麥克風傳送到遠端桌面（請戴耳機，否則它會聽到自己的聲音）"
           }
         }
       }
@@ -585,6 +915,12 @@
             "state" : "translated",
             "value" : "服务器"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器"
+          }
         }
       }
     },
@@ -594,6 +930,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "会话运行中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段執行中"
           }
         }
       }
@@ -605,6 +947,12 @@
             "state" : "translated",
             "value" : "共享剪贴板"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享剪貼簿"
+          }
         }
       }
     },
@@ -614,6 +962,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "与远程桌面共享剪贴板：在任一端拷贝的文字都可以在另一端粘贴"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "與遠端桌面共享剪貼簿：在任一端拷貝的文字都可以在另一端貼上"
           }
         }
       }
@@ -625,6 +979,12 @@
             "state" : "translated",
             "value" : "其他人正在查看这个会话。请重新登录并选择接管。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他人正在檢視這個工作階段。請重新登入並選擇接管。"
+          }
         }
       }
     },
@@ -634,6 +994,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有人正在从另一台设备查看它。接管会断开对方的连接，会话继续运行。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有人正在從另一台裝置檢視它。接管會中斷對方的連線，工作階段繼續執行。"
           }
         }
       }
@@ -645,6 +1011,12 @@
             "state" : "translated",
             "value" : "Spectre 之前没有连接过这个服务器。登录前，请确认它的证书指纹与管理员给你的一致。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 之前沒有連線過這個伺服器。登入前，請確認它的憑證指紋與管理員提供給你的一致。"
+          }
         }
       }
     },
@@ -654,6 +1026,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spectre 没有使用麦克风的权限。请在“系统设置”→“隐私与安全性”→“麦克风”中打开。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 沒有使用麥克風的權限。請在「系統設定」→「隱私權與安全性」→「麥克風」中開啟。"
           }
         }
       }
@@ -665,6 +1043,12 @@
             "state" : "translated",
             "value" : "开始"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始"
+          }
         }
       }
     },
@@ -674,6 +1058,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "统计"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "統計"
           }
         }
       }
@@ -685,6 +1075,12 @@
             "state" : "translated",
             "value" : "停止发送麦克风"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止傳送麥克風"
+          }
         }
       }
     },
@@ -694,6 +1090,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "从另一位查看者那里接管"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從另一位檢視者那裡接管"
           }
         }
       }
@@ -705,6 +1107,12 @@
             "state" : "translated",
             "value" : "App 曾在后台。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 曾在背景執行。"
+          }
         }
       }
     },
@@ -714,6 +1122,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ 的证书已更改"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 的憑證已變更"
           }
         }
       }
@@ -725,6 +1139,12 @@
             "state" : "translated",
             "value" : "连接已丢失，且无法恢复。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線已中斷，且無法恢復。"
+          }
         }
       }
     },
@@ -734,6 +1154,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "连接已丢失。请重新登录以继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線已中斷。請重新登入以繼續。"
           }
         }
       }
@@ -745,6 +1171,12 @@
             "state" : "translated",
             "value" : "连接已丢失。请重新登录。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線已中斷。請重新登入。"
+          }
         }
       }
     },
@@ -754,6 +1186,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "演示无法启动：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示範無法啟動：%@"
           }
         }
       }
@@ -765,6 +1203,12 @@
             "state" : "translated",
             "value" : "主机无法发送这台设备能解码的任何视频格式。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主機無法傳送這台裝置能解碼的任何影片格式。"
+          }
         }
       }
     },
@@ -774,6 +1218,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "麦克风没有启动：%@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "麥克風沒有啟動：%@。"
           }
         }
       }
@@ -785,6 +1235,12 @@
             "state" : "translated",
             "value" : "下次连接到 %@ 时，会请你核对它的新指纹。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下次連線到 %@ 時，會請你核對它的新指紋。"
+          }
         }
       }
     },
@@ -795,6 +1251,12 @@
             "state" : "translated",
             "value" : "服务器没有响应。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器沒有回應。"
+          }
         }
       }
     },
@@ -804,6 +1266,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "会话已结束。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段已結束。"
           }
         }
       }
@@ -821,6 +1289,12 @@
             "state" : "translated",
             "value" : "会话已结束：%@（代码 %lld）。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段已結束：%@（代碼 %lld）。"
+          }
         }
       }
     },
@@ -830,6 +1304,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "会话主机出示的证书与登录时告知的不一致。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段主機出示的憑證與登入時告知的不一致。"
           }
         }
       }
@@ -841,6 +1321,12 @@
             "state" : "translated",
             "value" : "会话拒绝了登录令牌。请重新登录。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段拒絕了登入權杖。請重新登入。"
+          }
         }
       }
     },
@@ -850,6 +1336,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "这可能意味着有人在拦截连接。Spectre 没有发送你的用户名。除非服务器管理员告诉过你证书已更换，否则不要继续。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這可能表示有人在攔截連線。Spectre 沒有傳送你的使用者名稱。除非伺服器管理員告訴過你憑證已更換，否則請勿繼續。"
           }
         }
       }
@@ -861,6 +1353,12 @@
             "state" : "translated",
             "value" : "这会结束桌面会话本身，而不只是断开这个连接。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這會結束桌面工作階段本身，而不只是中斷這個連線。"
+          }
         }
       }
     },
@@ -870,6 +1368,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "触摸"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "觸控"
           }
         }
       }
@@ -881,6 +1385,12 @@
             "state" : "translated",
             "value" : "触摸：指针移到你触摸的位置。触控板：屏幕像笔记本电脑的触控板一样使用。"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "觸控：指標移到你觸碰的位置。觸控式軌跡板：螢幕像筆電的觸控式軌跡板一樣使用。"
+          }
         }
       }
     },
@@ -890,6 +1400,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "触控板"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "觸控式軌跡板"
           }
         }
       }
@@ -901,6 +1417,12 @@
             "state" : "translated",
             "value" : "信任并继续"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信任並繼續"
+          }
         }
       }
     },
@@ -910,6 +1432,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "试用演示主机"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "試用示範主機"
           }
         }
       }
@@ -921,6 +1449,12 @@
             "state" : "translated",
             "value" : "用屏幕键盘在远程桌面上打字（按主机为美式键盘布局处理）"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用螢幕鍵盤在遠端桌面上打字（假設主機為美式鍵盤配置）"
+          }
         }
       }
     },
@@ -930,6 +1464,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消静音"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "取消靜音"
           }
         }
       }
@@ -941,6 +1481,12 @@
             "state" : "translated",
             "value" : "用户名"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用者名稱"
+          }
         }
       }
     },
@@ -950,6 +1496,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你在主机本机登录了，因此这个会话已结束。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在主機本機登入了，因此這個工作階段已結束。"
           }
         }
       }
@@ -961,6 +1513,12 @@
             "state" : "translated",
             "value" : "你的会话"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的工作階段"
+          }
         }
       }
     },
@@ -970,6 +1528,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "主机 或 主机:端口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主機 或 主機:連接埠"
           }
         }
       }
@@ -981,6 +1545,12 @@
             "state" : "translated",
             "value" : "Spectre 读取其他 App 拷贝的内容前，iOS 会先询问，除非已在“设置”中允许"
           }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 讀取其他 App 拷貝的內容前，iOS 會先詢問，除非已在「設定」中允許"
+          }
         }
       }
     },
@@ -990,6 +1560,12 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "密码：demo"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密碼：demo"
           }
         }
       }
