@@ -17,6 +17,7 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的�
   └ SpectreKit.LoginFlow  与界面无关的状态机（@MainActor @Observable）
       ├ KnownHosts        TOFU 指纹，JSON 文件，按 主机名:端口
       ├ ServerAddress     解析 host、host:port、[v6]、[v6]:port，默认端口 4442
+      ├ NetworkAccess     连接前先等本地网络权限（NWConnection）
       └ GDPKit.GDPLobby   串行队列 + notify_fd 读源；gdpc_lobby_* → gdp::LobbyClient
 ```
 
@@ -38,6 +39,7 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的�
 ## 不同平台
 
 - **iOS 上不做 CA 校验**：libgdp 在 Apple 平台上从 `/etc/ssl/cert.pem` 读系统根证书，iOS 沙盒里没有这个文件。所以 iOS 上 `trustSystemCAs` 默认关闭，CA 签发的证书也按 TOFU 处理，这是 §2.3 允许的（证书验证不通过时必须退回到指纹固定）。要在 iOS 上做 CA 校验，需要 libgdp 把对端证书链交出来，再交给 Security.framework 验证，可以以后向上游提。
+- **先等本地网络权限**（iOS，以及 macOS 15 以后）：libgdp 的 UDP socket 要等系统允许访问本地网络后才打开。`LoginFlow.start` 先对服务器开一个 UDP `NWConnection`（`LocalNetworkCheck`）。这个连接会弹出授权框，但不发包；状态是 `.waiting`、原因是 `localNetworkDenied` 时，界面显示“正在等待使用本地网络的权限”，并提示用户被拒绝后去设置里的哪一项打开。连接一旦 `.ready`，lobby 才开始连接。其它 waiting 或 failed 的情况也会放行，错误留给 libgdp 报。回环地址和已经授权的情况下，这一步会立刻通过。授权框里的说明文字来自 `NSLocalNetworkUsageDescription`（`project.yml`，翻译放在 `InfoPlist.xcstrings`）。
 - **密码默认不保存**：勾选密码提问下的 Remember 才存进 Keychain，之后在最近列表里点一下就能登录，见 [saved-logins.md](saved-logins.md)。系统的"密码"自动填充照常可用（密码框设置了 `textContentType(.password)`）。
 
 ## 测试服务器
@@ -76,6 +78,7 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的�
 
 - **Swift 6 的隔离推断**：在 `@MainActor` 的 LoginFlow 里创建的回调闭包会被推断为只能在主线程运行，而 GDPLobby 是在自己的队列上调用它们，结果运行时检查失败，测试进程直接 trap。现在 GDPLobby 和 GDPSession 的回调都声明为 `@Sendable`，这本来也是正确的接口：回调就是在别的队列上被调用的。
 - **`Mutex` 不能被闭包捕获**（不可复制），要包在一个 `final class` 里。
+- **首次授权本地网络时登录失败**（2026-10-16，iPad 真机）：授权框弹出期间，系统会直接拒绝 libgdp 已经打开的 UDP socket（Apple TN3179）。libgdp 把发送失败（EPIPE）当作丢包，一直往这个已作废的 socket 重传，直到 10 秒握手超时才报连接失败；第二次登录才能连上。修复前，这一步甚至会因为 SIGPIPE 让 App 消失（见 [prototype-findings.md](prototype-findings.md)）。现在是先等权限，见“不同平台”。
 - **iPad 上较大的等宽字体放不下每行 16 对的指纹**，改成每行 8 对。
 - **App 在后台时编码演示码流明显变慢**，所以演示码流当时从 600 帧减到 300 帧。演示已于 2026-10-15 去掉，这一条只作记录。
 
