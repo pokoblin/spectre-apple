@@ -64,7 +64,7 @@ App 登录页的 **Try the demo host** 会在 App 内同时启动 TestLobby（�
 
 ## 以后
 
-- Keychain 保存密码，和系统"密码"自动填充集成。
+- Keychain 保存密码，和系统"密码"自动填充集成。（断线重连用的登录配方只存在内存里，见 [reconnect.md](reconnect.md)。）
 - 管理已保存指纹的界面（现在只能在"证书已变"时删除）。
 - iOS 上的 CA 校验（见上）。
 - 界面文字目前是英文，之后统一做本地化（工程的开发语言已设为 zh-Hans）。

@@ -52,6 +52,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §10.1 麦克风 | `send_microphone`：只在 `microphone` 生效时发，`seq` 从 Accept 时的 0 开始，`pts` 用客户端的会话时钟。Accept 里的 `microphone` 只在这个 capability 生效时才交给上层。见 [audio.md](audio.md) 的麦克风一节 |
 | §9.3 重组 | 用 libgdp 的 `VideoFrameReassembler`。丢包后丢弃非关键帧，直到下一个关键帧（可配置） |
 | §11 32 位回绕 | frame_id 和 pts 只按差值比较（转成 int32）；测试覆盖了从 0xFFFFFFFE 回绕到 1 的情况 |
+| §2.1 断线 | `Ending.connectionLost`：不是我们关闭的、证书没被拒、没有 §12 关闭码、libgdp 给出了传输层原因（空闲超时、重置、拒绝、不可达）。握手后 libgdp 忽略 ICMP 错误，断网只能靠 30 秒空闲超时发现。重连见 [reconnect.md](reconnect.md) |
 | §12 关闭码 | 协议错误时用对应的码关闭（11/12/13）；host 关闭时把码和 libgdp 的描述交给上层；`Ending.isOrdinaryEnd` 按"十位数分组"判断 |
 
 ### StatsReport 的各字段

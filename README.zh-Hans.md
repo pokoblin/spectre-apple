@@ -22,6 +22,7 @@
 - **剪贴板**：文本双向同步（§7.9），默认关闭，在工具栏里打开。Mac 上在 Spectre 处于活跃状态时发送复制的内容；iPad 上用粘贴按钮发送，不会弹出系统的粘贴提示，也可以选择自动发送。见 [docs/clipboard.md](docs/clipboard.md)。
 - **手柄**：最多 4 个手柄按标准手柄转发（§8.5），包括 Home 和 Share 键；默认关闭，在工具栏里打开。见 [docs/gamepad.md](docs/gamepad.md)。
 - **屏幕软键盘**（iPhone 和 iPad）：用系统软键盘在远端桌面打字，按 host 为 US 布局换算；键盘上方有附加键条（Esc、Tab、粘滞的 Ctrl/Shift/Alt/Super、方向键、功能键），画面缩小到键盘上方。中文等文字用 host 的输入法输入。见 [docs/keyboard.md](docs/keyboard.md)。
+- **断线重连**：连接丢失（换 Wi-Fi、Mac 睡眠、iOS 挂起 App）后自动重连，用只存在内存里的登录回答重新登录；iOS 上短暂切到别的 App 时连接不断。见 [docs/reconnect.md](docs/reconnect.md)。
 - **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
 
 还没有做：无损细化层（refine）、AV1 / PyroWave。
@@ -187,6 +188,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪贴板、回声抑制、粘贴提示
 - [docs/gamepad.md](docs/gamepad.md)：手柄、按键映射、Home 键
 - [docs/keyboard.md](docs/keyboard.md)：iOS 屏幕软键盘、字符到按键的换算、附加键条
+- [docs/reconnect.md](docs/reconnect.md)：断线重连、重放登录、iOS 后台
 
 ## 许可证
 
