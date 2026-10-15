@@ -1,0 +1,330 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "" : {
+      "shouldTranslate" : false
+    },
+    "%lld characters can't be typed on the host's US layout. Use the host's input method for other scripts." : {
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld character can't be typed on the host's US layout. Use the host's input method for other scripts."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "new",
+                  "value" : "%lld characters can't be typed on the host's US layout. Use the host's input method for other scripts."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "A %@ session is running; you'll return to it." : {
+
+    },
+    "Another client took this session over." : {
+
+    },
+    "Cancel" : {
+
+    },
+    "Capture Mouse" : {
+
+    },
+    "Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)" : {
+
+    },
+    "Choose a desktop" : {
+
+    },
+    "Choose a host" : {
+
+    },
+    "Clipboard" : {
+
+    },
+    "Connect" : {
+
+    },
+    "Connect to a ghost host" : {
+
+    },
+    "Connect with the saved password" : {
+
+    },
+    "Connection lost" : {
+
+    },
+    "Continue" : {
+
+    },
+    "Desktop" : {
+
+    },
+    "Disconnect" : {
+
+    },
+    "Disconnected." : {
+
+    },
+    "Disconnected: %@." : {
+
+    },
+    "End the desktop session" : {
+
+    },
+    "Fill in this server and username" : {
+
+    },
+    "First connection to %@" : {
+
+    },
+    "Forget" : {
+
+    },
+    "Forget %@" : {
+
+    },
+    "Forget Saved Fingerprint…" : {
+
+    },
+    "Forget Saved Password" : {
+
+    },
+    "Forget This Login" : {
+
+    },
+    "Forget the saved fingerprint?" : {
+
+    },
+    "Forward game controllers to the remote desktop, up to four" : {
+
+    },
+    "Forwarding: %@" : {
+
+    },
+    "Gamepads" : {
+
+    },
+    "Gamepads (%lld)" : {
+
+    },
+    "Keep this in the Keychain and sign in with one tap next time. Leave one-time codes unticked." : {
+
+    },
+    "Keyboard" : {
+
+    },
+    "Leave the session running and disconnect" : {
+
+    },
+    "Log Out" : {
+
+    },
+    "Log out of the remote desktop?" : {
+
+    },
+    "Microphone" : {
+
+    },
+    "Mute" : {
+
+    },
+    "Mute the remote desktop's sound on this device" : {
+
+    },
+    "No hosts are assigned to you." : {
+
+    },
+    "Nothing has been sent to the server yet. If you trust it, Spectre remembers this fingerprint and warns you if it ever changes." : {
+
+    },
+    "OK" : {
+
+    },
+    "Offline" : {
+
+    },
+    "Online" : {
+
+    },
+    "Opening the session…" : {
+
+    },
+    "Play the remote desktop's sound" : {
+
+    },
+    "Preparing the demo host…" : {
+
+    },
+    "Presented now" : {
+
+    },
+    "Recent" : {
+
+    },
+    "Reconnecting… (attempt %lld of %lld)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Reconnecting… (attempt %1$lld of %2$lld)"
+          }
+        }
+      }
+    },
+    "Remember" : {
+
+    },
+    "Saved" : {
+
+    },
+    "Send Copies Automatically" : {
+
+    },
+    "Send this device's clipboard to the remote desktop" : {
+
+    },
+    "Send your microphone to the remote desktop (use headphones, or it hears its own sound)" : {
+
+    },
+    "Server" : {
+
+    },
+    "Session running" : {
+
+    },
+    "Share Clipboard" : {
+
+    },
+    "Share the clipboard with the remote desktop: text copied on either side can be pasted on the other" : {
+
+    },
+    "Someone else is viewing this session. Sign in again and choose to take it over." : {
+
+    },
+    "Someone is viewing it from another device. Taking over disconnects them; the session keeps running." : {
+
+    },
+    "Spectre hasn't seen this server before. Check that its certificate fingerprint matches the one its administrator gave you before you sign in." : {
+
+    },
+    "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone." : {
+
+    },
+    "Start" : {
+
+    },
+    "Statistics" : {
+
+    },
+    "Stop sending your microphone" : {
+
+    },
+    "Take over from the other viewer" : {
+
+    },
+    "The app was in the background." : {
+
+    },
+    "The certificate of %@ has changed" : {
+
+    },
+    "The connection was lost and could not be restored." : {
+
+    },
+    "The connection was lost. Sign in again to continue." : {
+
+    },
+    "The connection was lost. Sign in again." : {
+
+    },
+    "The demo could not start: %@" : {
+
+    },
+    "The host can't send any video format this device decodes." : {
+
+    },
+    "The microphone didn't start: %@." : {
+
+    },
+    "The next connection to %@ will ask you to verify its new fingerprint." : {
+
+    },
+    "The server did not answer." : {
+
+    },
+    "The session ended." : {
+
+    },
+    "The session ended: %@ (code %lld)." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "The session ended: %1$@ (code %2$lld)."
+          }
+        }
+      }
+    },
+    "The session host presented a different certificate than the login promised." : {
+
+    },
+    "The session refused the login token. Sign in again." : {
+
+    },
+    "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
+
+    },
+    "This ends the desktop session itself, not just this connection." : {
+
+    },
+    "Touch" : {
+
+    },
+    "Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad." : {
+
+    },
+    "Trackpad" : {
+
+    },
+    "Trust and Continue" : {
+
+    },
+    "Try the demo host" : {
+
+    },
+    "Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)" : {
+
+    },
+    "Unmute" : {
+
+    },
+    "Username" : {
+
+    },
+    "You logged in at the host itself, which ended this session." : {
+
+    },
+    "Your session" : {
+
+    },
+    "host or host:port" : {
+
+    },
+    "iOS asks before Spectre reads what other apps copied, unless allowed in Settings" : {
+
+    },
+    "password: demo" : {
+
+    }
+  },
+  "version" : "1.0"
+}

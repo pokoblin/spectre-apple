@@ -43,6 +43,8 @@ final class TouchKeyboardBar: UIInputView {
 
     // MARK: Building
 
+    // Key caps (Esc, Tab, Ctrl, Shift, Alt, Super, F1…) read the same in
+    // every language, as on a keyboard; names and menus are localized.
     private func build() {
         let scroll = UIScrollView()
         scroll.showsHorizontalScrollIndicator = false
@@ -76,10 +78,10 @@ final class TouchKeyboardBar: UIInputView {
             modifierButtons.append((modifier, button))
             row.addArrangedSubview(button)
         }
-        row.addArrangedSubview(key(symbol: "arrow.left", HIDUsage.leftArrow, label: "Left"))
-        row.addArrangedSubview(key(symbol: "arrow.up", HIDUsage.upArrow, label: "Up"))
-        row.addArrangedSubview(key(symbol: "arrow.down", HIDUsage.downArrow, label: "Down"))
-        row.addArrangedSubview(key(symbol: "arrow.right", HIDUsage.rightArrow, label: "Right"))
+        row.addArrangedSubview(key(symbol: "arrow.left", HIDUsage.leftArrow, label: String(localized: "Left Arrow", bundle: .module)))
+        row.addArrangedSubview(key(symbol: "arrow.up", HIDUsage.upArrow, label: String(localized: "Up Arrow", bundle: .module)))
+        row.addArrangedSubview(key(symbol: "arrow.down", HIDUsage.downArrow, label: String(localized: "Down Arrow", bundle: .module)))
+        row.addArrangedSubview(key(symbol: "arrow.right", HIDUsage.rightArrow, label: String(localized: "Right Arrow", bundle: .module)))
         row.addArrangedSubview(moreButton())
         row.addArrangedSubview(hideButton())
         refresh()
@@ -131,7 +133,7 @@ final class TouchKeyboardBar: UIInputView {
     }
 
     private func moreButton() -> UIButton {
-        let button = baseButton(symbol: "ellipsis", label: "More Keys")
+        let button = baseButton(symbol: "ellipsis", label: String(localized: "More Keys", bundle: .module))
         func item(_ title: String, _ usage: UInt32) -> UIAction {
             UIAction(title: title) { [weak self] _ in
                 self?.typer.press(usage)
@@ -141,14 +143,19 @@ final class TouchKeyboardBar: UIInputView {
         let functionKeys: [UInt32] = [HIDUsage.f1, HIDUsage.f2, HIDUsage.f3, HIDUsage.f4, HIDUsage.f5, HIDUsage.f6,
                                       HIDUsage.f7, HIDUsage.f8, HIDUsage.f9, HIDUsage.f10, HIDUsage.f11, HIDUsage.f12]
         button.menu = UIMenu(children: [
-            UIMenu(title: "Function Keys", children: functionKeys.enumerated().map { item("F\($0.offset + 1)", $0.element) }),
+            UIMenu(title: String(localized: "Function Keys", bundle: .module),
+                   children: functionKeys.enumerated().map { item("F\($0.offset + 1)", $0.element) }),
             UIMenu(options: .displayInline, children: [
-                item("Home", HIDUsage.home), item("End", HIDUsage.end),
-                item("Page Up", HIDUsage.pageUp), item("Page Down", HIDUsage.pageDown),
+                item(String(localized: "Home", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.home),
+                item(String(localized: "End", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.end),
+                item(String(localized: "Page Up", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.pageUp),
+                item(String(localized: "Page Down", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.pageDown),
             ]),
             UIMenu(options: .displayInline, children: [
-                item("Delete", HIDUsage.deleteForward), item("Insert", HIDUsage.insert),
-                item("Print Screen", HIDUsage.printScreen), item("Menu", HIDUsage.application),
+                item(String(localized: "Delete", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.deleteForward),
+                item(String(localized: "Insert", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.insert),
+                item(String(localized: "Print Screen", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.printScreen),
+                item(String(localized: "Menu", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.application),
             ]),
         ])
         button.showsMenuAsPrimaryAction = true
@@ -156,7 +163,7 @@ final class TouchKeyboardBar: UIInputView {
     }
 
     private func hideButton() -> UIButton {
-        let button = baseButton(symbol: "keyboard.chevron.compact.down", label: "Hide Keyboard")
+        let button = baseButton(symbol: "keyboard.chevron.compact.down", label: String(localized: "Hide Keyboard", bundle: .module))
         button.addAction(UIAction { [weak self] _ in self?.onHide() }, for: .touchUpInside)
         return button
     }

@@ -6,7 +6,9 @@ options:
     macOS: "27.0"
     iOS: "27.0"
   createIntermediateGroups: true
-  developmentLanguage: zh-Hans
+  # English is the source language and the fallback for languages the app
+  # doesn't have (docs/localization.md).
+  developmentLanguage: en
 
 settings:
   base:
@@ -16,6 +18,9 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     DEAD_CODE_STRIPPING: YES
+    # String Catalogs (*.xcstrings): the compiler lists the strings it finds.
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+    SWIFT_EMIT_LOC_STRINGS: YES
 
 packages:
   GDPKit:

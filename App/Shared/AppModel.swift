@@ -17,6 +17,8 @@ final class AppModel {
         var server: String
         var username: String
         var id: String { "\(username)@\(server)" }
+        /// As the list shows it, the same in every language.
+        var title: String { "\(username) @ \(server)" }
     }
 
     private(set) var screen: Screen = .login
@@ -105,7 +107,7 @@ final class AppModel {
 
     /// A lost session's new token: the login replayed (docs/reconnect.md).
     private func signInAgain(allowTakeOver: Bool) async -> PlaybackModel.Reconnection {
-        guard let recipe else { return .stop("The connection was lost. Sign in again.") }
+        guard let recipe else { return .stop(String(localized: "The connection was lost. Sign in again.")) }
         signingInAgain = true
         defer { signingInAgain = false }
         login.replay(recipe, allowTakeOver: allowTakeOver)
@@ -124,11 +126,11 @@ final class AppModel {
             }
             guard (try? await Task.sleep(for: .milliseconds(50))) != nil else {
                 login.cancel()
-                return .stop("Disconnected.")
+                return .stop(String(localized: "Disconnected."))
             }
         }
         login.cancel()
-        return .retry("the server did not answer")
+        return .retry(String(localized: "The server did not answer."))
     }
 
     /// Signing in again needs the user: the login screen, at the step the
@@ -142,14 +144,14 @@ final class AppModel {
     /// Starts the in-process demo servers and returns where to sign in.
     func startDemo() async -> (server: ServerAddress, username: String, password: String)? {
         if let demo { return (demo.address, DemoServer.username, DemoServer.password) }
-        demoStatus = "Preparing the demo host…"
+        demoStatus = String(localized: "Preparing the demo host…")
         defer { demoStatus = nil }
         do {
             let server = try await DemoServer.start()
             demo = server
             return (server.address, DemoServer.username, DemoServer.password)
         } catch {
-            lastSessionEnd = "The demo could not start: \(error)"
+            lastSessionEnd = String(localized: "The demo could not start: \(String(describing: error))")
             return nil
         }
     }

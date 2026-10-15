@@ -258,9 +258,9 @@ final class PlaybackModel {
             } catch {
                 isMicrophoneOn = false
                 if case .permissionDenied = error {
-                    microphoneError = "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone."
+                    microphoneError = String(localized: "Spectre isn't allowed to use the microphone. Turn it on in System Settings → Privacy & Security → Microphone.")
                 } else {
-                    microphoneError = "The microphone didn't start: \(error)."
+                    microphoneError = String(localized: "The microphone didn't start: \(String(describing: error)).")
                 }
             }
         }
@@ -528,7 +528,7 @@ final class PlaybackModel {
             if canReconnect, ReconnectPolicy.reconnects(after: ending) || closedForBackground {
                 // Lost without a close, the host may still count this client attached.
                 if !closedForBackground { lostAt = Date() }
-                startReconnecting(reason: closedForBackground ? "The app was in the background." : ending.reason)
+                startReconnecting(reason: closedForBackground ? String(localized: "The app was in the background.") : ending.reason)
                 return
             }
             if onEnded != nil {
@@ -578,7 +578,7 @@ final class PlaybackModel {
                     reconnectTask = nil
                     let handOff = onNeedsLogin
                     stopAll()
-                    handOff?("The connection was lost. Sign in again to continue.")
+                    handOff?(String(localized: "The connection was lost. Sign in again to continue."))
                     return
                 }
             } else if let last = lastConfig {
@@ -610,7 +610,7 @@ final class PlaybackModel {
             }
         }
         reconnectTask = nil
-        end("The connection was lost and could not be restored.")
+        end(String(localized: "The connection was lost and could not be restored."))
     }
 
     /// Ends a session that won't come back: back to the login screen, or
@@ -854,18 +854,23 @@ final class PlaybackModel {
         exit(0)
     }
 
-    /// Words for how a session ended (gdp-spec.md §12).
+    /// Words for how a session ended (gdp-spec.md §12), in the user's
+    /// language; the transport's own reason is quoted as it came.
     static func explain(_ e: GDPSession.Ending) -> String {
-        if e.certificateRejected { return "The session host presented a different certificate than the login promised." }
+        if e.certificateRejected {
+            return String(localized: "The session host presented a different certificate than the login promised.")
+        }
         switch e.code {
-        case 0: return e.reason == "closed" || e.reason.isEmpty ? "Disconnected." : "Disconnected: \(e.reason)."
-        case 13: return "The host can't send any video format this device decodes."
-        case 20: return "The session refused the login token. Sign in again."
-        case 24: return "Someone else is viewing this session. Sign in again and choose to take it over."
-        case 40: return "The session ended."
-        case 41: return "You logged in at the host itself, which ended this session."
-        case 42: return "Another client took this session over."
-        default: return "The session ended: \(e.reason) (code \(e.code))."
+        case 0:
+            return e.reason == "closed" || e.reason.isEmpty
+                ? String(localized: "Disconnected.") : String(localized: "Disconnected: \(e.reason).")
+        case 13: return String(localized: "The host can't send any video format this device decodes.")
+        case 20: return String(localized: "The session refused the login token. Sign in again.")
+        case 24: return String(localized: "Someone else is viewing this session. Sign in again and choose to take it over.")
+        case 40: return String(localized: "The session ended.")
+        case 41: return String(localized: "You logged in at the host itself, which ended this session.")
+        case 42: return String(localized: "Another client took this session over.")
+        default: return String(localized: "The session ended: \(e.reason) (code \(Int(clamping: e.code))).")
         }
     }
 

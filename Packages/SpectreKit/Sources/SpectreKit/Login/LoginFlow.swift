@@ -154,7 +154,7 @@ public final class LoginFlow {
         recipe = Recipe(server: server, username: username)
         takeOver = false
         refusedCertificate.request.withLock { $0 = nil }
-        step = .working("Connecting to \(server)…")
+        step = .working(String(localized: "Connecting to \(server.description)…", bundle: .module))
 
         let knownHosts = knownHosts
         let refused = refusedCertificate
@@ -237,14 +237,14 @@ public final class LoginFlow {
     public func answer(_ text: String, remember: Bool = false) {
         guard case let .prompt(prompt) = step, let lobby else { return }
         recipe?.answers.append(.init(prompt: prompt, text: text, remember: remember && !prompt.echo))
-        step = .working("Signing in…")
+        step = .working(String(localized: "Signing in…", bundle: .module))
         lobby.respond(text)
     }
 
     public func select(device: GDPLobby.Device) {
         guard case .chooseDevice = step, let lobby else { return }
         recipe?.deviceID = device.id
-        step = .working("Signing in to \(device.name)…")
+        step = .working(String(localized: "Signing in to \(device.name)…", bundle: .module))
         lobby.selectDevice(device.id)
     }
 
@@ -255,7 +255,7 @@ public final class LoginFlow {
         if choice.needsTakeOver && !takeOver { return }
         self.takeOver = takeOver
         recipe?.sessionType = type
-        step = .working("Starting the session…")
+        step = .working(String(localized: "Starting the session…", bundle: .module))
         lobby.openSession(type: type)
     }
 
@@ -274,7 +274,8 @@ public final class LoginFlow {
         guard let server else { return }
         // §2.3: no session connection for a missing or malformed fingerprint.
         guard let certificate = r.certificate else {
-            step = .failed(Failure(message: "The server sent no valid certificate fingerprint for the session.", code: 0))
+            step = .failed(Failure(message: String(localized: "The server sent no valid certificate fingerprint for the session.", bundle: .module),
+                                           code: 0))
             return
         }
         var config = GDPSession.Configuration(host: r.host, port: r.port, token: r.token, certificate: certificate,
@@ -298,7 +299,7 @@ public final class LoginFlow {
             // and ask, as a login without one would.
             replayingSaved = false
             savedLogins.delete(server: server, username: username)
-            notice = "The saved password no longer works. Sign in again."
+            notice = String(localized: "The saved password no longer works. Sign in again.", bundle: .module)
             start(server: server, username: username)
             return
         }
@@ -342,19 +343,31 @@ public final class LoginFlow {
         }
     }
 
-    /// Words for the §12 codes a login can end with.
+    /// Words for the §12 codes a login can end with, in the user's language;
+    /// anything else is libgdp's or the server's own text, shown as it came.
     static func explain(_ f: GDPLobby.Failure) -> String {
         switch f.code {
-        case 10: "The server speaks a different protocol version."
-        case 14: "That desktop is not available on this host."
-        case 20: "Wrong username or password."
-        case 21: "The host refused the password, though the broker accepted it."
-        case 22: "That host is not one of yours."
-        case 23: "You are logged in at the host itself. Log out there first."
-        case 30: "That host is offline."
-        case 31: "The host has no room for another session."
-        case 32: "The session could not be started."
-        default: f.message.isEmpty ? "The login failed." : f.message.prefix(1).uppercased() + f.message.dropFirst()
+        case 10: return String(localized: "The server speaks a different protocol version.", bundle: .module)
+        case 14: return String(localized: "That desktop is not available on this host.", bundle: .module)
+        case 20: return String(localized: "Wrong username or password.", bundle: .module)
+        case 21: return String(localized: "The host refused the password, though the broker accepted it.", bundle: .module)
+        case 22: return String(localized: "That host is not one of yours.", bundle: .module)
+        case 23: return String(localized: "You are logged in at the host itself. Log out there first.", bundle: .module)
+        case 30: return String(localized: "That host is offline.", bundle: .module)
+        case 31: return String(localized: "The host has no room for another session.", bundle: .module)
+        case 32: return String(localized: "The session could not be started.", bundle: .module)
+        default: break
         }
+        if f.message.isEmpty { return String(localized: "The login failed.", bundle: .module) }
+        // libgdp's words for a connection that ended mid-login; the transport's
+        // own reason ("Timer expired") stays as it is.
+        let closed = "connection closed before completing login"
+        if f.message.hasPrefix(closed) {
+            let reason = f.message.dropFirst(closed.count).drop { $0 == ":" || $0 == " " }
+            return reason.isEmpty
+                ? String(localized: "The connection closed before the login finished.", bundle: .module)
+                : String(localized: "The connection closed before the login finished: \(String(reason))", bundle: .module)
+        }
+        return f.message.prefix(1).uppercased() + f.message.dropFirst()
     }
 }

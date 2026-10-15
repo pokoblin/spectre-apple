@@ -166,18 +166,19 @@ struct SessionView: View {
 
     @ViewBuilder private var sourceControls: some View {
         @Bindable var model = model
-        Picker("Source", selection: $model.source) {
-            Text("Loopback").tag(PlaybackModel.Source.loopback)
-            Text("Direct").tag(PlaybackModel.Source.direct)
-            Text("Remote").tag(PlaybackModel.Source.remote)
-        }
-        Picker("Codec", selection: $model.codec) {
+        // The prototype's test sources (no login): developer controls, in English.
+        Picker(selection: $model.source) {
+            Text(verbatim: "Loopback").tag(PlaybackModel.Source.loopback)
+            Text(verbatim: "Direct").tag(PlaybackModel.Source.direct)
+            Text(verbatim: "Remote").tag(PlaybackModel.Source.remote)
+        } label: { Text(verbatim: "Source") }
+        Picker(selection: $model.codec) {
             ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
-        }
-        Picker("Pacing", selection: $model.mode) {
-            Text("On arrival").tag(VideoPresenter.Mode.onArrival)
-            Text("Display link").tag(VideoPresenter.Mode.displayLink)
-        }
+        } label: { Text(verbatim: "Codec") }
+        Picker(selection: $model.mode) {
+            Text(verbatim: "On arrival").tag(VideoPresenter.Mode.onArrival)
+            Text(verbatim: "Display link").tag(VideoPresenter.Mode.displayLink)
+        } label: { Text(verbatim: "Pacing") }
     }
 
     @ViewBuilder private var overlay: some View {
@@ -186,12 +187,13 @@ struct SessionView: View {
             case .idle:
                 EmptyView()
             case let .encoding(codec, progress):
-                ProgressView("Encoding \(codec.displayName) test stream…", value: progress)
+                // The statistics overlay stays in English, like the logs (docs/localization.md).
+                ProgressView(value: progress) { Text(verbatim: "Encoding \(codec.displayName) test stream…") }
                     .frame(width: 280)
             case let .connecting(target):
-                ProgressView("Connecting to \(target)…")
+                ProgressView { Text(verbatim: "Connecting to \(target)…") }
             case let .reconnecting(attempt, total, _):
-                Text("Reconnecting (\(attempt) of \(total))…")
+                Text(verbatim: "Reconnecting (\(attempt) of \(total))…")
             case .playing:
                 Text(model.streamInfo)
                 Text(model.statsText)
@@ -252,8 +254,8 @@ private struct GamepadControls: View {
                   systemImage: gamepads.isEnabled ? "gamecontroller.fill" : "gamecontroller")
         }
         .help(names.isEmpty
-            ? "Forward game controllers to the remote desktop, up to four"
-            : "Forwarding: " + names.joined(separator: ", "))
+            ? Text("Forward game controllers to the remote desktop, up to four")
+            : Text("Forwarding: \(names.formatted(.list(type: .and)))"))
         #if os(iOS)
         .toggleStyle(.button)
         #endif
@@ -271,9 +273,7 @@ private struct UntypableNotice: View {
         VStack {
             Spacer()
             if let shown {
-                Text(shown.count == 1
-                     ? "1 character can't be typed on the host's US layout. Use the host's input method for other scripts."
-                     : "\(shown.count) characters can't be typed on the host's US layout. Use the host's input method for other scripts.")
+                Text("\(shown.count) characters can't be typed on the host's US layout. Use the host's input method for other scripts.")
                     .font(.callout)
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)

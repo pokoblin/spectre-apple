@@ -1,0 +1,105 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Connecting to %@…" : {
+
+    },
+    "Delete" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Down Arrow" : {
+
+    },
+    "End" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Function Keys" : {
+
+    },
+    "Hide Keyboard" : {
+
+    },
+    "Home" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Insert" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Left Arrow" : {
+
+    },
+    "Menu" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "More Keys" : {
+
+    },
+    "Page Down" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Page Up" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Print Screen" : {
+      "comment" : "A key on a PC keyboard"
+    },
+    "Right Arrow" : {
+
+    },
+    "Signing in to %@…" : {
+
+    },
+    "Signing in…" : {
+
+    },
+    "Starting the session…" : {
+
+    },
+    "That desktop is not available on this host." : {
+
+    },
+    "That host is not one of yours." : {
+
+    },
+    "That host is offline." : {
+
+    },
+    "The connection closed before the login finished." : {
+
+    },
+    "The connection closed before the login finished: %@" : {
+
+    },
+    "The host has no room for another session." : {
+
+    },
+    "The host refused the password, though the broker accepted it." : {
+
+    },
+    "The login failed." : {
+
+    },
+    "The saved password no longer works. Sign in again." : {
+
+    },
+    "The server sent no valid certificate fingerprint for the session." : {
+
+    },
+    "The server speaks a different protocol version." : {
+
+    },
+    "The session could not be started." : {
+
+    },
+    "Up Arrow" : {
+
+    },
+    "Wrong username or password." : {
+
+    },
+    "You are logged in at the host itself. Log out there first." : {
+
+    }
+  },
+  "version" : "1.0"
+}

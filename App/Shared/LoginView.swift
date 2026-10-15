@@ -35,7 +35,7 @@ struct LoginView: View {
             Image(systemName: "display")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(.tint)
-            Text("Spectre").font(.largeTitle.weight(.semibold))
+            Text(verbatim: "Spectre").font(.largeTitle.weight(.semibold))
             Text("Connect to a ghost host").foregroundStyle(.secondary)
         }
         .padding(.top, 24)
@@ -63,7 +63,7 @@ struct LoginView: View {
         case let .chooseSession(choice):
             SessionChoiceView(choice: choice, onOpen: flow.open(type:takeOver:), onCancel: flow.cancel)
         case .redirected:
-            WorkingView(message: "Opening the session…", onCancel: nil)
+            WorkingView(message: String(localized: "Opening the session…"), onCancel: nil)
         }
     }
 
@@ -114,7 +114,7 @@ struct LoginView: View {
                             // A saved login connects right away (docs/saved-logins.md).
                             if saved { _ = app.signInWithSaved(entry) }
                         } label: {
-                            Label("\(entry.username) @ \(entry.server)", systemImage: saved ? "key.fill" : "clock.arrow.circlepath")
+                            Label(entry.title, systemImage: saved ? "key.fill" : "clock.arrow.circlepath")
                                 .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         .buttonStyle(.plain)
@@ -162,10 +162,10 @@ struct LoginView: View {
 }
 
 private struct LabeledField<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     let content: Content
 
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
@@ -223,7 +223,7 @@ private struct TrustView: View {
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("SHA-256").font(.caption).foregroundStyle(.secondary)
+            Text(verbatim: "SHA-256").font(.caption).foregroundStyle(.secondary)
             FingerprintText(fingerprint: request.presented)
             Text("Nothing has been sent to the server yet. If you trust it, Spectre remembers this fingerprint and warns you if it ever changes.")
                 .font(.caption)
@@ -306,7 +306,7 @@ private struct PromptView: View {
             if let notice {
                 Label(notice, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange).font(.callout)
             }
-            Text("\(username) @ \(server?.description ?? "")").font(.caption).foregroundStyle(.secondary)
+            Text(verbatim: "\(username) @ \(server?.description ?? "")").font(.caption).foregroundStyle(.secondary)
             // The server's own prompt text, as its authentication stack wrote it (§4.3).
             Text(prompt.text.trimmingCharacters(in: .whitespaces)).font(.headline)
             Group {

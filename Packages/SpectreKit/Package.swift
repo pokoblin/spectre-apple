@@ -5,6 +5,7 @@ import PackageDescription
 // GDPKit), VideoToolbox decode and Metal presentation.
 let package = Package(
     name: "SpectreKit",
+    defaultLocalization: "en",
     platforms: [.macOS("27.0"), .iOS("27.0")],
     products: [
         .library(name: "SpectreKit", targets: ["SpectreKit"]),
@@ -13,7 +14,8 @@ let package = Package(
         .package(path: "../GDPKit"),
     ],
     targets: [
-        .target(name: "SpectreKit", dependencies: ["GDPKit"]),
+        // Localizable.xcstrings: the words SpectreKit shows (docs/localization.md).
+        .target(name: "SpectreKit", dependencies: ["GDPKit"], resources: [.process("Localizable.xcstrings")]),
         .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit"]),
     ]
 )
