@@ -23,7 +23,8 @@
 - **手柄**：最多 4 个手柄按标准手柄转发（§8.5），包括 Home 和 Share 键；默认关闭，在工具栏里打开。见 [docs/gamepad.md](docs/gamepad.md)。
 - **屏幕软键盘**（iPhone 和 iPad）：用系统软键盘在远端桌面打字，按 host 为 US 布局换算；键盘上方有附加键条（Esc、Tab、粘滞的 Ctrl/Shift/Alt/Super、方向键、功能键），画面缩小到键盘上方。中文等文字用 host 的输入法输入。见 [docs/keyboard.md](docs/keyboard.md)。
 - **断线重连**：连接丢失（换 Wi-Fi、Mac 睡眠、iOS 挂起 App）后自动重连，用只存在内存里的登录回答重新登录；iOS 上短暂切到别的 App 时连接不断。见 [docs/reconnect.md](docs/reconnect.md)。
-- **保存密码**：在密码提问下勾选 Remember，登录信息存进 Keychain（只在这台设备上），之后在最近列表里点一下就能登录；一次性验证码每次照样询问，服务器不再接受的密码会被自动删除。见 [docs/saved-logins.md](docs/saved-logins.md)。
+- **保存密码**：在密码提问下勾选“记住”，登录信息存进 Keychain（只在这台设备上），之后在最近列表里点一下就能登录；一次性验证码每次照样询问，服务器不再接受的密码会被自动删除。见 [docs/saved-logins.md](docs/saved-logins.md)。
+- **界面语言**：英文、西班牙语、简体中文、繁体中文、日语，跟随系统语言，其他语言显示英文。见 [docs/localization.md](docs/localization.md)。
 - **会话控制**：断开（远端会话保留）、登出（结束远端会话）。
 
 还没有做：无损细化层（refine）、AV1 / PyroWave。
@@ -191,6 +192,7 @@ iOS 的入口是 UIKit 的 app delegate，这样根 view controller 才能锁定
 - [docs/keyboard.md](docs/keyboard.md)：iOS 屏幕软键盘、字符到按键的换算、附加键条
 - [docs/reconnect.md](docs/reconnect.md)：断线重连、重放登录、iOS 后台
 - [docs/saved-logins.md](docs/saved-logins.md)：Keychain 保存密码、一键登录
+- [docs/localization.md](docs/localization.md)：界面语言、术语表、新增文字的流程
 - [docs/keep-alive.md](docs/keep-alive.md)：QUIC 保活，让空闲的连接撑过 30 秒的空闲超时，以及多久才能发现断线
 
 ## 许可证

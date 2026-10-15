@@ -25,7 +25,8 @@
 - **遊戲控制器**：最多 4 個控制器以標準控制器轉送（§8.5），包括 Home 和 Share 鍵；預設關閉，在工具列中開啟。見 [docs/gamepad.md](docs/gamepad.md)。
 - **螢幕鍵盤**（iPhone 和 iPad）：用系統螢幕鍵盤在遠端桌面打字，以 host 為 US 配置換算；鍵盤上方有附加按鍵列（Esc、Tab、黏滯的 Ctrl/Shift/Alt/Super、方向鍵、功能鍵），畫面縮小到鍵盤上方。中文等文字用 host 的輸入法輸入。見 [docs/keyboard.md](docs/keyboard.md)。
 - **斷線重連**：連線遺失（換 Wi-Fi、Mac 睡眠、iOS 暫停 App）後自動重連，用只存在記憶體裡的登入回答重新登入；iOS 上短暫切到別的 App 時連線不中斷。見 [docs/reconnect.md](docs/reconnect.md)。
-- **儲存密碼**：在密碼提問下勾選 Remember，登入資訊存進鑰匙圈（只在這台裝置上），之後在最近列表裡點一下就能登入；一次性驗證碼每次照樣詢問，伺服器不再接受的密碼會被自動刪除。見 [docs/saved-logins.md](docs/saved-logins.md)。
+- **儲存密碼**：在密碼提問下勾選「記住」，登入資訊存進鑰匙圈（只在這台裝置上），之後在最近列表裡點一下就能登入；一次性驗證碼每次照樣詢問，伺服器不再接受的密碼會被自動刪除。見 [docs/saved-logins.md](docs/saved-logins.md)。
+- **介面語言**：英文、西班牙文、簡體中文、繁體中文、日文，跟隨系統語言，其他語言顯示英文。見 [docs/localization.md](docs/localization.md)。
 - **工作階段控制**：中斷連線（遠端工作階段會保留）、登出（結束遠端工作階段）。
 
 尚未完成：無損細化層（refine）、AV1／PyroWave。
@@ -193,6 +194,7 @@ iOS 的進入點是 UIKit 的 app delegate，這樣根 view controller 才能鎖
 - [docs/keyboard.md](docs/keyboard.md)：iOS 螢幕鍵盤、字元到按鍵的換算、附加按鍵列
 - [docs/reconnect.md](docs/reconnect.md)：斷線重連、重放登入、iOS 背景
 - [docs/saved-logins.md](docs/saved-logins.md)：鑰匙圈儲存密碼、一鍵登入
+- [docs/localization.md](docs/localization.md)：介面語言、術語表、新增文字的流程
 - [docs/keep-alive.md](docs/keep-alive.md)：QUIC 保活，讓閒置的連線撐過 30 秒的閒置逾時，以及多久才能發現斷線
 
 ## 授權
