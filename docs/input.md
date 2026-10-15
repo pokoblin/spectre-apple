@@ -187,7 +187,7 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 
 **输入跟踪**：设置环境变量 `SPECTRE_INPUT_LOG=1` 启动，stdout 会逐条打印收到的 macOS 事件原始值（keyCode、`modifierFlags`、滚轮的 `scrollingDelta`/`delta`、是否精确、phase）和发给 host 的每个事件（`→ key`、`→ move`、`→ button`、`→ scroll`）。上面修饰键卡住的问题就是靠它看出来的。
 
-**拖动时 20 fps**：拖动窗口时 host 每秒只出约 20 帧（客户端解码约 1.5 ms、解码到上屏约 15 ms，每秒发出约 100 次指针移动）。瓶颈不在编码：wraith 的日志里 x264 编一帧平均 6–8 ms（最多 14 ms），而是 `encoder: skipping h264 vaapi backend (renderer has no DRM fd)`：会话用户不在 `render` 组里，GNOME 拿不到 GPU，只能用 llvmpipe 在 CPU 上渲染，拖动时每秒只画得出约 20 帧，VA-API 硬件编码也用不了。上游的安装文档（`docs/install/host.md` 的 "GPU access"）要求有 GPU 的 host 把每个会话用户加进 `render` 组。
+**拖动时 20 fps**：拖动窗口时 host 每秒只出约 20 帧（客户端解码约 1.5 ms、解码到上屏约 15 ms，每秒发出约 100 次指针移动）。瓶颈不在编码：wraith 的日志里 x264 编一帧平均 6–8 ms（最多 14 ms），而是 `encoder: skipping h264 vaapi backend (renderer has no DRM fd)`：会话用户不在 `render` 组里，GNOME 拿不到 GPU，只能用 llvmpipe 在 CPU 上渲染，拖动时每秒只画得出约 20 帧，VA-API 硬件编码也用不了。上游的安装文档（`docs/install/host.md` 的 "GPU access"）要求有 GPU 的 host 把每个会话用户加进 `render` 组。加进 `render` 组之后，GNOME 改用 GPU 渲染，但 wraith 的 VA-API 编码仍然打不开：它只请求 `VAEntrypointEncSlice`，而 N100（Alder Lake-N）只提供低功耗的 `VAEntrypointEncSliceLP`。我们向上游报告后，作者已经修复（没有全功能入口时改用 `EncSliceLP`）。更新 ghost 后实测（2026-10-15）：会话协商为 H.265、VA-API 硬件编码，拖动窗口稳定在 59–61 fps，0 丢帧，客户端解码约 2 ms、解码到上屏平均约 12.5 ms，拖动时码率最高约 5.5 Mb/s。
 
 **滚轮**：一个普通鼠标（无精确滚动）每格给出带系统加速的小数行数，比如连滚 3 格是 0.1、1.19、4.80；按 §8.2 原样作为小数 notch 发出。
 
