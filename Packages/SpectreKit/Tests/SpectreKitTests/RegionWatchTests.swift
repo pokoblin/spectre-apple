@@ -171,6 +171,18 @@ struct RegionWatcherTests {
         #expect(w.state(at: 2.1) == .watching)
     }
 
+    @Test func aChangeAfterTheAlertEndsIt() {
+        var w = RegionWatcher(condition: .stopsChanging, stillSeconds: 1)
+        _ = w.observe(still, at: 0)
+        _ = w.observe(other, at: 1)
+        let fired = w.observe(other, at: 2)
+        #expect(fired)
+        #expect(w.state(at: 2.5) == .alerted)
+        _ = w.observe(still, at: 3)
+        #expect(w.state(at: 3.5) == .changing)
+        #expect(w.state(at: 4.5) == .watching) // not back to the alert's green
+    }
+
     @Test func dismissingTheAlertEndsIt() {
         var w = RegionWatcher(condition: .startsChanging, stillSeconds: 1)
         _ = w.observe(still, at: 0)

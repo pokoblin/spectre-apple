@@ -22,7 +22,8 @@ public struct RegionWatcher: Sendable {
         case watching
         /// Changed within ``changingWindow``.
         case changing
-        /// Alerted within ``alertedDuration``, until dismissed.
+        /// Alerted within ``alertedDuration`` and not changed since (the
+        /// change that alerted aside), until dismissed.
         case alerted
     }
 
@@ -87,7 +88,9 @@ public struct RegionWatcher: Sendable {
     }
 
     public func state(at t: TimeInterval) -> State {
-        if let alertedAt, t - alertedAt < Self.alertedDuration { return .alerted }
+        if let alertedAt, t - alertedAt < Self.alertedDuration, lastChange.map({ $0 <= alertedAt }) ?? true {
+            return .alerted
+        }
         if let lastChange, t - lastChange < Self.changingWindow { return .changing }
         return .watching
     }

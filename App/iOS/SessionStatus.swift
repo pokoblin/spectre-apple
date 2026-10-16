@@ -124,24 +124,41 @@ struct ReconnectingCapsule: View {
 /// layout can't type. They fade in and out and take no touches.
 struct TopNotices: View {
     let model: PlaybackModel
+    let regions: RegionAlertModel
     @State private var clipboard: ClipboardSync.Transfer.Direction?
     @State private var untypable: Int?
+    /// The region alert shown (its count), on top of the others.
+    @State private var regionAlert: Int?
 
     var body: some View {
         VStack(spacing: 8) {
-            if let clipboard {
-                Notice(symbol: "doc.on.clipboard",
-                       text: clipboard == .fromHost ? Text("Copied from the host") : Text("Sent to the host's clipboard"))
+            // First, at the top; a clipboard notice at the same time comes
+            // below it (12 + 36 + 8: at 56).
+            if regionAlert != nil {
+                RegionAlertBanner(condition: regions.lastAlert) {
+                    regions.dismissAlert()
+                    withAnimation(.easeInOut(duration: 0.2)) { regionAlert = nil }
+                }
             }
-            if let untypable {
-                Notice(symbol: "character.cursor.ibeam",
-                       text: Text("\(untypable) characters can't be typed on the host's US layout. Use the host's input method for other scripts."))
+            Group {
+                if let clipboard {
+                    Notice(symbol: "doc.on.clipboard",
+                           text: clipboard == .fromHost ? Text("Copied from the host") : Text("Sent to the host's clipboard"))
+                }
+                if let untypable {
+                    Notice(symbol: "character.cursor.ibeam",
+                           text: Text("\(untypable) characters can't be typed on the host's US layout. Use the host's input method for other scripts."))
+                }
             }
+            .allowsHitTesting(false)
         }
         .padding(.top, 12)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
-        .allowsHitTesting(false)
+        .task(id: regions.alertCount) {
+            guard regions.alertCount > 0 else { return }
+            await show(regions.alertCount, in: $regionAlert, for: .seconds(RegionWatcher.alertedDuration))
+        }
         .task(id: model.clipboard?.lastTransfer) {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))

@@ -52,11 +52,12 @@ final class SessionChrome {
 // MARK: - Bottom-left: the session toolbar
 
 /// The round toggle in the bottom-left corner and, to its right, the bar
-/// it opens: More, paste to the host, the touch keyboard.
+/// it opens: More, paste to the host, the touch keyboard, the region alert.
 struct SessionToolbar: View {
     let model: PlaybackModel
     let chrome: SessionChrome
     let keyBar: KeyBarModel
+    let regions: RegionAlertModel
     @Binding var showsStatistics: Bool
     let confirmLogOut: () -> Void
     @State private var toggleEdge: CGFloat = 0
@@ -67,6 +68,7 @@ struct SessionToolbar: View {
             FloatingToggle(symbol: "line.3.horizontal", isExpanded: chrome.isToolbarExpanded,
                            accessibilityLabel: chrome.isToolbarExpanded ? Text("Close Toolbar") : Text("Open Toolbar"),
                            action: chrome.toggleToolbar)
+                .overlay(alignment: .topTrailing) { RegionStatusBadge(state: regions.state) }
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxX } action: { toggleEdge = $0 }
             bar
                 .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxX } action: { barEdge = $0 }
@@ -99,6 +101,7 @@ struct SessionToolbar: View {
             if let input = model.input {
                 KeyboardKey(input: input)
             }
+            RegionAlertKey(regions: regions)
         }
         .padding(FloatingKeyBar.barPadding)
         .glassEffect(.regular, in: .capsule)

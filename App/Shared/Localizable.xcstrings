@@ -202,6 +202,34 @@
         }
       }
     },
+    "Alert When" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisar cuando"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知の条件"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒条件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提醒條件"
+          }
+        }
+      }
+    },
     "Another client took this session over." : {
       "localizations" : {
         "es" : {
@@ -1098,6 +1126,34 @@
         }
       }
     },
+    "Dismisses the alert" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cierra el aviso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知を閉じます"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭提醒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉提醒"
+          }
+        }
+      }
+    },
     "Display" : {
       "localizations" : {
         "es" : {
@@ -1178,6 +1234,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下方向鍵"
+          }
+        }
+      }
+    },
+    "Drag to frame the region to watch. Leave out the terminal's input line, where the cursor blinks." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Arrastra para enmarcar la región que quieres vigilar. Deja fuera la línea de entrada del terminal, donde parpadea el cursor."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ドラッグして監視する範囲を囲みます。ターミナルでカーソルが点滅している入力行は含めないでください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖动框出要监视的区域，不要包含终端里闪烁光标所在的输入行。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拖曳框出要監看的區域，不要包含終端機裡閃爍游標所在的輸入列。"
           }
         }
       }
@@ -2980,6 +3064,34 @@
         }
       }
     },
+    "Region Alert" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aviso de región"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範囲の通知"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "区域提醒"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "區域提醒"
+          }
+        }
+      }
+    },
     "Remember" : {
       "localizations" : {
         "es" : {
@@ -3032,6 +3144,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "在鑰匙圈中記住"
+          }
+        }
+      }
+    },
+    "Remove Region" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar la región"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監視範囲を削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除监视区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除監看區域"
           }
         }
       }
@@ -3284,6 +3424,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已存入鑰匙圈"
+          }
+        }
+      }
+    },
+    "Select Region Again" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a seleccionar la región"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範囲を選び直す"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新框选"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新框選"
+          }
+        }
+      }
+    },
+    "Select Region to Watch" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seleccionar la región que vigilar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監視する範囲を選択"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "框选提醒区域"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "框選提醒區域"
           }
         }
       }
@@ -4044,6 +4240,34 @@
         }
       }
     },
+    "Starts Changing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empiece a cambiar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変化が始まったとき"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始变化"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始變化"
+          }
+        }
+      }
+    },
     "Statistics" : {
       "localizations" : {
         "es" : {
@@ -4072,6 +4296,34 @@
         }
       }
     },
+    "Still For" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin cambios durante"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静止時間"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静止多久"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "靜止多久"
+          }
+        }
+      }
+    },
     "Stop sending your microphone" : {
       "localizations" : {
         "es" : {
@@ -4096,6 +4348,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停止傳送麥克風"
+          }
+        }
+      }
+    },
+    "Stops Changing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deje de cambiar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変化が止まったとき"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止变化"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止變化"
           }
         }
       }
@@ -4578,6 +4858,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "工作階段拒絕了登入權杖。請重新登入。"
+          }
+        }
+      }
+    },
+    "The watched region started changing." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La región vigilada ha empezado a cambiar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監視中の範囲が変化し始めました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "监视的区域开始变化了。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監看的區域開始變化了。"
+          }
+        }
+      }
+    },
+    "The watched region stopped changing." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La región vigilada ha dejado de cambiar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監視中の範囲の変化が止まりました。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "监视的区域停止变化了。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "監看的區域停止變化了。"
           }
         }
       }

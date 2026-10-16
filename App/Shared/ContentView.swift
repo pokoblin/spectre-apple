@@ -34,6 +34,7 @@ struct SessionView: View {
     @State private var chrome = SessionChrome()
     @State private var keyBar = KeyBarModel()
     @State private var prompt = PromptModel()
+    @State private var regions = RegionAlertModel()
     #endif
 
     init(model: PlaybackModel) {
@@ -63,6 +64,10 @@ struct SessionView: View {
                 // The key bar of the bottom-right corner is part of it.
                 RemoteScreen(presenter: presenter, input: model.input, keyBar: keyBar)
                     .ignoresSafeArea(.container)
+                if let input = model.input {
+                    RegionOutline(regions: regions, input: input)
+                        .ignoresSafeArea(.container)
+                }
                 #else
                 VideoView(presenter: presenter, input: model.input)
                     // On the Mac the picture starts below the toolbar: under
@@ -72,23 +77,25 @@ struct SessionView: View {
             }
             #if os(iOS)
             // Over the picture, bottom to top (docs/ipad-layout.md): the
-            // connection's state, notices, the toolbar, the statistics.
+            // connection's state, notices, the toolbar, the statistics, choosing a region.
             SessionStatusOverlay(model: model)
                 .animation(.easeInOut(duration: 0.2), value: model.phase)
-            TopNotices(model: model)
+            TopNotices(model: model, regions: regions)
             if keyBar.isPromptOpen {
                 PromptPanel(prompt: prompt, model: model) { keyBar.isPromptOpen = false }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
-            // The corners make way for the prompt panel rather than show beside it.
-            SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, showsStatistics: $showStats) {
+            // The corners make way for the prompt panel, or choosing a
+            // region, rather than show beside them.
+            SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, regions: regions,
+                           showsStatistics: $showStats) {
                 confirmLogOut = true
             }
-            .opacity(keyBar.isPromptOpen ? 0 : 1)
-            .allowsHitTesting(!keyBar.isPromptOpen)
-            .accessibilityHidden(keyBar.isPromptOpen)
+            .opacity(cornersHidden ? 0 : 1)
+            .allowsHitTesting(!cornersHidden)
+            .accessibilityHidden(cornersHidden)
             VStack(alignment: .leading, spacing: 8) {
-                if model.isRemoteSession && chrome.isToolbarExpanded && !keyBar.isPromptOpen {
+                if model.isRemoteSession && chrome.isToolbarExpanded && !cornersHidden {
                     SessionBackButton(title: model.title) { model.disconnect() }
                         .transition(.opacity)
                 }
@@ -98,6 +105,14 @@ struct SessionView: View {
             }
             .padding(.horizontal, 16)
             .padding(.top, 12)
+            // Choosing a region covers everything else, the statistics too.
+            if regions.isSelecting, let input = model.input {
+                RegionSelectionLayer(regions: regions, input: input)
+                    .ignoresSafeArea(.container)
+                    .transition(.opacity)
+                RegionSelectionHint(regions: regions)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             #else
             if showStats {
                 overlay
@@ -116,6 +131,14 @@ struct SessionView: View {
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
         .animation(.smooth(duration: 0.3), value: keyBar.isPromptOpen)
+        .animation(.smooth(duration: 0.3), value: regions.isSelecting)
+        .onChange(of: regions.isSelecting) { keyBar.isSelectingRegion = regions.isSelecting }
+        .onAppear {
+            regions.attach(presenter: model.presenter, key: model.regionKey, title: model.title) { [weak model] in
+                model?.phase == .playing
+            }
+        }
+        .onDisappear { regions.detach() }
         .onChange(of: model.phase) {
             if model.phase == .playing { chrome.connected() }
         }
@@ -150,6 +173,11 @@ struct SessionView: View {
         .onDisappear { model.windowClosed() }
         .task { if !model.isRemoteSession { await diagnostics.run() } }
     }
+
+    #if os(iOS)
+    /// The prompt panel is open or a region is being chosen: the corners' controls are out of the way.
+    private var cornersHidden: Bool { keyBar.isPromptOpen || regions.isSelecting }
+    #endif
 
     #if os(macOS)
     /// The window's toolbar. iOS floats its controls over the picture instead

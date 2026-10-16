@@ -22,13 +22,17 @@ final class KeyBarModel {
     var leadingObstruction: CGFloat = FloatingKeyBar.margin + FloatingKeyBar.toggleSize
     /// The prompt panel is open: both corners' controls make way for it.
     var isPromptOpen = false
+    /// A region to watch is being chosen: the corners make way for that too.
+    var isSelectingRegion = false
 
     private static let isShownKey = "showsKeyBar"
 
     /// Whether the floating bar is on screen: not while the touch keyboard
     /// is up, which carries the same keys above it, nor while the prompt
-    /// panel is open.
-    var isVisible: Bool { isShown && input != nil && input?.showsTouchKeyboard != true && !isPromptOpen }
+    /// panel is open or a region is chosen.
+    var isVisible: Bool {
+        isShown && input != nil && input?.showsTouchKeyboard != true && !isPromptOpen && !isSelectingRegion
+    }
 
     /// Locked modifiers while the bar is closed tint its toggle.
     var hasLockedModifiers: Bool { !(input?.typer.locked.isEmpty ?? true) }

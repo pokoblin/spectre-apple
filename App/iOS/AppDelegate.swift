@@ -1,6 +1,7 @@
 import SpectreKit
 import SwiftUI
 import UIKit
+import UserNotifications
 
 /// The iOS and iPadOS entry point. UIKit rather than a SwiftUI `App`: the
 /// system asks only the window's root view controller whether to lock the
@@ -9,6 +10,13 @@ import UIKit
 /// ContentView as on the Mac.
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
+    func application(_ application: UIApplication,
+                     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        // Region alerts notify while the app's window isn't the active one.
+        UNUserNotificationCenter.current().delegate = NotificationPresenter.shared
+        return true
+    }
+
     override func buildMenu(with builder: any UIMenuBuilder) {
         super.buildMenu(with: builder)
         SessionCommands.build(builder)

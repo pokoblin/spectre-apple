@@ -111,11 +111,12 @@ final class AppModel {
         saveHosts()
     }
 
-    /// Deletes a host with its saved password and thumbnail.
+    /// Deletes a host with its saved password, thumbnail and region alert.
     func deleteHost(_ host: SavedHost) {
         forgetPassword(host)
         hosts.removeAll { $0.id == host.id }
         try? FileManager.default.removeItem(at: Self.thumbnailURL(host.id))
+        RegionAlertStore.shared[host: host.id] = nil
         saveHosts()
     }
 
@@ -233,6 +234,7 @@ final class AppModel {
             self?.sessionEnded(message)
         }
         model.onSnapshot = { [weak self] image in self?.saveThumbnail(image, for: hostID) }
+        model.hostKey = hostID.uuidString
         model.reconnection = { [weak self] allowTakeOver in
             await self?.signInAgain(allowTakeOver: allowTakeOver) ?? .stop("Disconnected.")
         }

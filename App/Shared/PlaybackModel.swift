@@ -307,6 +307,13 @@ final class PlaybackModel {
 
     var isRemoteSession: Bool { source == .remote }
 
+    /// The saved host's id, for its region alert (RegionAlertStore); set
+    /// for a session opened from the login.
+    var hostKey: String?
+    /// Which region alert is this session's: the host's, or for the command
+    /// line's sources the source (`--connect`: its target).
+    var regionKey: String { hostKey ?? (source == .remote ? "connect \(title)" : source.rawValue) }
+
     /// Statistics start shown for the test sources, where they are the
     /// point, and hidden over a real host's desktop.
     var showsStatisticsByDefault: Bool { !isRemoteSession }
