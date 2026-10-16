@@ -569,6 +569,62 @@
         }
       }
     },
+    "Spectre isn't allowed to use the microphone. Turn it on in Settings › Privacy & Security › Microphone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre no tiene permiso para usar el micrófono. Actívalo en Ajustes › Privacidad y seguridad › Micrófono."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre にはマイクの使用が許可されていません。「設定 › プライバシーとセキュリティ › マイク」でオンにしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 没有使用麦克风的权限。请在“设置 › 隐私与安全性 › 麦克风”里打开。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 沒有使用麥克風的權限。請在「設定 › 隱私權與安全性 › 麥克風」裡開啟。"
+          }
+        }
+      }
+    },
+    "Speech recognition isn't available for this language." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El reconocimiento de voz no está disponible para este idioma."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この言語では音声認識を利用できません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这种语言无法使用语音识别。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這種語言無法使用語音辨識。"
+          }
+        }
+      }
+    },
     "Starting the session…" : {
       "localizations" : {
         "es" : {
@@ -1013,6 +1069,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法啟動工作階段。"
+          }
+        }
+      }
+    },
+    "There is no microphone to listen to." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay ningún micrófono que escuchar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用できるマイクがありません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "没有可用的麦克风。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有可用的麥克風。"
           }
         }
       }
