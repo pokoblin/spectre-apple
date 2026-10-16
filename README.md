@@ -272,7 +272,7 @@ The notes under [`docs/`](docs/) record how each part works, what was measured a
 - [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone
 - [voice-input.md](docs/voice-input.md): voice input, Speech's on-device models, the microphone key
 - [clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
-- [file-transfer.md](docs/file-transfer.md): design for sending files to the host, a `file` capability that GDP 1.0 doesn't have yet (not implemented)
+- [file-transfer.md](docs/file-transfer.md): sending files to the host: a `file` capability added to GDP in the pokoblin/ghost fork (host side done, client not yet)
 - [gamepad.md](docs/gamepad.md): game controllers, the button mapping, the Home button
 - [localization.md](docs/localization.md): the interface languages, the glossary, adding a string
 - [app-icon.md](docs/app-icon.md): the app icon and how to change it

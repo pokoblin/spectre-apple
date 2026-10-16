@@ -2,7 +2,7 @@
 
 GDP 1.0 没有文件传输：剪贴板（§7.9）只有 `text/plain`，上游 `docs/design/clipboard.md` 也写明 "no images, file lists"。这份文档是扩展的设计：一个新的 capability 和同名的 stream kind，都叫 `file`，走 §2.2 "Additional streams" 和 §16 第 3 条（新 token）这条路，不改动任何已有字节的含义，不需要新 ALPN。
 
-状态：设计阶段，还没有实现。host 端（libgdp、wraith）在 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork 里做，之后向上游提 PR；本仓库的客户端照这份设计和改好的规范自己写，不移植上游 GPL 代码。
+状态：host 端已经完成，在 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork 的 `feat/file-transfer` 分支上（规范 §7.12、libgdp、wraith，之后向上游提 PR），设计说明见那边的 `docs/design/file-transfer.md`。本仓库的客户端还没有写，会照规范自己实现，不移植上游 GPL 代码。下面以规范 §7.12 为准；和最初设计不同的地方已经改过来了。
 
 ## 分两个阶段
 
@@ -28,7 +28,7 @@ GDP 1.0 没有文件传输：剪贴板（§7.9）只有 `text/plain`，上游 `d
   │ ── 帧：StreamOpen{kind: "file", params: FileOpen{offer}} ──▶
   │                                                     校验文件名、空间
   │ ◀── 帧：FileReply{accepted} ───────────────────────── │
-  │ ── 原始字节，正好 size 个，然后 FIN ─────────────────▶  写进 name.part
+  │ ── 原始字节，正好 size 个，然后 FIN ─────────────────▶  写进临时文件
   │                                                     字节数对上 → rename
   │ ◀── 帧：FileReply{saved{name}}，然后 FIN ──────────── │
 ```
@@ -39,17 +39,17 @@ GDP 1.0 没有文件传输：剪贴板（§7.9）只有 `text/plain`，上游 `d
    - `refused{error}`：拒绝，然后 FIN。发送方收到后关掉自己的发送方向（不发数据，直接 FIN）。
 3. 发送方收到 `accepted` 之后发**原始字节**，不再分帧，正好 `size` 个，然后 FIN。不分帧是为了省掉每 1 MiB 一个帧头的拆分和拷贝；长度已经在 offer 里，FIN 标出结尾。
 4. 接收方读到 FIN 时：
-   - 字节数等于 `size` → 把 `.part` 改名为正式名字，回 `FileReply{saved{name}}`（实际保存时用的名字，重名时会不同），然后 FIN；
-   - 少了，或者 FIN 之前就超过了 `size` → 删掉 `.part`，回 `FileReply{failed{SIZE_MISMATCH}}`，然后 FIN，超出的数据不再读（`STOP_SENDING`，代码 0）。
-5. 写盘出错、空间用完：接收方删掉 `.part`，回 `failed{WRITE_FAILED / NO_SPACE}`，然后 FIN，并对发送方的方向发 `STOP_SENDING`（代码 0）。
+   - 字节数等于 `size` → 把临时文件改名为正式名字，回 `FileReply{saved{name}}`（实际保存时用的名字，重名时会不同），然后 FIN；
+   - 少了，或者 FIN 之前就超过了 `size` → 删掉临时文件，回 `FileReply{failed{SIZE_MISMATCH}}`，然后 FIN，超出的数据不再读（`STOP_SENDING`，代码 0）。
+5. 写盘出错、空间用完：接收方删掉临时文件，回 `failed{WRITE_FAILED / NO_SPACE}`，然后 FIN，并对发送方的方向发 `STOP_SENDING`（代码 0）。
 
-**取消**：用户在发送方取消，就对这条流的两个方向都 reset（`RESET_STREAM` + `STOP_SENDING`），代码 0。接收方取消也一样。接收方收到 reset 时删掉 `.part`。代码 0 表示"取消，不是错误"；`UNSUPPORTED`（15）只用在 §2.2 已经规定的情况，即对方开了一条自己不认识或没有协商过的流。原因都放在 `FileReply` 消息里，不用 reset 代码表达，所以 §12 不需要新的错误码。
+**取消**：用户在发送方取消，就对这条流的两个方向都 reset（`RESET_STREAM` + `STOP_SENDING`），代码 0。接收方取消也一样。接收方收到 reset 时删掉临时文件。代码 0 表示"取消，不是错误"；`UNSUPPORTED`（15）只用在 §2.2 已经规定的情况，即对方开了一条自己不认识或没有协商过的流。原因都放在 `FileReply` 消息里，不用 reset 代码表达，所以 §12 不需要新的错误码。
 
 **超时**：发送方发出 offer 之后 30 秒内没有收到 `FileReply`，reset 掉这条流，提示失败。正常情况下 host 会立刻回复。
 
 **完整性**：QUIC 本身保证可靠、有序，TLS 保证不被篡改，所以不另外做校验和。
 
-**续传**：第一版不支持。断线时所有传输都算失败，host 删掉 `.part`，客户端提供"重试"，从头再发。以后要做续传，可以在 offer 里加一个"我支持续传"的字段、在 `accepted` 里加 `offset`；旧的对端会忽略新字段，所以续传必须由双方都声明支持之后才能用，不能只加一个 `offset` 字段了事。
+**续传**：第一版不支持。断线时所有传输都算失败，host 删掉临时文件，客户端提供"重试"，从头再发。以后要做续传，可以在 offer 里加一个"我支持续传"的字段、在 `accepted` 里加 `offset`；旧的对端会忽略新字段，所以续传必须由双方都声明支持之后才能用，不能只加一个 `offset` 字段了事。
 
 ## 消息
 
@@ -120,23 +120,28 @@ enum FileErrorCode {
 ## host 端怎么保存
 
 - 目录：`XDG_DOWNLOAD_DIR`（从 `~/.config/user-dirs.dirs` 读），没有就用 `~/Downloads`；目录不存在或不可写，就不提供 `file`。
-- 先用 `open(O_CREAT | O_EXCL | O_NOFOLLOW)` 建 `name.part`，写完 rename 成正式名字，所以永远不会覆盖已有文件，也不会顺着符号链接写到别处。权限按 umask（`0666 & ~umask`）。
-- 重名：正式名字或 `.part` 已经存在，就依次试 `name (1).ext`、`name (2).ext`……；没有扩展名时加在最后。最终的名字写在 `FileSaved.name` 里告诉客户端。
-- 接受前用 `statvfs` 检查剩余空间至少有 `size` 再加一点余量，不够就 `refused{NO_SPACE}`。
+- 先在目标目录里用 `mkostemp` 建一个隐藏的临时文件 `.ghost-receiving-XXXXXX`，写完用 `renameat2(RENAME_NOREPLACE)` 改成正式名字，所以永远不会覆盖已有文件，也不会顺着符号链接写到别处（文件系统不支持 `RENAME_NOREPLACE` 时退回硬链接，再不行才是先检查再 rename）。最初设计的 `name.part` 没有采用：255 字节的名字加上 `.part` 会超过 `NAME_MAX`。权限按 umask（`0666 & ~umask`）。
+- 重名：依次试 `name (1).ext`、`name (2).ext`……，数字加在最后一个扩展名前面（`archive.tar (1).gz`）；没有扩展名、或者只有开头一个点（`.bashrc`）时加在最后；超长时按整个字符截短。最终的名字写在 `FileSaved.name` 里告诉客户端。
+- 写盘在单独的线程里做，凑够 256 KiB 写一次；写完才 `consume()` 归还这条流的接收额度。wraith 的事件循环同时负责编码画面，慢磁盘不能卡住它。
+- 接受前用 `statvfs` 检查剩余空间至少有 `size` 再加 64 MiB，不够就 `refused{NO_SPACE}`。
 - 有 `modified_unix_ms` 就用 `futimens` 设置 mtime。
-- 通知：所有传输都结束、并且 1 秒内没有新的传输，就发一条桌面通知（`org.freedesktop.Notifications`），例如 "从 Spectre 收到 3 个文件"，点击打开下载目录。拖进 10 个文件只弹一次。
-- 管理员可以在配置里关掉接收；关掉后不提供 `file`。
+- 通知：所有传输都结束、并且 1 秒内没有新的传输，就发一条桌面通知（`org.freedesktop.Notifications`，不等回复），例如 "Received 3 files / Saved in ~/Downloads"。拖进 10 个文件只弹一次。通知不能点击打开目录（要监听 `ActionInvoked` 信号，第一版没做）。
+- `wraith.toml` 的 `[files]`：`receive = false` 关掉接收，关掉后不提供 `file`；`directory` 换保存位置。
+- 客户端违反协议（开头那一帧过大或解析失败、在 `accepted` 之前就发数据）：关闭整个连接，代码 `MALFORMED_FRAME` / `FRAME_TOO_LARGE`。
 
-## 对 libgdp 的要求
+## libgdp 的改动（已实现）
 
-现在的 `quic_conn.cpp` 只接受 0 和 4 两条流，其他流一律 reset，也没有开额外流、接收额外流的 API。要加的东西：
+原来的 `quic_conn.cpp` 只接受 0 和 4 两条流，其他流一律 reset，也没有开额外流、接收额外流的 API。现在：
 
-- **Connection API**：客户端可以在会话里开一条额外的流，host 可以接收客户端开的额外流。流都按第一帧 `StreamOpen` 的 `kind` 分发，不认识的 kind 继续按 §2.2 reset。
-- **MAX_STREAMS**：协商到 `file` 后由 host 放开；流关闭后补回额度。
-- **发送优先级**：现在的写循环是"datagram 优先，然后按流 ID 从小到大找第一条有数据的流"（`net.streams` 是 `std::map`），所以 control（0）、input（4）天然排在文件流（8 起）前面，输入不会排在文件数据后面。这个顺序要保留下来，并在代码里写明它是有意的。
-- **发送端反压**：不能把整个文件一次塞进发送队列。要提供"队列里还剩多少"或者"可以再写了"的回调，发送方每次只读 256 KiB 左右，队列里最多留 1 MiB。
-- **接收端反压**：现在收到数据时立刻 `extend_max_stream_offset` / `extend_max_offset`（`quic_conn.cpp` 的 recv 回调），流量控制等于没有：磁盘比网络慢时，数据会一直堆在内存里。文件流要改成应用读走、写盘之后才归还额度。
-- **连接级窗口**：`kConnWindow` 是 4 MiB，所有流共用。文件流占满连接窗口时，control 和 input 也会被卡住。文件流在途的字节要有上限，留出余量（比如每条流 1 MiB 窗口、最多 2 条在发数据），实现时再量。
+- **API**：客户端 `Connection::open_stream()`；host `allow_streams(n)` 加 `on_stream`。host 调 `allow_streams()` 之前，额外的流照旧按 §2.2 用 `UNSUPPORTED` reset。
+- **MAX_STREAMS**：`allow_streams(4)` 放开 4 条，每关掉一条在 `stream_close` 里补一条（`MAX_STREAMS` 是累计值，ngtcp2 只对没报告过 open 的流自动补）。
+- **发送优先级**：写循环按流 ID 从小到大取，control（0）、input（4）永远排在文件流（8 起）前面；代码里写明了这是有意的。
+- **发送端反压**：新增 `on_acked(累计已确认字节)`（每次 dispatch 合并成一次），发送方照它补数据，不把整个文件塞进队列。
+- **接收端反压**：额外的流要应用调 `Stream::consume()` 才归还这条流的接收额度；**连接级额度仍然一收到就归还**。最初设计想限制文件流在途的字节，实现时改成了这样：连接级额度永远不被文件流占住，4 条卡住的文件流也挡不住 StatsReport 和按键，每条流的内存上限就是它自己的窗口。
+- **流的结束**：新增 `on_fin`、`on_reset`、`Stream::reset(code)`。释放一条自己一侧已经 FIN 的额外流时不 reset，只停止读取（STOP_SENDING），这样接收方回完 `failed` 就可以直接放手，回复不会丢。
+- Ubuntu 26.04 的 ngtcp2 1.16 没有"收到 STOP_SENDING"的回调，所以 transport 不报告它；文件协议不需要，接收方停止读取之前一定先用 `FileReply` 说明原因。
+
+测试：libgdp 新增 `additional_stream_test`（额度、补额度、FIN/reset、consume 反压、卡住时 control 照常通、优雅释放）和 `file_transfer_test`；wraith 新增 `file_receiver_test`（走真实 libgdp 回环：完整收到并保留 mtime、重名、拒绝、长度不符、两端取消、会话中途结束、协议错误，以及任何情况都不留临时文件）。Mac 上 libgdp 12 个测试普通和 ASan/UBSan 构建都通过；eq（Ubuntu 26.04）上整个仓库 33 个测试 `ctest -j4` 连续 3 次通过，新测试在 ASan 构建下也通过。
 
 ## 带宽和画面
 
