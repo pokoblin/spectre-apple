@@ -127,6 +127,18 @@ public final class VideoRenderer: @unchecked Sendable {
                            width: w, height: h, znear: 0, zfar: 1)
     }
 
+    /// The fitted viewport magnified and moved by `zoom` (``PictureZoom``),
+    /// in whole drawable pixels. It may reach past the drawable: what falls
+    /// outside is clipped.
+    public static func viewport(video: CGSize, drawable: CGSize, zoom: PictureZoom) -> MTLViewport {
+        let fit = fitViewport(video: video, drawable: drawable)
+        guard zoom.isZoomed else { return fit }
+        let r = zoom.rect(fit: CGRect(x: fit.originX, y: fit.originY, width: fit.width, height: fit.height),
+                          view: drawable)
+        return MTLViewport(originX: r.minX.rounded(), originY: r.minY.rounded(), width: r.width.rounded(),
+                           height: r.height.rounded(), znear: 0, zfar: 1)
+    }
+
     /// Encodes one frame into `pass` (cleared to black outside the viewport).
     /// `displaySize` is the picture's size (gdp-spec.md §7.2); a larger
     /// coded picture's padding is cropped off. `cursor`, if any, is drawn

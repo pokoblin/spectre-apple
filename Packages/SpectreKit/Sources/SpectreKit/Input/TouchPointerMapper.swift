@@ -12,6 +12,9 @@ public enum TouchPointerAction: Equatable, Sendable {
     case scroll(horizontal: Double, vertical: Double)
     /// A long press was recognized: the view may play a haptic.
     case longPress
+    /// Two fingers pinching: magnify the picture by `factor` around
+    /// `anchor` and move it by `pan` (view points). Nothing is sent.
+    case zoom(factor: CGFloat, anchor: CGPoint, pan: CGPoint)
 }
 
 /// Fingers to pointer events. The host ignores touch events (gdp-spec.md
@@ -140,6 +143,8 @@ public struct TouchPointerMapper: Sendable {
         case pointing(Int)
         /// Two-finger pan, last centroid.
         case scrolling([Int], CGPoint)
+        /// Two-finger pinch, last centroid and spread: zooms, never scrolls.
+        case pinching([Int], CGPoint, CGFloat)
         /// Done (or given up): nothing more until every finger is up.
         case ignoring
     }
@@ -196,6 +201,11 @@ public struct TouchPointerMapper: Sendable {
             let c = centroid(pair.map { fingers[$0]!.location })
             phase = .scrolling(pair, c)
             out += scroll(from: last, to: c)
+        case .pinching(let pair, let lastCentroid, let lastSpread):
+            let points = pair.map { fingers[$0]!.location }
+            let c = centroid(points), spread = distance(points[0], points[1])
+            phase = .pinching(pair, c, spread)
+            out += pinch(from: lastCentroid, lastSpread, to: c, spread)
         default:
             out += advance(at: time)
         }
@@ -294,9 +304,17 @@ public struct TouchPointerMapper: Sendable {
         return out + follow(id)
     }
 
+    /// Two fingers moved: a pinch if their spread changed more than their
+    /// middle moved, otherwise a scroll. Decided once per gesture.
     private mutating func commitScroll(_ p: Pending) -> [TouchPointerAction] {
-        let start = centroid(p.ids.map { fingers[$0]!.start })
-        let now = centroid(p.ids.map { fingers[$0]!.location })
+        let starts = p.ids.map { fingers[$0]!.start }, points = p.ids.map { fingers[$0]!.location }
+        let start = centroid(starts)
+        let now = centroid(points)
+        let spread0 = distance(starts[0], starts[1]), spread = distance(points[0], points[1])
+        if abs(spread - spread0) > distance(start, now) {
+            phase = .pinching(p.ids, now, spread)
+            return pinch(from: start, spread0, to: now, spread)
+        }
         var out: [TouchPointerAction] = []
         // Scrolling goes to what is under the pointer.
         if mode == .direct { out.append(moveTo(mapping.normalized(start).position)) }
@@ -334,8 +352,8 @@ public struct TouchPointerMapper: Sendable {
             phase = .ignoring
         case .pointing(let d) where d == id:
             phase = .ignoring
-        case .scrolling(let pair, _) where pair.contains(id):
-            // Fewer than two fingers: the scroll is over.
+        case .scrolling(let pair, _) where pair.contains(id), .pinching(let pair, _, _) where pair.contains(id):
+            // Fewer than two fingers: the scroll or pinch is over.
             phase = .ignoring
         default:
             break
@@ -395,6 +413,34 @@ public struct TouchPointerMapper: Sendable {
         // + 0: no negative zero on the axis that didn't move.
         return [.scroll(horizontal: Double((a.x - b.x) / tuning.pointsPerNotch) + 0,
                         vertical: Double((a.y - b.y) / tuning.pointsPerNotch) + 0)]
+    }
+
+    private func pinch(from c0: CGPoint, _ s0: CGFloat, to c1: CGPoint, _ s1: CGFloat) -> [TouchPointerAction] {
+        guard s0 > 0, s1 > 0, s0 != s1 || c0 != c1 else { return [] }
+        return [.zoom(factor: s1 / s0, anchor: c1, pan: CGPoint(x: c1.x - c0.x, y: c1.y - c0.y))]
+    }
+
+    // MARK: - Following a magnified picture
+
+    /// Where the pointer is being driven from, in view points, while a
+    /// finger drives it: the dragging finger (direct), or the cursor
+    /// (trackpad). A magnified picture moves when it nears an edge.
+    public var trackedPoint: CGPoint? {
+        switch phase {
+        case .dragging(let id), .pointing(let id):
+            guard let f = fingers[id] else { return nil }
+            return mode == .direct ? f.location : mapping.viewPoint(cursor)
+        default:
+            return nil
+        }
+    }
+
+    /// The picture moved under the fingers (``mapping`` is the new one): a
+    /// direct drag's pointer stays under its finger.
+    public mutating func pictureMoved(_ mapping: PointerMapping) -> [TouchPointerAction] {
+        self.mapping = mapping
+        guard mode == .direct, case .dragging(let id) = phase else { return [] }
+        return follow(id)
     }
 
     // MARK: - Emitting

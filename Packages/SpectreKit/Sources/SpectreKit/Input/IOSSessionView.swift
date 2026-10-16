@@ -52,6 +52,9 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     private var mouseObservers: [NSObjectProtocol] = []
     private var touchMapper: TouchPointerMapper?
     private var touchDeadline: DispatchWorkItem?
+    /// Where a trackpad's or mouse's pointer hovers (view points), for the edges of a magnified picture.
+    private var hoverPoint: CGPoint?
+    private var edgePanLink: CADisplayLink?
 
     public override init(frame: CGRect, device: (any MTLDevice)?) {
         super.init(frame: frame, device: device)
@@ -93,6 +96,8 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         observers.forEach(NotificationCenter.default.removeObserver)
         observers = []
         guard let window else {
+            edgePanLink?.invalidate() // it holds this view
+            edgePanLink = nil
             input?.end()
             return
         }
@@ -207,9 +212,10 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
 
     // MARK: - Pointer (trackpad, mouse)
 
-    /// Where the picture is in this view.
+    /// Where the picture is in this view, magnified as the input says.
     var mapping: PointerMapping {
-        PointerMapping(viewSize: bounds.size, backingScale: contentScaleFactor, videoSize: input?.videoSize ?? .zero)
+        PointerMapping(viewSize: bounds.size, backingScale: contentScaleFactor, videoSize: input?.videoSize ?? .zero,
+                       zoom: input?.zoom ?? .fit)
     }
 
     private func position(_ point: CGPoint) -> CGPoint { mapping.normalized(point).position }
@@ -217,8 +223,12 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     @objc private func hovered(_ g: UIHoverGestureRecognizer) {
         guard let input, !input.isCaptured else { return }
         switch g.state {
-        case .began, .changed: input.move(to: position(g.location(in: self)))
-        default: break
+        case .began, .changed:
+            hoverPoint = g.location(in: self)
+            input.move(to: position(g.location(in: self)))
+            updateEdgePan()
+        default:
+            hoverPoint = nil
         }
     }
 
@@ -297,6 +307,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         touchMapper = mapper
         perform(actions)
         scheduleTouchDeadline()
+        updateEdgePan()
     }
 
     private func perform(_ actions: [TouchPointerAction]) {
@@ -307,6 +318,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
             case let .button(code, pressed): input.button(code, pressed: pressed)
             case let .scroll(h, v): input.scroll(horizontal: h, vertical: v)
             case .longPress: UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            case let .zoom(factor, anchor, pan): input.pinch(factor: factor, anchor: anchor, pan: pan)
             }
         }
     }
@@ -350,8 +362,61 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     }
 
     private func layoutChanged() {
+        input?.viewChanged(mapping)
         touchMapper?.mapping = mapping
         placeTrackpadCursor()
+    }
+
+    // MARK: - The edges of a magnified picture
+
+    /// Within this distance (points) of an edge, a magnified picture moves
+    /// to show more on that side: faster the closer, up to `edgePanSpeed`
+    /// points a frame (at 60 Hz).
+    static let edgeMargin: CGFloat = 36
+    static let edgePanSpeed: CGFloat = 14
+
+    /// What drives the pointer near an edge: a dragging finger, the
+    /// trackpad cursor, a hovering pointer.
+    private var edgePoint: CGPoint? { touchMapper?.trackedPoint ?? hoverPoint }
+
+    private func edgeVelocity(at point: CGPoint) -> CGPoint {
+        func axis(_ p: CGFloat, _ length: CGFloat) -> CGFloat {
+            let m = Self.edgeMargin, v = Self.edgePanSpeed
+            if p < m { return v * (1 - max(p, 0) / m) }
+            if p > length - m { return -v * (1 - max(length - p, 0) / m) }
+            return 0
+        }
+        return CGPoint(x: axis(point.x, bounds.width), y: axis(point.y, bounds.height))
+    }
+
+    private func updateEdgePan() {
+        guard let input, input.zoom.isZoomed, let point = edgePoint, edgeVelocity(at: point) != .zero else {
+            edgePanLink?.invalidate()
+            edgePanLink = nil
+            return
+        }
+        guard edgePanLink == nil else { return }
+        let link = CADisplayLink(target: self, selector: #selector(edgePanTick(_:)))
+        link.add(to: .main, forMode: .common)
+        edgePanLink = link
+    }
+
+    @objc private func edgePanTick(_ link: CADisplayLink) {
+        guard let input, input.zoom.isZoomed, let point = edgePoint else { return updateEdgePan() }
+        let v = edgeVelocity(at: point)
+        let frames = max(link.targetTimestamp - link.timestamp, 1.0 / 120) * 60
+        let before = input.zoom
+        input.panPicture(by: CGPoint(x: v.x * frames, y: v.y * frames))
+        guard input.zoom != before else { return updateEdgePan() } // against the picture's edge
+        // The picture moved under the pointer: a dragging finger or a
+        // hovering pointer stays where it is on screen, over new content.
+        if var mapper = touchMapper {
+            let actions = mapper.pictureMoved(mapping)
+            touchMapper = mapper
+            perform(actions)
+        }
+        if let hoverPoint, touchMapper?.trackedPoint == nil { input.move(to: position(hoverPoint)) }
+        updateEdgePan()
     }
 
     /// In trackpad mode the first tap clicks wherever the cursor is, so the

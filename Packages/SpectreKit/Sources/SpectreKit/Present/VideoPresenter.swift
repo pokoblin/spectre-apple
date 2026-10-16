@@ -70,6 +70,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     private var cursorImage: CursorImage?
     private var cursorTexture: CursorTexture?
     private var cursorPosition: CGPoint?
+    private var zoom = PictureZoom.fit
     /// The last frame drawn, kept (with its pixel buffer) to redraw the cursor over.
     private var lastTextures: VideoTextures?
     /// The cursor changed since the last drawable: present the last frame
@@ -118,6 +119,13 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         let wasDrawn = cursorOverlay != nil
         cursorPosition = position
         if wasDrawn || cursorOverlay != nil { cursorChanged() }
+    }
+
+    /// How the picture is magnified; the last frame is drawn again at once.
+    public func setZoom(_ zoom: PictureZoom) {
+        guard zoom != self.zoom else { return }
+        self.zoom = zoom
+        cursorChanged()
     }
 
     private var cursorOverlay: CursorOverlay? {
@@ -201,7 +209,7 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
               let commandBuffer = renderer.commandQueue.makeCommandBuffer() else { return false }
         commandBuffer.label = label
         let videoSize = displaySize ?? CGSize(width: textures.luma.width, height: textures.luma.height)
-        let viewport = VideoRenderer.fitViewport(video: videoSize, drawable: view.drawableSize)
+        let viewport = VideoRenderer.viewport(video: videoSize, drawable: view.drawableSize, zoom: zoom)
         renderer.encode(textures, color: color, displaySize: displaySize, viewport: viewport, cursor: cursorOverlay,
                         pass: pass, into: commandBuffer)
 

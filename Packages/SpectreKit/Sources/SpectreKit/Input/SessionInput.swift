@@ -62,7 +62,84 @@ public final class SessionInput {
     public func pictureChanged(_ size: CGSize) {
         guard size != videoSize else { return }
         videoSize = size
+        if zoom.isZoomed { setZoom(.fit) } // a different picture: start from all of it
         onDisplayChange?()
+    }
+
+    // MARK: Magnifying (iOS)
+
+    /// How the picture is magnified in the view (``PictureZoom``): pinched,
+    /// or filling the screen. The presenter draws it and the view maps the
+    /// pointer through it.
+    public private(set) var zoom = PictureZoom.fit
+    /// The session view's geometry, unmagnified: what zooming is measured
+    /// against. The view keeps it current (``viewChanged(_:)``).
+    @ObservationIgnored public private(set) var viewMapping: PointerMapping?
+    @ObservationIgnored private var zoomAnimation: Task<Void, Never>?
+
+    /// The view's size or scale changed: a magnified picture goes back to
+    /// fitting, as the part in view would no longer be the same.
+    public func viewChanged(_ mapping: PointerMapping) {
+        var mapping = mapping
+        mapping.zoom = .fit
+        let old = viewMapping
+        viewMapping = mapping
+        if let old, old.viewSize != mapping.viewSize || old.backingScale != mapping.backingScale, zoom.isZoomed {
+            setZoom(.fit)
+        }
+    }
+
+    public func setZoom(_ zoom: PictureZoom) {
+        guard zoom != self.zoom else { return }
+        self.zoom = zoom
+        presenter?.setZoom(zoom)
+        onDisplayChange?()
+    }
+
+    /// A pinch: the fingers' spread changed by `factor` around `anchor`
+    /// and their middle moved by `pan` (view points).
+    public func pinch(factor: CGFloat, anchor: CGPoint, pan: CGPoint) {
+        zoomAnimation?.cancel()
+        guard let m = viewMapping else { return }
+        var z = zoom
+        z.pan(by: pan, fit: m.fitRect, view: m.viewSize)
+        z.zoom(by: factor, anchor: anchor, fit: m.fitRect, view: m.viewSize, maxScale: m.maxZoom)
+        setZoom(z)
+    }
+
+    /// Moves a magnified picture by `delta` view points (the edges pulling it).
+    public func panPicture(by delta: CGPoint) {
+        guard zoom.isZoomed, let m = viewMapping else { return }
+        var z = zoom
+        z.pan(by: delta, fit: m.fitRect, view: m.viewSize)
+        setZoom(z)
+    }
+
+    /// Fill Screen, or Fit Screen when magnified: filling is centred on
+    /// the pointer, and either way the change takes a quarter second.
+    public func toggleFill() {
+        guard let m = viewMapping else { return }
+        if zoom.isZoomed {
+            animateZoom(to: .fit)
+        } else {
+            let at = overlayPosition ?? sender.lastPosition ?? CGPoint(x: 0.5, y: 0.5)
+            animateZoom(to: .filling(fit: m.fitRect, view: m.viewSize, at: at, maxScale: m.maxZoom))
+        }
+    }
+
+    private func animateZoom(to target: PictureZoom, duration: TimeInterval = 0.25) {
+        zoomAnimation?.cancel()
+        let start = zoom
+        let began = ProcessInfo.processInfo.systemUptime
+        zoomAnimation = Task { [weak self] in
+            while !Task.isCancelled {
+                let t = min((ProcessInfo.processInfo.systemUptime - began) / duration, 1)
+                let eased = 1 - pow(1 - t, 3) // ease out
+                self?.setZoom(t >= 1 ? target : start.interpolated(to: target, eased))
+                if t >= 1 { return }
+                try? await Task.sleep(for: .milliseconds(8))
+            }
+        }
     }
 
     /// The host sent a CursorShape. One the client must ignore (§7.4) changes nothing.
