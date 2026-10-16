@@ -139,17 +139,9 @@ struct SessionMoreMenu: View {
 
     var body: some View {
         Menu {
+            // Fill Screen / Fit Screen is only in the menu bar's Session menu,
+            // for a keyboard and trackpad: fingers pinch, and it was little used here.
             Section("Display") {
-                if let input = model.input {
-                    // Magnified: back to all of it; otherwise the screen filled around the pointer.
-                    Button { input.toggleFill() } label: {
-                        if input.zoom.isZoomed {
-                            Label("Fit Screen", systemImage: "arrow.down.right.and.arrow.up.left")
-                        } else {
-                            Label("Fill Screen", systemImage: "arrow.up.left.and.arrow.down.right")
-                        }
-                    }
-                }
                 if model.isRemoteSession {
                     Toggle(isOn: $model.matchesWindowSize) {
                         Label("Match Window Size", systemImage: "aspectratio")

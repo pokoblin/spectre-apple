@@ -47,7 +47,7 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 - El escritorio remoto ocupa toda la pantalla. Los controles flotan encima en Liquid Glass y se recogen en dos botones redondos en las esquinas inferiores: a la izquierda, la barra de la sesión (Más, pegar en el host, el teclado); a la derecha, una barra de teclas con flechas, Esc, Ctrl+C, Tab, Retroceso e Intro, Ctrl, Alt, Super y Mayús que quedan pulsadas hasta la siguiente tecla, y las combinaciones que iPadOS se reserva, como Super+Tab.
 - Un panel de texto: escribe con los métodos de entrada del iPad, el dictado o pegando, y envíalo todo de una vez al cursor del host, mediante su portapapeles y Ctrl+Mayús+V (o Ctrl+V, o tecleado).
 - Entrada por voz: mantén pulsada la tecla del micrófono y habla (o tócala, habla y vuelve a tocarla); lo que digas se transcribe en el dispositivo, en tu idioma, y se envía al cursor del host como el texto del panel.
-- Pellizca para ampliar la imagen, o **Llenar la pantalla**; ampliada, la imagen sigue al puntero cerca de los bordes.
+- Pellizca para ampliar la imagen, o usa **Llenar la pantalla** en el menú Sesión; ampliada, la imagen sigue al puntero cerca de los bordes.
 - Avisos de región: enmarca una parte del escritorio remoto, como la salida de un terminal, y Spectre te avisa cuando deja de cambiar (terminó una compilación) o empieza a cambiar, con un banner, o una notificación si su ventana no es la activa.
 - Una pantalla de inicio con tus hosts y la última imagen de cada uno, y un menú **Sesión** en la barra de menús del iPad, sin atajos que quiten teclas al escritorio remoto.
 
