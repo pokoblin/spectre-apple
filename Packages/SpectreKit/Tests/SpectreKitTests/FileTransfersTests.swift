@@ -29,14 +29,27 @@ private final class MemoryReader: FileReader, @unchecked Sendable {
     func close() {}
 }
 
+private final class LinkBox: Sendable {
+    let link = Mutex<FileTransfers.Link?>(nil)
+}
+
+private final class Flag: Sendable {
+    private let value = Mutex(false)
+    func set() { value.withLock { $0 = true } }
+    var isSet: Bool { value.withLock { $0 } }
+}
+
 /// A host that takes files into a fresh directory, and a session to it
 /// whose file events go to a ``FileTransfers``.
 @MainActor
 private final class Harness {
     let directory: URL
     let host: GDPTestHost
-    let session: GDPSession
-    let transfers: FileTransfers
+    private(set) var session: GDPSession
+    let transfers = FileTransfers()
+    /// The current session's link, and the one before (a reconnect's stale one).
+    private(set) var link: FileTransfers.Link?
+    private(set) var previousLink: FileTransfers.Link?
 
     init(_ configure: (inout GDPTestHost.Configuration) -> Void = { _ in }) async throws {
         directory = FileManager.default.temporaryDirectory.appending(path: "spectrekit-files-\(UUID().uuidString)")
@@ -46,20 +59,29 @@ private final class Harness {
         hc.fileDirectory = directory
         configure(&hc)
         host = try GDPTestHost(hc)
-        let box = Mutex<FileTransfers?>(nil)
+        session = GDPSession(handlers: GDPSession.Handlers())
+        try await connect()
+    }
+
+    /// A new session to the host, attached when accepted: the first, or a reconnect.
+    func connect() async throws {
+        let accepted = Flag()
+        let box = LinkBox()
         var handlers = GDPSession.Handlers()
-        handlers.fileAccepted = { id in box.withLock { $0 }?.fileAccepted(id) }
-        handlers.fileProgress = { id, acked in box.withLock { $0 }?.fileProgress(id, acked) }
-        handlers.fileFinished = { id, outcome in box.withLock { $0 }?.fileFinished(id, outcome) }
+        handlers.accepted = { _ in accepted.set() }
+        handlers.fileAccepted = { id in box.link.withLock { $0 }?.fileAccepted(id) }
+        handlers.fileProgress = { id, acked in box.link.withLock { $0 }?.fileProgress(id, acked) }
+        handlers.fileFinished = { id, outcome in box.link.withLock { $0 }?.fileFinished(id, outcome) }
         session = GDPSession(handlers: handlers)
-        transfers = FileTransfers(sender: session)
-        box.withLock { $0 = transfers }
         var config = host.sessionConfiguration(codecs: ["h264"])
         config.capabilities = [GDPSession.Capability.file]
+        config.takeOver = true
         try session.connect(config)
-        #expect(await until { self.host.observed.accepted })
-        // Accepted on the host's side a moment before the client knows.
-        try await Task.sleep(for: .milliseconds(50))
+        #expect(await until { accepted.isSet })
+        previousLink = link
+        let link = transfers.attach(session)
+        box.link.withLock { $0 = link }
+        self.link = link
     }
 
     func until(_ timeout: Duration = .seconds(10), _ condition: () -> Bool) async -> Bool {
@@ -89,8 +111,22 @@ private final class Harness {
     }
 }
 
+/// Test contents, made cheaply (a Debug build is slow per byte, and the
+/// audio tests running alongside notice the load): one 4 KiB pattern, each
+/// copy stamped with its index so a piece out of place would show.
 private func bytes(_ count: Int, seed: UInt8 = 1) -> [UInt8] {
-    (0..<count).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ Int(seed) &+ $0 >> 9) }
+    let block = (0..<4096).map { UInt8(truncatingIfNeeded: $0 &* 31 &+ Int(seed)) }
+    var out = [UInt8]()
+    out.reserveCapacity(count + block.count)
+    var index: UInt32 = 0
+    while out.count < count {
+        out.append(contentsOf: block)
+        withUnsafeBytes(of: index.littleEndian) { stamp in
+            for (i, b) in stamp.enumerated() { out[out.count - block.count + i] = b }
+        }
+        index += 1
+    }
+    return Array(out.prefix(count))
 }
 
 @Suite("File transfers (§7.12)", .serialized)
@@ -117,7 +153,9 @@ struct FileTransfersTests {
     @Test func aLargeFileIsReadAsItGoes() async throws {
         let h = try await Harness()
         defer { h.done() }
-        let content = bytes(24 << 20, seed: 7)
+        // Several times the initial window, so it goes in many rounds; not
+        // bigger: the audio tests running alongside are timing-sensitive.
+        let content = bytes(6 << 20, seed: 7)
         let url = try h.file("big.bin", bytes: content)
         h.transfers.send(urls: [url])
         var fractions: [Double] = []
@@ -139,6 +177,14 @@ struct FileTransfersTests {
         #expect(h.transfers.items.map(\.state) == [.failed(.folder), .failed(.unreadable)])
         try await Task.sleep(for: .milliseconds(100))
         #expect(h.host.observed.filesOffered == 0)
+        #expect(h.transfers.lastBatch?.failed == [folder.lastPathComponent, "not-there.txt"])
+
+        // With a file that goes: one batch for them all.
+        let good = try h.file("good.txt", bytes: [1])
+        h.transfers.send(urls: [folder, good])
+        #expect(await h.until { h.allFinished })
+        #expect(h.transfers.lastBatch?.serial == 2)
+        #expect(h.transfers.lastBatch?.saved == ["good.txt"] && h.transfers.lastBatch?.failed == [folder.lastPathComponent])
     }
 
     @Test func aFileThatCantBeOpenedIsNeverOffered() async throws {
@@ -206,18 +252,44 @@ struct FileTransfersTests {
         #expect(h.transfers.items.map(\.name) == ["f1", "f2", "f3", "f4"])
     }
 
-    @Test func whatHadntGoneWhenTheSessionEndedFails() async throws {
+    @Test func aLostConnectionFailsWhatWasGoingAndKeepsTheQueue() async throws {
         let h = try await Harness { $0.fileIgnoreOffers = true }
         defer { h.done() }
         h.transfers.send((0..<6).map { MemorySource(name: "f\($0)", bytes: [UInt8($0)]) })
         #expect(await h.until { h.transfers.items.filter { $0.state == .offered }.count == 4 })
-        h.host.close(code: 0)
-        h.transfers.sessionEnded()
-        #expect(await h.until { h.allFinished })
-        #expect(h.transfers.items.allSatisfy { $0.state == .failed(.notSent) })
-        // And anything added afterwards fails at once.
+        h.transfers.detach()
+        #expect(!h.transfers.isAvailable)
+        #expect(h.transfers.items.prefix(4).allSatisfy { $0.state == .failed(.notSent) })
+        #expect(h.transfers.items.suffix(2).allSatisfy { $0.state == .waiting })
+        // Added while there is no session: it waits too.
         h.transfers.send([MemorySource(name: "late", bytes: [1])])
-        #expect(h.transfers.items.last?.state == .failed(.notSent))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(h.transfers.items.last?.state == .waiting)
+        // The old session's late events change nothing.
+        h.link?.fileFinished(1, .saved(name: "f0"))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(h.transfers.items[0].state == .failed(.notSent))
+        // Back (a reconnect): the queue goes on, offered to the new session.
+        let offeredBefore = h.host.observed.filesOffered
+        try await h.connect()
+        #expect(await h.until { h.host.observed.filesOffered == offeredBefore + 3 })
+        #expect(h.transfers.items.suffix(3).allSatisfy { $0.state == .offered })
+        // Nor do they once a new session has the same ids.
+        h.previousLink?.fileFinished(1, .saved(name: "f4"))
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(h.transfers.items.suffix(3).allSatisfy { $0.state == .offered })
+    }
+
+    @Test func aBatchIsSummedUpWhenNothingIsLeft() async throws {
+        let h = try await Harness()
+        defer { h.done() }
+        h.transfers.send([MemorySource(name: "a.txt", bytes: [1]), MemorySource(name: "..", bytes: [2]),
+                          MemorySource(name: "b.txt", bytes: [3])])
+        #expect(await h.until { h.transfers.lastBatch != nil })
+        #expect(h.transfers.lastBatch == FileTransfers.Batch(serial: 1, saved: ["a.txt", "b.txt"], failed: [".."]))
+        h.transfers.send([MemorySource(name: "c.txt", bytes: [4])])
+        #expect(await h.until { h.transfers.lastBatch?.serial == 2 })
+        #expect(h.transfers.lastBatch?.saved == ["c.txt"] && h.transfers.lastBatch?.failed == [])
     }
 }
 

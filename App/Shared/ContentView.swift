@@ -1,5 +1,6 @@
 import SpectreKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 #if os(iOS)
 /// iPad and iPhone: the home screen, with the session over it. The Mac
@@ -21,6 +22,9 @@ struct SessionView: View {
     @State private var showStats: Bool
     @State private var confirmLogOut = false
     @State private var viewSize: CGSize = .zero
+    /// The file picker (Send Files…), and files being dragged over the picture.
+    @State private var choosingFiles = false
+    @State private var dropTargeted = false
     @Environment(\.displayScale) private var displayScale
     #if os(iOS)
     @State private var chrome = SessionChrome()
@@ -66,6 +70,12 @@ struct SessionView: View {
                     // On the Mac the picture starts below the toolbar: under
                     // it, the remote desktop's top edge (GNOME's top bar) is hidden.
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+                    // Files dropped on the picture go to the host (gdp-spec.md §7.12).
+                    .dropDestination(for: URL.self) { urls, _ in
+                        guard model.files.isAvailable, !urls.isEmpty else { return false }
+                        model.sendFiles(urls)
+                        return true
+                    } isTargeted: { dropTargeted = $0 && model.files.isAvailable }
                 #endif
             }
             #if os(iOS)
@@ -115,6 +125,9 @@ struct SessionView: View {
                 SessionStatusOverlay(model: model)
                     .animation(.easeInOut(duration: 0.2), value: model.phase)
                 TopNotices(model: model)
+                if dropTargeted {
+                    FileDropHint()
+                }
                 if showStats {
                     overlay
                         .allowsHitTesting(false) // clicks on it go to the remote desktop
@@ -170,13 +183,19 @@ struct SessionView: View {
             }
         }
         .navigationSubtitle(qualityText)
-        .focusedSceneValue(\.session, SessionActions(model: model) { confirmLogOut = true })
+        .focusedSceneValue(\.session, SessionActions(model: model, logOut: { confirmLogOut = true },
+                                                      sendFiles: { choosingFiles = true }))
+        .animation(.easeInOut(duration: 0.15), value: dropTargeted)
         #endif
         .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
                                                   set: { if !$0 { model.microphoneError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(model.microphoneError ?? "")
+        }
+        // Files to send to the host (gdp-spec.md §7.12): not folders.
+        .fileImporter(isPresented: $choosingFiles, allowedContentTypes: [.data], allowsMultipleSelection: true) {
+            if case .success(let urls) = $0, !urls.isEmpty { model.sendFiles(urls) }
         }
         .confirmationDialog("Log out of the remote desktop?", isPresented: $confirmLogOut, titleVisibility: .visible) {
             Button("Log Out", role: .destructive) { model.logOut() }
@@ -199,6 +218,9 @@ struct SessionView: View {
     /// The window's toolbar: what is used during a session, then More. iOS
     /// floats its controls over the picture instead (App/iOS/SessionControls.swift).
     @ViewBuilder private var sessionButtons: some View {
+        if model.files.isAvailable || !model.files.items.isEmpty {
+            FileControls(files: model.files) { choosingFiles = true }
+        }
         if let clipboard = model.clipboard {
             ClipboardControls(clipboard: clipboard)
         }
@@ -312,6 +334,52 @@ struct SessionView: View {
 }
 
 #if os(macOS)
+/// Sending files to the remote desktop (gdp-spec.md §7.12): Send Files…,
+/// and once there are transfers, their list in a popover, its button
+/// showing how far they have got.
+private struct FileControls: View {
+    let files: FileTransfers
+    let choose: () -> Void
+    @State private var showsList = false
+
+    var body: some View {
+        Button(action: choose) {
+            Label("Send Files…", systemImage: "arrow.up.doc")
+        }
+        .disabled(!files.isAvailable)
+        .help("Send files to the remote desktop's download folder (or drop them on the picture)")
+        if !files.items.isEmpty {
+            Button { showsList.toggle() } label: {
+                Label {
+                    Text("Transfers")
+                } icon: {
+                    if files.hasActive {
+                        ProgressView(value: progress)
+                            .progressViewStyle(.circular)
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "list.bullet")
+                    }
+                }
+            }
+            .help("Files sent to the remote desktop")
+            .popover(isPresented: $showsList, arrowEdge: .bottom) {
+                FileTransferList(files: files) {
+                    showsList = false
+                    choose()
+                }
+            }
+        }
+    }
+
+    /// How far the unfinished files have got, together.
+    private var progress: Double {
+        let going = files.items.filter { !$0.isFinished }
+        let total = going.reduce(0) { $0 + $1.size }
+        return total == 0 ? 0 : Double(going.reduce(0) { $0 + $1.sent }) / Double(total)
+    }
+}
+
 /// Sharing the clipboard with the remote desktop (gdp-spec.md §7.9).
 private struct ClipboardControls: View {
     @Bindable var clipboard: ClipboardSync

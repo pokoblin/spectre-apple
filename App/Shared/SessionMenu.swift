@@ -9,6 +9,8 @@ struct SessionActions {
     let model: PlaybackModel
     /// Asks before ending the desktop session, as the toolbar's Log Out… does.
     let logOut: () -> Void
+    /// Opens the file picker, as the toolbar's Send Files… does.
+    let sendFiles: () -> Void
 }
 
 extension FocusedValues {
@@ -32,6 +34,8 @@ struct SessionMenu: Commands {
                 .disabled(model?.input == nil)
             Button("Send Clipboard to Host", action: sendClipboard)
                 .disabled(model?.clipboard == nil)
+            Button("Send Files…") { session?.sendFiles() }
+                .disabled(model?.files.isAvailable != true)
             Menu("Send Keys") {
                 if let typer = model?.input?.typer {
                     ForEach(KeyCombo.menu) { group in

@@ -8,6 +8,7 @@ import UIKit
 import GDPKit
 import Observation
 import SpectreKit
+import Synchronization
 
 /// Drives the video path from one of three sources and reports timings once
 /// a second (and, with `--bench`, a summary over a fixed run before exiting):
@@ -19,6 +20,10 @@ import SpectreKit
 ///   (a wraith started with a static token, gdp-spec.md §6.11).
 ///
 /// `--host-clipboard TEXT` gives the loopback host a clipboard to send on attach.
+/// `--send-file PATH` (any number of times) sends files once the first session
+/// takes them (gdp-spec.md §7.12), as if picked: for checking file transfer
+/// from the command line. The app is sandboxed, so the paths must be in its
+/// container.
 @MainActor
 @Observable
 final class PlaybackModel {
@@ -129,6 +134,13 @@ final class PlaybackModel {
     private var clipboardInEffect = false
     /// The session's gamepads, once established with `gamepad` in effect (gdp-spec.md §8.5).
     private(set) var gamepads: GamepadForwarder?
+    /// Files on their way to the host (gdp-spec.md §7.12): the window's, kept
+    /// across reconnects. Usable while ``FileTransfers/isAvailable``: a
+    /// session with `file` in effect.
+    let files = FileTransfers()
+    /// Where the current session's file events go (it changes with each session).
+    @ObservationIgnored private let fileLink = FileLinkBox()
+    @ObservationIgnored private var fileBatchPrinted = 0
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
@@ -188,6 +200,8 @@ final class PlaybackModel {
     private var hostFilesPrinted = 0
     private var hostFileEndsPrinted: (UInt32, UInt32, UInt32) = (0, 0, 0) // refused, failed, cancelled
     private var hostClipboard: String?
+    /// `--send-file` paths, sent at the first SessionAccept with `file`.
+    @ObservationIgnored private var sendOnAccept: [URL] = []
     private var terminationObserver: NSObjectProtocol?
     /// Held while a stream plays: keeps App Nap from throttling the timers
     /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
@@ -223,6 +237,9 @@ final class PlaybackModel {
         if let n = value("--in-flight").flatMap(Int.init) { presenter?.maxFramesInFlight = n > 0 ? n : nil }
         benchScreen = value("--screen").flatMap(Int.init)
         hostClipboard = value("--host-clipboard")
+        let arguments = CommandLine.arguments
+        sendOnAccept = arguments.indices.dropLast().filter { arguments[$0] == "--send-file" }
+            .map { URL(filePath: arguments[$0 + 1]) }
         if let target = value("--connect") {
             let parts = target.split(separator: ":")
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
@@ -392,6 +409,7 @@ final class PlaybackModel {
         resolutionTimer?.cancel()
         resolutionTimer = nil
         endSession()
+        endFiles()
         player?.stop()
         player = nil
         loopback?.stop()
@@ -518,6 +536,11 @@ final class PlaybackModel {
         remote.onStateChange = { [weak self] state in
             Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
         }
+        // From the session's queue, straight to the transfers' readers.
+        let fileLink = fileLink
+        remote.onFileAccepted = { fileLink.link?.fileAccepted($0) }
+        remote.onFileProgress = { fileLink.link?.fileProgress($0, $1) }
+        remote.onFileFinished = { fileLink.link?.fileFinished($0, $1) }
         self.remote = remote
         // Created now, not at SessionAccept: the host's clipboard follows
         // the accept immediately (§7.9) and must find it there.
@@ -589,6 +612,13 @@ final class PlaybackModel {
                 clipboardInEffect = true
                 clipboardSync?.start()
             }
+            if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
+                fileLink.link = files.attach(session)
+                if !sendOnAccept.isEmpty {
+                    sendFiles(sendOnAccept)
+                    sendOnAccept = []
+                }
+            }
             if accept.capabilities.contains(GDPSession.Capability.gamepad), let session = remote.session {
                 let forwarder = GamepadForwarder(sink: session)
                 forwarder.start()
@@ -604,6 +634,7 @@ final class PlaybackModel {
             input = nil
             endClipboard()
             endGamepads()
+            endFiles()
             if let attempt {
                 self.attempt = nil
                 attempt.resume(returning: state)
@@ -829,6 +860,18 @@ final class PlaybackModel {
         gamepads = nil
     }
 
+    /// What was on its way fails; the queue waits for a reconnect.
+    private func endFiles() {
+        fileLink.link = nil
+        files.detach()
+    }
+
+    /// Files the user picked or dropped, for the host's download directory.
+    func sendFiles(_ urls: [URL]) {
+        print("files: sending \(urls.count)")
+        files.send(urls: urls)
+    }
+
     private func endClipboard() {
         clipboardSync?.stop()
         clipboardSync = nil
@@ -869,6 +912,7 @@ final class PlaybackModel {
                     summary.presentedFrames + summary.unpresentedFrames, summary.cpuPercent))
                 if !sessionText.isEmpty { print(sessionText.replacingOccurrences(of: "\n", with: " | ")) }
                 printHostInput()
+                printFileTransfers()
             }
         }
     }
@@ -941,6 +985,15 @@ final class PlaybackModel {
 
     /// The in-process test host behind this session, if any (loopback).
     private var testHost: GDPTestHost? { loopback?.host }
+
+    /// Prints how the last batch of files went, once.
+    private func printFileTransfers() {
+        guard let batch = files.lastBatch, batch.serial != fileBatchPrinted else { return }
+        fileBatchPrinted = batch.serial
+        print("files: saved \(batch.saved.map(\.debugDescription).joined(separator: ", ")); "
+            + "failed \(batch.failed.map(\.debugDescription).joined(separator: ", "))")
+        for item in files.items { print("files: \(item.name.debugDescription) \(item.state) \(item.sent)/\(item.size)") }
+    }
 
     /// Prints each input event the in-process test host received since the last call.
     private func printHostInput() {
@@ -1044,5 +1097,14 @@ final class PlaybackModel {
         \(String(format: "gpu %.2f ms, interval %.2f ms (max %.2f)", s.gpu.mean, s.presentInterval.p50, s.presentInterval.max))
         \(String(format: "zero-copy %d/%d, replaced %llu, cpu %.1f%%", s.zeroCopyFrames, s.presentedFrames + s.unpresentedFrames, s.replacedFrames, s.cpuPercent))
         """
+    }
+}
+
+/// The current session's ``FileTransfers/Link``, read on the session's queue.
+private final class FileLinkBox: Sendable {
+    private let value = Mutex<FileTransfers.Link?>(nil)
+    var link: FileTransfers.Link? {
+        get { value.withLock { $0 } }
+        set { value.withLock { $0 = newValue } }
     }
 }

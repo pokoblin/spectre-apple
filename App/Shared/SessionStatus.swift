@@ -143,6 +143,7 @@ struct TopNotices: View {
     @State private var regionAlert: Int?
     #endif
     @State private var clipboard: ClipboardSync.Transfer.Direction?
+    @State private var fileBatch: FileTransfers.Batch?
     @State private var untypable: Int?
 
     var body: some View {
@@ -161,6 +162,10 @@ struct TopNotices: View {
                 if let clipboard {
                     Notice(symbol: "doc.on.clipboard",
                            text: clipboard == .fromHost ? Text("Copied from the host") : Text("Sent to the host's clipboard"))
+                }
+                if let fileBatch {
+                    Notice(symbol: fileBatch.isFailure ? "exclamationmark.triangle" : "arrow.up.doc",
+                           text: fileBatch.notice)
                 }
                 if let untypable {
                     Notice(symbol: "character.cursor.ibeam",
@@ -181,6 +186,10 @@ struct TopNotices: View {
         .task(id: model.clipboard?.lastTransfer) {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))
+        }
+        .task(id: model.files.lastBatch) {
+            guard let batch = model.files.lastBatch else { return }
+            await show(batch, in: $fileBatch, for: .seconds(3))
         }
         .task(id: model.input?.untypable) {
             guard let notice = model.input?.untypable else { return }
