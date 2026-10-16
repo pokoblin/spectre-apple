@@ -5,14 +5,24 @@ import Observation
 import SpectreKit
 import UniformTypeIdentifiers
 
-/// The app's two screens: signing in, and a session. Command-line runs
-/// (`--bench`, `--source`, `--connect`) skip the login and play directly.
+/// The app's hosts, signing in, and the sessions open. On iPad and iPhone
+/// one session at a time covers the home screen; on the Mac each has a
+/// window of its own (docs/macos-layout.md). Command-line runs (`--bench`,
+/// `--source`, `--connect`) skip the login and play directly.
 @MainActor
 @Observable
 final class AppModel {
     enum Screen {
         case login
         case session(PlaybackModel)
+    }
+
+    /// An open session: its model, and the host it is of (none for the
+    /// command line's).
+    struct Session: Identifiable {
+        let id: UUID
+        let model: PlaybackModel
+        let hostID: SavedHost.ID?
     }
 
     struct RecentLogin: Codable, Hashable, Identifiable {
@@ -40,18 +50,26 @@ final class AppModel {
         var address: ServerAddress? { ServerAddress(parsing: server) }
     }
 
-    private(set) var screen: Screen = .login
-    let login = LoginFlow()
+    private(set) var sessions: [Session] = []
+    /// iOS: the session covering the home screen, if any.
+    var screen: Screen { sessions.last.map { .session($0.model) } ?? .login }
+    func session(_ id: UUID?) -> Session? { sessions.first { $0.id == id } }
+    /// A session opened (the Mac gives it a window).
+    var onSessionOpened: ((UUID) -> Void)?
+    /// Signing in needs the home window (the Mac brings it forward).
+    var onShowHome: (() -> Void)?
+
+    /// The login the home screen's sheet shows. A lost session's replayed
+    /// login that stops for the user becomes it.
+    private(set) var login = LoginFlow()
     /// Why the last session ended, for the login screen.
     private(set) var lastSessionEnd: String?
     private(set) var recent: [RecentLogin] = []
     /// The recent logins with a saved login in the Keychain (docs/saved-logins.md).
     private(set) var savedRecent: Set<RecentLogin> = []
-    /// What the session's login answered and chose, to sign in again after
+    /// What each session's login answered and chose, to sign in again after
     /// a lost connection. Memory only, gone when the session ends.
-    private var recipe: LoginFlow.Recipe?
-    /// A replayed login is under way: its redirect is a reconnect's, not a new session.
-    private var signingInAgain = false
+    private var recipes: [UUID: LoginFlow.Recipe] = [:]
 
     private static let recentKey = "recentLogins"
     private static let hostsKey = "savedHosts"
@@ -68,18 +86,27 @@ final class AppModel {
     init(arguments: [String] = CommandLine.arguments) {
         let direct = ["--bench", "--source", "--connect"]
         if arguments.contains(where: direct.contains) {
-            screen = .session(PlaybackModel(arguments: arguments))
+            let id = UUID()
+            sessions = [Session(id: id, model: PlaybackModel(arguments: arguments), hostID: nil)]
         }
         if let data = UserDefaults.standard.data(forKey: Self.recentKey),
            let saved = try? JSONDecoder().decode([RecentLogin].self, from: data) {
             recent = saved
         }
-        login.onRedirect = { [weak self] ticket in self?.open(ticket) }
+        wire(login)
         loadHosts()
         refreshSaved()
     }
 
-    // MARK: Hosts (the iPad's home screen)
+    /// A login whose redirect opens a session.
+    private func wire(_ flow: LoginFlow) {
+        flow.onRedirect = { [weak self, weak flow] ticket in
+            guard let self, let flow, flow === self.login else { return }
+            self.open(ticket)
+        }
+    }
+
+    // MARK: Hosts (the home screen)
 
     private func loadHosts() {
         if let data = UserDefaults.standard.data(forKey: Self.hostsKey),
@@ -139,7 +166,6 @@ final class AppModel {
     @discardableResult
     func connect(_ host: SavedHost) -> Bool {
         lastSessionEnd = nil
-        recipe = nil
         login.cancel()
         loginHost = host.id
         guard hasSavedPassword(host), let server = host.address else { return true }
@@ -202,7 +228,6 @@ final class AppModel {
     func signInWithSaved(_ entry: RecentLogin) -> Bool {
         guard let server = ServerAddress(parsing: entry.server) else { return false }
         lastSessionEnd = nil
-        recipe = nil
         return login.signInWithSaved(server: server, username: entry.username)
     }
 
@@ -217,13 +242,12 @@ final class AppModel {
     /// `password`: the form's, for the server's first secret prompt (empty: none).
     func signIn(server: ServerAddress, username: String, password: String, remember: Bool) {
         lastSessionEnd = nil
-        recipe = nil
         login.start(server: server, username: username, password: password, remember: remember)
     }
 
     private func open(_ ticket: LoginFlow.SessionTicket) {
-        guard !signingInAgain else { return } // signInAgain takes it
-        recipe = login.recipe
+        let id = UUID()
+        recipes[id] = login.recipe
         remember(RecentLogin(server: ticket.server.description, username: ticket.username))
         let hostID = touchHost(server: ticket.server.description, username: ticket.username)
         sessionHost = hostID
@@ -231,60 +255,94 @@ final class AppModel {
         // The host's own name when it has one (the iPad's back button shows it).
         let title = host(hostID).flatMap { $0.name.isEmpty ? nil : $0.name } ?? "\(ticket.username)@\(ticket.server)"
         let model = PlaybackModel(session: ticket.configuration, title: title) { [weak self] message in
-            self?.sessionEnded(message)
+            self?.sessionEnded(id, message)
         }
         model.onSnapshot = { [weak self] image in self?.saveThumbnail(image, for: hostID) }
         model.hostKey = hostID.uuidString
         model.reconnection = { [weak self] allowTakeOver in
-            await self?.signInAgain(allowTakeOver: allowTakeOver) ?? .stop("Disconnected.")
+            await self?.signInAgain(id, allowTakeOver: allowTakeOver) ?? .stop("Disconnected.")
         }
-        model.onNeedsLogin = { [weak self] message in self?.needsLogin(message) }
-        screen = .session(model)
+        model.onNeedsLogin = { [weak self] message in self?.needsLogin(id, message) }
+        sessions.append(Session(id: id, model: model, hostID: hostID))
+        onSessionOpened?(id)
     }
 
-    private func sessionEnded(_ message: String) {
+    private func sessionEnded(_ id: UUID, _ message: String) {
+        guard let session = session(id) else { return }
         lastSessionEnd = message
-        recipe = nil
-        login.cancel()
+        sessionHost = session.hostID ?? sessionHost
+        recipes[id] = nil
+        replays[id]?.cancel()
+        replays[id] = nil
         refreshSaved()
-        screen = .login
+        sessions.removeAll { $0.id == id }
     }
 
-    /// A lost session's new token: the login replayed (docs/reconnect.md).
-    private func signInAgain(allowTakeOver: Bool) async -> PlaybackModel.Reconnection {
-        guard let recipe else { return .stop(String(localized: "The connection was lost. Sign in again.")) }
-        signingInAgain = true
-        defer { signingInAgain = false }
-        login.replay(recipe, allowTakeOver: allowTakeOver)
+    /// A session's window closed (the Mac): the session disconnects (the
+    /// remote desktop keeps running) and is gone.
+    func windowClosed(_ id: UUID) {
+        guard let session = session(id) else { return }
+        if session.model.canClose { session.model.disconnect() } else { session.model.windowClosed() }
+        recipes[id] = nil
+        replays[id]?.cancel()
+        replays[id] = nil
+        sessions.removeAll { $0.id == id }
+    }
+
+    /// The logins a lost session is replaying, one each (several sessions
+    /// may be reconnecting at once on the Mac).
+    private var replays: [UUID: LoginFlow] = [:]
+
+    /// A lost session's new token: its login replayed (docs/reconnect.md).
+    private func signInAgain(_ id: UUID, allowTakeOver: Bool) async -> PlaybackModel.Reconnection {
+        guard let recipe = recipes[id] else { return .stop(String(localized: "The connection was lost. Sign in again.")) }
+        let flow = LoginFlow(knownHosts: login.knownHosts, savedLogins: login.savedLogins, codecs: login.codecs)
+        replays[id]?.cancel()
+        replays[id] = flow
+        flow.replay(recipe, allowTakeOver: allowTakeOver)
         let deadline = ContinuousClock.now + .seconds(30)
         while ContinuousClock.now < deadline {
-            switch login.step {
+            switch flow.step {
             case let .redirected(ticket):
-                self.recipe = login.recipe ?? recipe
+                recipes[id] = flow.recipe ?? recipe
+                replays[id] = nil
                 return .configuration(ticket.configuration)
             case let .failed(failure):
+                replays[id] = nil
                 return ReconnectPolicy.retries(loginFailure: failure.code) ? .retry(failure.message) : .stop(failure.message)
             case .prompt, .chooseDevice, .chooseSession, .trustNewHost, .certificateChanged:
-                return .userNeeded // the replay stopped there for the user
+                return .userNeeded // the replay stopped there for the user; needsLogin takes the flow
             case .idle, .working:
                 break
             }
             guard (try? await Task.sleep(for: .milliseconds(50))) != nil else {
-                login.cancel()
+                flow.cancel()
+                replays[id] = nil
                 return .stop(String(localized: "Disconnected."))
             }
         }
-        login.cancel()
+        flow.cancel()
+        replays[id] = nil
         return .retry(String(localized: "The server did not answer."))
     }
 
-    /// Signing in again needs the user: the login screen, at the step the
-    /// replay stopped on; finishing it opens the session as usual.
-    private func needsLogin(_ message: String) {
+    /// Signing in again needs the user: the home screen's login sheet, at
+    /// the step the replay stopped on; finishing it opens the session anew.
+    private func needsLogin(_ id: UUID, _ message: String) {
+        let hostID = session(id)?.hostID
+        if let flow = replays[id] {
+            replays[id] = nil
+            login.cancel()
+            login = flow
+            wire(flow)
+        }
+        recipes[id] = nil
+        sessions.removeAll { $0.id == id }
         lastSessionEnd = message
+        sessionHost = hostID ?? sessionHost
         refreshSaved()
-        loginHost = sessionHost // the iPad's login sheet, at the step the replay stopped on
-        screen = .login
+        loginHost = hostID
+        onShowHome?()
     }
 
     /// The servers whose certificate the user trusted (docs/login.md).
