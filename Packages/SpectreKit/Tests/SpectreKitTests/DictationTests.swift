@@ -91,7 +91,6 @@ struct DictationLanguageTests {
 
 /// A Mac that can speak (`say`) and write speech out.
 private let canSpeakAndListen = FileManager.default.isExecutableFile(atPath: "/usr/bin/say")
-    && SpeechTranscriber.isAvailable
 
 /// Speech made with `say`, written out by the real recognizer (its model is
 /// downloaded the first time).
@@ -144,6 +143,31 @@ struct VoiceDictationEndToEnd {
         let (text, _) = try await transcribe(file, locale: "zh_CN")
         #expect(text.contains("你好"), "got \"\(text)\"")
         #expect(text.contains("文件"), "got \"\(text)\"")
+    }
+
+    /// The older model, which devices without the newer one (and the
+    /// simulator's builds) use.
+    @Test(.timeLimit(.minutes(2))) func theOlderModelToo() async throws {
+        VoiceDictation.prefersDictationTranscriber = true
+        defer { VoiceDictation.prefersDictationTranscriber = false }
+        let file = try Self.speech("Open the terminal and run the tests.", voice: "Samantha")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let (text, _) = try await transcribe(file, locale: "en_US")
+        #expect(text.lowercased().contains("terminal"), "got \"\(text)\"")
+        #expect(text.lowercased().contains("test"), "got \"\(text)\"")
+    }
+
+    @Test func aScriptComesOutAsIfSaid() async throws {
+        let dictation = VoiceDictation()
+        dictation.startScripted("列出当前目录的文件")
+        for _ in 0..<50 where dictation.text.isEmpty {
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        #expect(dictation.phase == .listening)
+        #expect(!dictation.text.isEmpty)
+        let text = await dictation.finish()
+        #expect("列出当前目录的文件".hasPrefix(text) && !text.isEmpty)
+        #expect(dictation.phase == .idle)
     }
 
     @Test func cancellingDropsWhatWasSaid() async throws {

@@ -4,8 +4,10 @@ import Speech
 import Synchronization
 
 /// Voice input (docs/voice-input.md): speech from the microphone, written
-/// out on this device by Speech's `SpeechAnalyzer` and `SpeechTranscriber`,
-/// for the app to type on the host. Nothing leaves the device but the text.
+/// out on this device by Speech's `SpeechAnalyzer`, for the app to type on
+/// the host. Nothing leaves the device but the text. `SpeechTranscriber`
+/// where the device has it; elsewhere (older devices, the simulator)
+/// `DictationTranscriber`, the keyboard's dictation model.
 ///
 /// While it listens it reports the words settled so far (`finalText`), the
 /// ones still changing (`volatileText`) and how loud the input is
@@ -34,14 +36,21 @@ public final class VoiceDictation {
 
     public var text: String { finalText + volatileText }
 
-    /// Whether this device can write out speech at all.
-    public static var isAvailable: Bool { SpeechTranscriber.isAvailable }
-    public static var supportedLocales: [Locale] { get async { await SpeechTranscriber.supportedLocales } }
+    /// Whether the device has the newer `SpeechTranscriber`.
+    public static var usesSpeechTranscriber: Bool { SpeechTranscriber.isAvailable && !prefersDictationTranscriber }
+    /// Tests: the older model even where the newer one is there.
+    nonisolated(unsafe) static var prefersDictationTranscriber = false
+    public static var supportedLocales: [Locale] {
+        get async {
+            usesSpeechTranscriber ? await SpeechTranscriber.supportedLocales : await DictationTranscriber.supportedLocales
+        }
+    }
 
     @ObservationIgnored private var analyzer: SpeechAnalyzer?
     @ObservationIgnored private var input: AsyncStream<AnalyzerInput>.Continuation?
     @ObservationIgnored private var results: Task<Void, Never>?
     @ObservationIgnored private var starting: Task<Void, Never>?
+    @ObservationIgnored private var script: Task<Void, Never>?
     @ObservationIgnored private var audio: DictationAudio?
     /// Bumped by every start and cancel: work for an older dictation stops.
     @ObservationIgnored private var generation = 0
@@ -69,19 +78,24 @@ public final class VoiceDictation {
     }
 
     private func begin(locale: Locale, file: URL?, generation: Int) async throws {
-        let transcriber = SpeechTranscriber(locale: locale, transcriptionOptions: [],
-                                            reportingOptions: [.volatileResults], attributeOptions: [])
-        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
-            try await request.downloadAndInstall()
-        }
-        guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+        let speech = Self.usesSpeechTranscriber
+            ? SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [.volatileResults],
+                                attributeOptions: [])
+            : nil
+        let dictation = speech == nil
+            ? DictationTranscriber(locale: locale, contentHints: [], transcriptionOptions: [.punctuation],
+                                   reportingOptions: [.volatileResults], attributeOptions: [])
+            : nil
+        let modules: [any SpeechModule] = speech.map { [$0] } ?? dictation.map { [$0] } ?? []
+        try await Self.installModel(for: modules, locale: locale)
+        guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: modules) else {
             throw DictationError.noAudioFormat
         }
         if file == nil {
             guard await AVAudioApplication.requestRecordPermission() else { throw DictationError.microphoneDenied }
         }
         guard self.generation == generation else { return }
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        let analyzer = SpeechAnalyzer(modules: modules)
         try await analyzer.prepareToAnalyze(in: format)
         let (stream, input) = AsyncStream.makeStream(of: AnalyzerInput.self)
         guard self.generation == generation else { return }
@@ -89,15 +103,10 @@ public final class VoiceDictation {
         self.input = input
         results = Task { [weak self] in
             do {
-                for try await result in transcriber.results {
-                    let text = String(result.text.characters)
-                    guard let self else { return }
-                    if result.isFinal {
-                        self.finalText += text
-                        self.volatileText = ""
-                    } else {
-                        self.volatileText = text
-                    }
+                if let speech {
+                    for try await r in speech.results { self?.heard(String(r.text.characters), isFinal: r.isFinal) }
+                } else if let dictation {
+                    for try await r in dictation.results { self?.heard(String(r.text.characters), isFinal: r.isFinal) }
                 }
             } catch {
                 // Cancelled, or the analyzer stopped: what came stays.
@@ -115,12 +124,83 @@ public final class VoiceDictation {
         guard self.generation == generation else { return audio.stop() }
         self.audio = audio
         phase = .listening
+        print("dictation: listening, \(locale.identifier), \(Self.usesSpeechTranscriber ? "SpeechTranscriber" : "DictationTranscriber")\(file.map { ", from \($0.lastPathComponent)" } ?? "")")
+    }
+
+    /// The language's model, downloaded the first time: the locale is
+    /// reserved for this app first (the system keeps only so many, the
+    /// oldest goes), or there is nothing to install.
+    private static func installModel(for modules: [any SpeechModule], locale: Locale) async throws {
+        let status = await AssetInventory.status(forModules: modules)
+        print("dictation: \(locale.identifier) model \(status)")
+        guard status < .installed else { return }
+        let reserved = await AssetInventory.reservedLocales
+        if !reserved.contains(where: { $0.identifier == locale.identifier }) {
+            if reserved.count >= AssetInventory.maximumReservedLocales, let oldest = reserved.first {
+                await AssetInventory.release(reservedLocale: oldest)
+            }
+            try await AssetInventory.reserve(locale: locale)
+        }
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: modules) {
+            try await request.downloadAndInstall()
+            print("dictation: \(locale.identifier) model downloaded")
+        }
+    }
+
+    /// A settled result replaces the words still changing; a volatile one
+    /// is the latest guess at them.
+    private func heard(_ text: String, isFinal: Bool) {
+        if isFinal {
+            finalText += text
+            volatileText = ""
+        } else {
+            volatileText = text
+        }
+    }
+
+    /// The simulator, where Speech has no models: `text` comes out a few
+    /// words at a time as if it were being said, for trying the interface.
+    public func startScripted(_ text: String) {
+        guard phase == .idle else { return }
+        generation += 1
+        let generation = generation
+        phase = .preparing
+        finalText = ""
+        volatileText = ""
+        failure = nil
+        // Words by spaces; Chinese and Japanese two characters at a time.
+        let pieces: [String] = text.contains(" ")
+            ? text.split(separator: " ").map { $0 + " " }
+            : stride(from: 0, to: text.count, by: 2).map {
+                String(text.dropFirst($0).prefix(2))
+            }
+        script = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let self, self.generation == generation else { return }
+            self.phase = .listening
+            print("dictation: listening, scripted")
+            for (i, piece) in pieces.enumerated() {
+                guard (try? await Task.sleep(for: .milliseconds(250))) != nil, self.generation == generation else { return }
+                self.level = Double.random(in: 0.35...0.9)
+                self.volatileText += piece
+                if i % 3 == 2 { self.heard(self.volatileText, isFinal: true) }
+            }
+            self.level = 0
+        }
     }
 
     /// Stops listening and returns all that was said, once the last words are
     /// written out (empty if nothing was, or it failed).
     public func finish() async -> String {
         guard phase == .preparing || phase == .listening else { return "" }
+        if let script {
+            script.cancel()
+            self.script = nil
+            let text = (finalText + volatileText).trimmingCharacters(in: .whitespacesAndNewlines)
+            print("dictation: finished, \(text.count) characters")
+            reset()
+            return text
+        }
         let generation = generation
         phase = .finishing
         await starting?.value
@@ -132,6 +212,7 @@ public final class VoiceDictation {
         await results?.value
         guard self.generation == generation else { return "" }
         let text = (finalText + volatileText).trimmingCharacters(in: .whitespacesAndNewlines)
+        print("dictation: finished, \(text.count) characters")
         reset()
         return text
     }
@@ -145,6 +226,7 @@ public final class VoiceDictation {
     }
 
     private func fail(_ message: String) {
+        print("dictation: failed: \(message)")
         let analyzer = analyzer
         reset()
         failure = message
@@ -155,6 +237,8 @@ public final class VoiceDictation {
         generation += 1
         starting?.cancel()
         starting = nil
+        script?.cancel()
+        script = nil
         audio?.stop()
         audio = nil
         input?.finish()
