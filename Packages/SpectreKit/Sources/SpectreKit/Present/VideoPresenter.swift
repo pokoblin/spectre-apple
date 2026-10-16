@@ -142,6 +142,10 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         return CIContext(options: [.cacheIntermediates: false]).createCGImage(image, from: image.extent.integral)
     }
 
+    /// The last frame drawn (what is on screen), nil before the first.
+    /// Region alerts read it (``RegionSignature``).
+    public var lastFrame: DecodedFrame? { lastTextures?.frame }
+
     /// How the picture is magnified; the last frame is drawn again at once.
     public func setZoom(_ zoom: PictureZoom) {
         guard zoom != self.zoom else { return }
