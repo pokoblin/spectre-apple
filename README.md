@@ -79,9 +79,9 @@ Not done yet:
 
 ## Screenshots
 
-| Signing in on the Mac | A session on iPad |
+| The home window on the Mac | A session on iPad |
 |---|---|
-| ![The login screen on the Mac](docs/images/macos-login.webp) | ![A GNOME desktop on iPad, sized to the iPad's screen, with the key bar open in the bottom-right corner](docs/images/ipad-session.webp) |
+| ![The home window on the Mac: hosts in the sidebar, the selected one's last picture and Connect](docs/images/macos-home.webp) | ![A GNOME desktop on iPad, sized to the iPad's screen, with the key bar open in the bottom-right corner](docs/images/ipad-session.webp) |
 
 ## Requirements
 

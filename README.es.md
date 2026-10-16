@@ -78,9 +78,9 @@ Pendiente:
 
 ## Capturas de pantalla
 
-| Inicio de sesión en el Mac | Una sesión en iPad |
+| La ventana de inicio en el Mac | Una sesión en iPad |
 |---|---|
-| ![La pantalla de inicio de sesión en el Mac](docs/images/macos-login.webp) | ![Un escritorio GNOME en iPad, del tamaño de la pantalla del iPad, con la barra de teclas abierta en la esquina inferior derecha](docs/images/ipad-session.webp) |
+| ![La ventana de inicio en el Mac: los hosts en la barra lateral y, del elegido, la última imagen y Conectar](docs/images/macos-home.webp) | ![Un escritorio GNOME en iPad, del tamaño de la pantalla del iPad, con la barra de teclas abierta en la esquina inferior derecha](docs/images/ipad-session.webp) |
 
 ## Requisitos
 

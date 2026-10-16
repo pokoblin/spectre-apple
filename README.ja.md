@@ -78,9 +78,9 @@ spectre-apple は ghost に触発された独立したサードパーティ製�
 
 ## スクリーンショット
 
-| Mac でのサインイン | iPad でのセッション |
+| Mac のホームウインドウ | iPad でのセッション |
 |---|---|
-| ![Mac のログイン画面](docs/images/macos-login.webp) | ![iPad の画面に合わせたサイズの GNOME デスクトップ。右下のキーバーを開いたところ](docs/images/ipad-session.webp) |
+| ![Mac のホームウインドウ。サイドバーにホスト、右に選んだホストの前回の画面と接続ボタン](docs/images/macos-home.webp) | ![iPad の画面に合わせたサイズの GNOME デスクトップ。右下のキーバーを開いたところ](docs/images/ipad-session.webp) |
 
 ## 動作環境
 

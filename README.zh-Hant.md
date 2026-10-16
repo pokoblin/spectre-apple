@@ -78,9 +78,9 @@ spectre-apple 是受 ghost 啟發的獨立第三方用戶端，並非 ghost 官�
 
 ## 螢幕截圖
 
-| 在 Mac 上登入 | iPad 上的工作階段 |
+| Mac 上的首頁視窗 | iPad 上的工作階段 |
 |---|---|
-| ![Mac 上的登入畫面](docs/images/macos-login.webp) | ![iPad 上的 GNOME 桌面，大小跟隨 iPad 螢幕，右下角的按鍵列已展開](docs/images/ipad-session.webp) |
+| ![Mac 上的首頁視窗：側邊欄是主機，右邊是所選主機的上次畫面和連線按鈕](docs/images/macos-home.webp) | ![iPad 上的 GNOME 桌面，大小跟隨 iPad 螢幕，右下角的按鍵列已展開](docs/images/ipad-session.webp) |
 
 ## 執行需求
 

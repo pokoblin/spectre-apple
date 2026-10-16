@@ -78,9 +78,9 @@ spectre-apple 是受 ghost 启发的独立第三方客户端，并非 ghost 官�
 
 ## 截图
 
-| 在 Mac 上登录 | iPad 上的会话 |
+| Mac 上的首页窗口 | iPad 上的会话 |
 |---|---|
-| ![Mac 上的登录页](docs/images/macos-login.webp) | ![iPad 上的 GNOME 桌面，大小跟随 iPad 屏幕，右下角的按键栏已展开](docs/images/ipad-session.webp) |
+| ![Mac 上的首页窗口：侧栏是主机，右边是所选主机的上次画面和连接按钮](docs/images/macos-home.webp) | ![iPad 上的 GNOME 桌面，大小跟随 iPad 屏幕，右下角的按键栏已展开](docs/images/ipad-session.webp) |
 
 ## 运行要求
 
