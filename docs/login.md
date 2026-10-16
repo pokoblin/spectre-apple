@@ -39,7 +39,7 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的�
 ## 不同平台
 
 - **iOS 上不做 CA 校验**：libgdp 在 Apple 平台上从 `/etc/ssl/cert.pem` 读系统根证书，iOS 沙盒里没有这个文件。所以 iOS 上 `trustSystemCAs` 默认关闭，CA 签发的证书也按 TOFU 处理，这是 §2.3 允许的（证书验证不通过时必须退回到指纹固定）。要在 iOS 上做 CA 校验，需要 libgdp 把对端证书链交出来，再交给 Security.framework 验证，可以以后向上游提。
-- **先等本地网络权限**（iOS，以及 macOS 15 以后）：libgdp 的 UDP socket 要等系统允许访问本地网络后才打开。`LoginFlow.start` 先对服务器开一个 UDP `NWConnection`（`LocalNetworkCheck`）。这个连接会弹出授权框，但不发包；状态是 `.waiting`、原因是 `localNetworkDenied` 时，界面显示“正在等待使用本地网络的权限”，并提示用户被拒绝后去设置里的哪一项打开。连接一旦 `.ready`，lobby 才开始连接。其它 waiting 或 failed 的情况也会放行，错误留给 libgdp 报。回环地址和已经授权的情况下，这一步会立刻通过。授权框里的说明文字来自 `NSLocalNetworkUsageDescription`（`project.yml`，翻译放在 `InfoPlist.xcstrings`）。
+- **先等本地网络权限**（iOS，以及 macOS 15 以后）：libgdp 的 UDP socket 要等系统允许访问本地网络后才打开。`LoginFlow.start` 先对服务器开一个 UDP `NWConnection`（`LocalNetworkCheck`）。这个连接会弹出授权框，但不发包；状态是 `.waiting`、原因是 `localNetworkDenied` 时，界面显示“正在等待使用本地网络的权限”，并提示用户被拒绝后去设置里的哪一项打开。连接一旦 `.ready`，lobby 才开始连接。其它 waiting 或 failed 的情况也会放行，错误留给 libgdp 报。回环地址和已经授权的情况下，这一步会立刻通过。Redirect 指向另一台主机时（broker 在外网、会话主机在局域网），打开会话前也会对会话主机做同样的等待：这时第一次访问本地网络的可能是会话连接，登录服务器的检查管不到。指向登录服务器本身时直接打开会话。token 只有约 30 秒有效（§4.8），授权框等太久的话，会话会因为 token 失效被拒，用户重新登录即可。2026-10-16 在 iPad 真机和这台 Mac 上都验证过首次授权：Mac 用的是改了 bundle id 的测试版，这样系统会把它当作从没授权过的新应用。授权后直接进入信任确认，第一次就连上。授权框里的说明文字来自 `NSLocalNetworkUsageDescription`（`project.yml`，翻译放在 `InfoPlist.xcstrings`）。
 - **密码默认不保存**：勾选密码提问下的 Remember 才存进 Keychain，之后在最近列表里点一下就能登录，见 [saved-logins.md](saved-logins.md)。系统的"密码"自动填充照常可用（密码框设置了 `textContentType(.password)`）。
 
 ## 测试服务器
