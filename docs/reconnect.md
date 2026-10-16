@@ -86,7 +86,12 @@ App/Shared/PlaybackModel        重连循环；iOS 后台：暂停视频、申�
 - 让 host 恢复：1 秒内第 3 次尝试连上，host 记录到 `take_over` 为真，也就是丢失 1 分钟内的自动接管生效了。
 - 再次冻住 host、出现卡片后点 Cancel：卡片消失，之后不再尝试。
 
-**没有验证的**：真机上后台时间用完的路径；真实 wraith 和 ghostd lobby 上的重放（包括多步认证）；换网络（Wi-Fi 换蜂窝）时的恢复速度。
+**iPad 真机（iPad Pro 11-inch (M5)，iPadOS 27.0.1），loopback**（2026-10-16，测指针时顺带看到的）：
+
+- iPad 自动锁屏、App 留在后台：日志依次是 `in the background, video paused`、`background time ran out, closing`、`ended: closed`，后台时间用完时正常关闭了连接。
+- 回到前台后，对 loopback 的 8 次重连全部 `timed out (no response from host)`。loopback 的测试 host 在 App 进程里，App 被挂起时它的 socket 多半也被系统作废了，所以连不上；这只影响 loopback，真实 host 上要另外测。
+
+**没有验证的**：真机上后台时间用完以后回到前台的重连（真实 host 上）；真实 wraith 和 ghostd lobby 上的重放（包括多步认证）；换网络（Wi-Fi 换蜂窝）时的恢复速度。
 
 ## 没有做的
 

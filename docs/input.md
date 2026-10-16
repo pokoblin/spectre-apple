@@ -101,12 +101,25 @@ computer-use 合成的鼠标移动是按绝对位置模拟的。指针锁住以�
 - 滚动：一个只接受滚动的 `UIPanGestureRecognizer`（`allowedScrollTypesMask = .all`，`allowedTouchTypes = []`，手指不会触发它）。每次的 translation 增量按“内容的移动”处理，和 AppKit 精确滚动一样换算成 notch（25 点 = 1 notch）。
 - 指针外观：画面上用 `UIPointerStyle.hidden()` 隐藏系统指针，由 Metal 叠加层在客户端放置指针的位置画 host 的光标（iPadOS 的指针只能是路径形状，不能显示 host 的位图）。
 
-**捕获模式**：Ctrl+Cmd+G 或工具栏的 Capture Mouse。根 view controller 请求锁定指针，`GCMouse.current` 提供原始 delta（GameController 的 y 轴向上为正，取反）和按键（左、右、中、辅助键）。捕获期间忽略 `.indirectPointer` 触摸带来的按键，以免和 GCMouse 重复。切换捕获时会先松开所有鼠标键，因为一个来源按下的键，另一个来源永远不会报告它松开。没有鼠标（`GCMouse.current == nil`，比如在模拟器里）时不会进入捕获。iPadOS 只在 App 占满屏幕时才真正锁定指针；没锁住时，相对移动照样发送，只是本地指针还能移出窗口。
+**捕获模式**：Ctrl+Cmd+G 或工具栏的 Capture Mouse。根 view controller 请求锁定指针，GCMouse 提供原始 delta（GameController 的 y 轴向上为正，取反）和按键（左、右、中、辅助键）。捕获期间忽略 `.indirectPointer` 触摸带来的按键，以免和 GCMouse 重复。切换捕获时会先松开所有鼠标键，因为一个来源按下的键，另一个来源永远不会报告它松开。iPadOS 只在 App 占满屏幕时才真正锁定指针；没锁住时，相对移动照样发送，只是本地指针还能移出窗口。
+
+- **听所有的鼠标**：进入捕获时给 `GCMouse.mice()` 里的每一只都挂上处理函数，捕获期间有鼠标连上或断开（`GCMouseDidConnect` / `GCMouseDidDisconnect`）就重新同步。不能只听 `GCMouse.current`：真机上除了妙控板，系统里还会有一只叫 “CoreDevice touchscreenGesture” 的虚拟鼠标（这台 iPad 连着 Mac 调试时出现的），`current` 有时正好是它，妙控板的移动和点击就没人听，看上去是“一进捕获就卡住”。那只虚拟鼠标自己不发任何事件。一只鼠标都没有（比如在模拟器里）时不会进入捕获。
+- **锁定时的点击不进控件**：锁住的指针停在原地，常常就停在刚点过的 Capture Mouse 上，之后每次点击仍然按这个位置命中测试，会把捕获关掉、再打开。GCMouse 也报同一次点击，两条路谁先处理不固定：开关先处理的话，GCMouse 那边看到已经不在捕获，点击就哪里都没到。所以 `SessionWindow`（`App/iOS/AppDelegate.swift`）在指针锁住时，把新按下的触控板或鼠标点击命中到窗口本身，窗口不处理触摸，这次点击就不碰任何控件。手指照常命中测试，用手指点 Capture Mouse 能释放。做在 `hitTest` 里而不是在 `sendEvent` 里丢事件：丢事件那一版在真机上会让触摸状态乱掉，UIKit 要看到每个触摸从开始到结束。
 
 ### iPad 模拟器实测
 
 - 硬件键盘：输入 "aB"，host 依次收到 a 的按下和松开，然后是左 Shift 按下、b 按下、b 松开、左 Shift 松开。
-- 触控板和鼠标：模拟器在无界面模式下运行，自动化工具只能发直接触摸，所以 `.indirectPointer` 点击、悬停、滚动和 GCMouse 捕获这几条路径只是编译通过，**还没有实际运行过**，需要在真机上（或在 Simulator.app 里用 I/O → Input → Send Pointer to Device）确认。
+- 触控板和鼠标：模拟器在无界面模式下运行，自动化工具只能发直接触摸，所以 `.indirectPointer` 点击、悬停、滚动和 GCMouse 捕获这几条路径只是编译通过，在模拟器里没法运行，真机结果见下一节。
+
+### iPad 真机实测（妙控板，loopback）
+
+2026-10-16，iPad Pro 11-inch (M5)，iPadOS 27.0.1，独立的蓝牙妙控板（Magic Trackpad），`--source loopback`，用 `devicectl device process launch --console` 读每个 host 收到的事件。
+
+- **悬停**：1565 次绝对移动，覆盖整个 0..1；移到黑边上时坐标停在 0 或 1，没有重复发送同一个坐标，没有夹带按键。画面上显示 loopback host 发来的十字光标，系统指针隐藏。
+- **点击**：按下点击是 `BTN_LEFT`，双指点按是 `BTN_RIGHT`；按住拖动是一次按下、一串移动、一次松开；连点 5 下（双击加三击）都到了。按下期间手指滑一下，指针会跟着走（有一次约 13 个 host 像素），真实 host 上可能影响双击识别。
+- **滚动**：方向和自然滚动一致，上下、左右都对。慢滑时每个事件 0.1–0.5 notch，快速一划时单个事件能到 15 notch、一划合计 60 多 notch（换算本身是对称的，是 iPadOS 给的位移大）；手指离开后没有惯性，后面不再有事件；竖滚时带一点横向分量（每个事件 0.01–0.05 notch）。这三点要在真实 host 上看手感再定。
+- **捕获**：只有妙控板时也有 GCMouse，指针能锁住，相对移动方向正确（十字光标跟着手指走）。捕获期间滚动手势照样起作用，axis 照常发出。进出后台、闲置 60 秒、妙控板关开以后再捕获，都正常。修好上面两个问题以后，用妙控板点 Capture Mouse 进入捕获，连点左键 48 次、右键 10 次，每次按下都有松开，捕获一直保持；用手指进入和释放也正常。
+- 捕获期间 `.indirectPointer` 触摸照样送达（`buttonMask` 1 = 左，2 = 右），按设计被忽略。
 
 ## 触摸 → 指针
 
@@ -218,5 +231,6 @@ macOS 实测（loopback，1920×1080 画面显示在约 1280 点宽的窗口里�
 - ~~屏幕软键盘~~：已完成，见 [keyboard.md](keyboard.md)。
 - 发送原始的 §8.3 `TouchEvent`：wraith 会忽略它。
 - 鼠标灵敏度设置。滚动的“25 点 = 1 notch”和触摸的“24 点 = 1 notch”还没有在真实的 host 上校准过。
-- 需要真实设备确认的：macOS 捕获模式下相对移动的方向和手感；iPad 的触控板和鼠标（悬停、点击、滚动、指针锁定、GCMouse）。
+- 需要真实设备确认的：macOS 捕获模式下相对移动的方向和手感；iPad 上的鼠标（中键、侧键、滚轮的一格换算多少 notch），以及妙控板在真实 host 上的手感（快速一划的滚动量、没有惯性、双击时的指针抖动）。
+- iPad 捕获时，指针如果锁在工具栏上，滚动也会按那个位置命中，到不了会话画面。要彻底解决，捕获期间的滚动得改用 GCMouse 的 `scroll`，先要校准它的单位和方向。
 - 窗口大小变化时没有重画上一帧（和原来一样，等下一帧）。
