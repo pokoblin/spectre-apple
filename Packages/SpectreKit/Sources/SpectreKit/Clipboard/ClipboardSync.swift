@@ -161,6 +161,17 @@ public final class ClipboardSync {
         noteTransfer(.toHost)
     }
 
+    /// Text to be pasted on the host (the prompt panel): put on the host's
+    /// clipboard whether or not the user shares the clipboard, since they
+    /// asked for exactly this text to go. Not noted as a transfer (the
+    /// panel says what it did), and the host echoing it back doesn't
+    /// replace the local clipboard. False if it can't go (empty, too long).
+    public func sendForPaste(_ text: String) -> Bool {
+        guard filter.shouldSendExplicitly(text) else { return false }
+        sendText(text)
+        return true
+    }
+
     private func noteTransfer(_ direction: Transfer.Direction) {
         lastTransfer = Transfer(direction: direction, serial: (lastTransfer?.serial ?? 0) + 1)
     }

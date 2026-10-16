@@ -33,6 +33,7 @@ final class RemoteScreenController: UIViewController {
     private var row: UIHostingController<FloatingKeyRow>!
     /// The row's leftmost position: past the session toolbar.
     private var rowLeading: NSLayoutConstraint!
+    private var wasPromptOpen = false
 
     init(presenter: VideoPresenter, keyBar: KeyBarModel) {
         sessionView = IOSSessionView(frame: .zero, device: presenter.renderer.device)
@@ -113,5 +114,10 @@ final class RemoteScreenController: UIViewController {
         column.view.isUserInteractionEnabled = open
         row.view.isUserInteractionEnabled = open
         rowLeading.constant = keyBar.leadingObstruction + FloatingKeyBar.spacing
+        // The prompt panel closed: a hardware keyboard types on the remote
+        // desktop again. (Opening it, its text field takes the keyboard and
+        // the session view lets go of what it held.)
+        if wasPromptOpen, !keyBar.isPromptOpen { sessionView.becomeFirstResponder() }
+        wasPromptOpen = keyBar.isPromptOpen
     }
 }

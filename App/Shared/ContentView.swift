@@ -28,6 +28,7 @@ struct SessionView: View {
     #if os(iOS)
     @State private var chrome = SessionChrome()
     @State private var keyBar = KeyBarModel()
+    @State private var prompt = PromptModel()
     #endif
 
     init(model: PlaybackModel) {
@@ -70,11 +71,19 @@ struct SessionView: View {
             SessionStatusOverlay(model: model)
                 .animation(.easeInOut(duration: 0.2), value: model.phase)
             TopNotices(model: model)
+            if keyBar.isPromptOpen {
+                PromptPanel(prompt: prompt, model: model) { keyBar.isPromptOpen = false }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            // The corners make way for the prompt panel rather than show beside it.
             SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, showsStatistics: $showStats) {
                 confirmLogOut = true
             }
+            .opacity(keyBar.isPromptOpen ? 0 : 1)
+            .allowsHitTesting(!keyBar.isPromptOpen)
+            .accessibilityHidden(keyBar.isPromptOpen)
             VStack(alignment: .leading, spacing: 8) {
-                if model.isRemoteSession && chrome.isToolbarExpanded {
+                if model.isRemoteSession && chrome.isToolbarExpanded && !keyBar.isPromptOpen {
                     SessionBackButton(title: model.title) { model.disconnect() }
                         .transition(.opacity)
                 }
@@ -101,6 +110,7 @@ struct SessionView: View {
         .environment(\.colorScheme, .dark)
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
+        .animation(.smooth(duration: 0.3), value: keyBar.isPromptOpen)
         .onChange(of: model.phase) {
             if model.phase == .playing { chrome.connected() }
         }

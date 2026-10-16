@@ -182,6 +182,23 @@ struct ClipboardSyncTests {
         #expect(sync.lastTransfer == ClipboardSync.Transfer(direction: .toHost, serial: 3))
     }
 
+    @Test func textForPastingGoesEvenWithSharingOffAndIsNotEchoed() {
+        let pb = FakePasteboard()
+        let (off, sentOff) = make(pb, enabled: false)
+        off.start()
+        #expect(off.sendForPaste("prompt"))
+        #expect(sentOff() == ["prompt"])
+        #expect(off.lastTransfer == nil)
+
+        let (sync, _) = make(pb)
+        sync.start()
+        #expect(sync.sendForPaste("prompt"))
+        sync.hostChanged("prompt") // the host's clipboard now holds it and says so
+        #expect(pb.text == nil)
+        #expect(!sync.sendForPaste(""))
+        #expect(!sync.sendForPaste(String(repeating: "x", count: GDPSession.maxClipboardBytes + 1)))
+    }
+
     @Test func nothingIsWatchedBeforeStartOrAfterStop() {
         let pb = FakePasteboard()
         let (sync, sent) = make(pb)

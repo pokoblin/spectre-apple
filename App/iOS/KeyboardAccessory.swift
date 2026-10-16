@@ -36,9 +36,9 @@ final class KeyboardAccessory: UIInputView {
 }
 
 /// Every key of the floating bar in one capsule, centred, 12 pt from the
-/// sides, scrolling sideways where it doesn't fit: the keys a terminal
-/// wants, the arrows, the modifiers, the combinations, and a key that puts
-/// the keyboard away.
+/// sides, scrolling sideways where it doesn't fit: the prompt panel, the
+/// keys a terminal wants, the arrows, the modifiers, the combinations, and
+/// a key that puts the keyboard away.
 struct AgentKeyBarView: View {
     let model: KeyBarModel
 
@@ -57,6 +57,8 @@ struct AgentKeyBarView: View {
         if let input = model.input {
             let typer = input.typer
             HStack(spacing: FloatingKeyBar.keySpacing) {
+                PromptKey(model: model)
+                KeyBarSeparator(axis: .horizontal)
                 KeyBarKeys.common(typer)
                 KeyBarSeparator(axis: .horizontal)
                 HeldKey(typer: typer, usage: HIDUsage.leftArrow, label: "Left Arrow") { Image(systemName: "arrow.left") }

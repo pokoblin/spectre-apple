@@ -20,12 +20,15 @@ final class KeyBarModel {
     /// Where the session toolbar in the bottom-left corner ends, from the
     /// screen's left edge: the row never reaches further left than that.
     var leadingObstruction: CGFloat = FloatingKeyBar.margin + FloatingKeyBar.toggleSize
+    /// The prompt panel is open: both corners' controls make way for it.
+    var isPromptOpen = false
 
     private static let isShownKey = "showsKeyBar"
 
     /// Whether the floating bar is on screen: not while the touch keyboard
-    /// is up, which carries the same keys above it.
-    var isVisible: Bool { isShown && input != nil && input?.showsTouchKeyboard != true }
+    /// is up, which carries the same keys above it, nor while the prompt
+    /// panel is open.
+    var isVisible: Bool { isShown && input != nil && input?.showsTouchKeyboard != true && !isPromptOpen }
 
     /// Locked modifiers while the bar is closed tint its toggle.
     var hasLockedModifiers: Bool { !(input?.typer.locked.isEmpty ?? true) }
@@ -49,7 +52,7 @@ struct KeyBarToggle: View {
 
 // MARK: - Column
 
-/// Above the toggle, as wide as it: the arrows.
+/// Above the toggle, as wide as it: the arrows, and the prompt panel's key.
 struct FloatingKeyColumn: View {
     let model: KeyBarModel
 
@@ -73,6 +76,8 @@ struct FloatingKeyColumn: View {
                 HeldKey(typer: typer, usage: HIDUsage.leftArrow, label: "Left Arrow") { Image(systemName: "arrow.left") }
                 HeldKey(typer: typer, usage: HIDUsage.rightArrow, label: "Right Arrow") { Image(systemName: "arrow.right") }
                 HeldKey(typer: typer, usage: HIDUsage.downArrow, label: "Down Arrow") { Image(systemName: "arrow.down") }
+                KeyBarSeparator(axis: .vertical)
+                PromptKey(model: model)
             }
         }
     }
