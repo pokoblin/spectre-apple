@@ -438,6 +438,9 @@ typedef struct {
     int32_t file_refuse;
     uint64_t file_fail_after;
     bool file_ignore_offers;
+    // NULL, or a directory to write received files to instead of keeping
+    // them in memory (never over an existing file).
+    const char *file_directory;
 } gdpc_test_host_config;
 
 // A file the test host saved (§7.12).
@@ -446,6 +449,7 @@ typedef struct {
     char saved_name[256];    // the name the viewer was told
     int64_t modified_unix_ms;
     uint64_t size;
+    char path[1024];         // with file_directory; its contents aren't kept
 } gdpc_test_host_file;
 
 // One input event the test host received (§8.2, §8.3).

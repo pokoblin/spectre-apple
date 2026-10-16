@@ -184,6 +184,9 @@ final class PlaybackModel {
     private var benchScreen: Int?
     private var hostInputPrinted = 0
     private var hostClipboardPrinted: UInt32 = 0
+    /// Loopback: files the test host saved and its other file outcomes, as printed so far.
+    private var hostFilesPrinted = 0
+    private var hostFileEndsPrinted: (UInt32, UInt32, UInt32) = (0, 0, 0) // refused, failed, cancelled
     private var hostClipboard: String?
     private var terminationObserver: NSObjectProtocol?
     /// Held while a stream plays: keeps App Nap from throttling the timers
@@ -395,6 +398,8 @@ final class PlaybackModel {
         loopback = nil
         hostInputPrinted = 0
         hostClipboardPrinted = 0
+        hostFilesPrinted = 0
+        hostFileEndsPrinted = (0, 0, 0)
         sessionText = ""
         quality = nil
     }
@@ -439,6 +444,7 @@ final class PlaybackModel {
                     // No test tone in a bench run: it measures video.
                     let host = try LoopbackHost(stream: stream, audio: bench == nil, clipboard: hostClipboard)
                     loopback = host
+                    print("host files: \(host.fileDirectory.path(percentEncoded: false))")
                     connect(host.sessionConfiguration())
                     host.start()
                 } catch {
@@ -948,6 +954,21 @@ final class PlaybackModel {
             let text = String(decoding: host.lastClipboard, as: UTF8.self)
             let shown = text.count > 80 ? String(text.prefix(80)) + "…" : text
             print("host clipboard: \(shown.debugDescription) (\(host.observed.lastClipboardMime), \(text.utf8.count) bytes)")
+        }
+        // Files (gdp-spec.md §7.12): each one saved, and any that ended otherwise.
+        let observed = host.observed
+        if observed.filesSaved != hostFilesPrinted {
+            let files = host.receivedFiles.dropFirst(hostFilesPrinted)
+            hostFilesPrinted += files.count
+            for f in files {
+                let renamed = f.savedName == f.name ? "" : " as \(f.savedName.debugDescription)"
+                print("host file: saved \(f.name.debugDescription)\(renamed) (\(f.size) bytes)")
+            }
+        }
+        let ends = (observed.filesRefused, observed.filesFailed, observed.filesCancelled)
+        if ends != hostFileEndsPrinted {
+            hostFileEndsPrinted = ends
+            print("host file: refused \(ends.0), failed \(ends.1), cancelled \(ends.2)")
         }
     }
 

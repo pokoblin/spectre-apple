@@ -1,4 +1,6 @@
 import CoreVideo
+import Foundation
+import GDPKit
 import Metal
 import Synchronization
 import Testing
@@ -190,6 +192,44 @@ struct LoopbackSessionTests {
         let link = try #require(remote.linkStats())
         #expect(link.rttMicroseconds > 0 && link.recentLosses == 0)
         remote.close()
+    }
+
+    /// Files the viewer sends land in the loopback host's directory (§7.12).
+    @Test func filesLandInTheLoopbackDirectory() async throws {
+        let stream = try TestStreamEncoder.encode(codec: .h264, width: 640, height: 360, frameCount: 10,
+                                                  bitrate: 2_000_000)
+        let loopback = try LoopbackHost(stream: stream, audio: false)
+        let accepted = Mutex(false)
+        let ready = Mutex<UInt64?>(nil)
+        let outcome = Mutex<GDPSession.FileOutcome?>(nil)
+        var handlers = GDPSession.Handlers()
+        handlers.accepted = { _ in accepted.withLock { $0 = true } }
+        handlers.fileAccepted = { id in ready.withLock { $0 = id } }
+        handlers.fileFinished = { _, o in outcome.withLock { $0 = o } }
+        let session = GDPSession(handlers: handlers)
+        var config = loopback.sessionConfiguration()
+        config.capabilities = [GDPSession.Capability.file]
+        try session.connect(config)
+        func until(_ condition: () -> Bool) async -> Bool {
+            for _ in 0..<500 {
+                if condition() { return true }
+                try? await Task.sleep(for: .milliseconds(10))
+            }
+            return condition()
+        }
+        #expect(await until { accepted.withLock { $0 } })
+        let name = "loopback-test-\(UUID().uuidString).txt"
+        let contents = Data("sent over loopback ✓".utf8)
+        let id = try #require(session.offerFile(name: name, size: UInt64(contents.count), modified: nil))
+        #expect(await until { ready.withLock { $0 } == id })
+        session.sendFileData(id, contents)
+        #expect(await until { outcome.withLock { $0 } != nil })
+        #expect(outcome.withLock { $0 } == .saved(name: name))
+        let file = loopback.fileDirectory.appending(path: name)
+        defer { try? FileManager.default.removeItem(at: file) }
+        #expect(try Data(contentsOf: file) == contents)
+        #expect(loopback.host.receivedFiles.last?.path == file.path(percentEncoded: false))
+        session.close()
     }
 
     /// iOS in the background: frames are acknowledged but not decoded (no

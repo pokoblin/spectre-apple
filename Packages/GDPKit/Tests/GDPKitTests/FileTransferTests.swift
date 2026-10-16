@@ -215,6 +215,40 @@ struct FileTransferTests {
         #expect(host.receivedFiles.isEmpty)
     }
 
+    @Test func aHostWithADirectoryWritesThere() async throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "gdpkit-files-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        // A file of that name is already there: never replaced.
+        try Data("old".utf8).write(to: dir.appending(path: "notes.txt"))
+        let host = try fileHost { $0.fileDirectory = dir }
+        let rec = Recorder()
+        let session = try await fileSession(host, rec)
+        let data = randomFrame(300_000)
+        let modified = Date(timeIntervalSince1970: 1_600_000_000.5)
+        #expect(try await upload(session, rec, name: "notes.txt", data: data, modified: modified)
+            == .saved(name: "notes (1).txt"))
+        #expect(try Data(contentsOf: dir.appending(path: "notes.txt")) == Data("old".utf8))
+        let written = dir.appending(path: "notes (1).txt")
+        #expect(try Data(contentsOf: written) == Data(data))
+        let mtime = try FileManager.default.attributesOfItem(atPath: written.path)[.modificationDate] as? Date
+        #expect(mtime.map { abs($0.timeIntervalSince1970 - 1_600_000_000.5) < 0.001 } == true)
+        let received = try #require(host.receivedFiles.first)
+        #expect(received.data.isEmpty && received.size == UInt64(data.count))
+        #expect(received.path == written.path(percentEncoded: false))
+
+        // Cancelled part way: its temporary file goes.
+        let id = try #require(session.offerFile(name: "gone.bin", size: 1 << 20, modified: nil))
+        #expect(await eventually { rec.snapshot.filesAccepted.contains(id) })
+        session.sendFileData(id, Data(randomFrame(1000)))
+        #expect(await eventually { (rec.snapshot.fileProgress[id]?.last ?? 0) == 1000 })
+        session.cancelFile(id)
+        #expect(await eventually { host.observed.filesCancelled == 1 })
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.path)
+        #expect(names.sorted() == ["notes (1).txt", "notes.txt"])
+        session.close()
+    }
+
     @Test func bytesPastTheSizeAreNotSent() async throws {
         let host = try fileHost()
         let rec = Recorder()

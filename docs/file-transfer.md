@@ -164,7 +164,8 @@ enum FileErrorCode {
 
 - **GDPKit（已完成）**：`SessionClient` 管理每个文件的状态机（offer → 等 `accepted` → 发字节，最后一段带 FIN → 等 `saved`）。读文件不在这一层：上层收到 `fileAccepted` 之后自己读、用 `sendFileData` 往里送，按 `fileProgress`（host 已确认的字节数，只算文件内容，不算开头那一帧）控制在途的量，整个文件不会一次进内存。结果只有一次 `fileFinished`：`saved(name)`、`refused(错误)`、`failed(错误)`、`cancelledByHost`、`timedOut`、`connectionEnded`；连接断开时先报告所有未完成的传输，再报告会话结束。客户端自己 `cancelFile` 时直接 reset，不再回调。名字在 Swift 层先转成 NFC 再交给 C++ 检查。客户端不接受 host 开的流，libgdp 已经按 §2.2 拒绝了。
   - 测试 13 个（`FileTransferTests`）：名字和修改时间、NFC、重名编号、8 MiB 按确认量送数据、空文件、一次超过 4 个（流配额补回）、不合法的名字、没有 capability、拒绝、中途失败后会话照常、超时、取消、连接断开、超出大小的数据不发。回环上 8 MiB 用时约 57 ms。
-- **测试 host**：`GDPTestHost` 已经能收文件（内存里），可以故意拒绝、中途失败、不回复。还没做的：`LoopbackHost`（App 的 loopback 模式）存到临时目录、在每秒的日志里打印文件名和大小。
+- **测试 host（已完成）**：`GDPTestHost` 能收文件，可以故意拒绝、中途失败、不回复。默认放在内存里；配置了 `fileDirectory` 就边收边写到那个目录里的隐藏临时文件，收完用 `link()` 改成正式名字（名字被占用时 `link` 失败，所以不会覆盖已有文件，接着试 `name (1).ext`……），并设置修改时间。
+  - App 的 loopback 模式（`LoopbackHost`）提供 `file`，收到的文件存到 App 临时目录下的 `Loopback Files`（macOS 沙盒里是 `~/Library/Containers/org.ghost.spectre.apple/Data/tmp/Loopback Files`）。启动时打印 `host files: <目录>`，之后每秒的日志里打印 `host file: saved "名字" (N bytes)`（改了名时加 `as "新名字"`），以及拒绝、失败、取消的累计数。App 自己要到第 6、7 项才会提供 `file`，在那之前 loopback 会话里这个 capability 不会生效。
 - **SpectreKit `FileTransfer`**：队列（最多 4 个同时传）、进度、取消、重试；macOS 的 security-scoped URL，iOS 用 `NSFileCoordinator` 读取（iCloud 里还没下载的文件会先下载）；读取过程中文件大小变了，就当作失败。
 - **macOS**：拖进会话窗口；工具栏"发送文件…"（`NSOpenPanel`，需要 `com.apple.security.files.user-selected.read-only`）；传输列表显示进度、可以取消。
 - **iOS / iPadOS**：工具栏菜单里用 `fileImporter`；iPad 可以拖放；进入后台时用 `beginBackgroundTask` 争取时间，时间到了就当作取消。

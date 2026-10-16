@@ -53,13 +53,17 @@ public:
 		std::string clipboard;
 		// File transfer (§7.12), with `file` among `capabilities`: files the
 		// viewer sends are kept in memory (received_file()), saved under the
-		// offered name or "name (1).ext" when one was already taken.
+		// offered name or "name (1).ext" when one was already taken. With
+		// `file_directory`, they are written there instead (a temporary
+		// file while arriving, never over an existing one) and only their
+		// path is kept.
 		// Misbehaviour, for tests: refuse every offer with this
 		// FileErrorCode; fail (WRITE_FAILED) once this many bytes of a file
 		// have arrived; never answer an offer at all.
 		int32_t file_refuse = 0;
 		uint64_t file_fail_after = 0;
 		bool file_ignore_offers = false;
+		std::string file_directory;
 	};
 
 	// One input event as received (§8.2, §8.3, §8.5), in order.
@@ -85,7 +89,9 @@ public:
 		std::string name;       // as offered
 		std::string saved_name; // what the viewer was told
 		int64_t modified_unix_ms = 0;
-		std::vector<uint8_t> data;
+		std::vector<uint8_t> data; // empty with file_directory
+		std::string path;          // with file_directory
+		uint64_t size = 0;
 	};
 
 	struct MicrophonePacket {

@@ -14,8 +14,13 @@
 #include "session.pb.h"
 
 #include <algorithm>
+#include <cerrno>
 #include <list>
 #include <set>
+
+#include <fcntl.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 namespace gdpcore {
 
@@ -61,7 +66,15 @@ struct TestHost::Impl {
 		std::string name;
 		uint64_t size = 0;
 		int64_t modified_unix_ms = 0;
-		std::vector<uint8_t> data;
+		std::vector<uint8_t> data; // in memory
+		uint64_t received = 0;
+		// With cfg.file_directory: the temporary file being written.
+		int fd = -1;
+		std::string temp_path;
+		~Incoming() {
+			if (fd >= 0) ::close(fd);
+			if (!temp_path.empty()) ::unlink(temp_path.c_str());
+		}
 	};
 	std::list<std::unique_ptr<Incoming>> incoming;
 	std::set<std::string> saved_names;
@@ -462,12 +475,22 @@ struct TestHost::Impl {
 			on_file_offer(f);
 			return;
 		}
-		if (len > f->size - f->data.size()) {
+		if (len > f->size - f->received) {
 			end_file(f, false, gdp::session::FILE_ERROR_SIZE_MISMATCH);
 			return;
 		}
-		f->data.insert(f->data.end(), data, data + len);
-		if (cfg.file_fail_after && f->data.size() >= cfg.file_fail_after) {
+		f->received += len;
+		if (f->fd >= 0) {
+			for (size_t done = 0; done < len;) {
+				ssize_t n = ::write(f->fd, data + done, len - done);
+				if (n < 0 && errno == EINTR) continue;
+				if (n < 0) return end_file(f, false, gdp::session::FILE_ERROR_WRITE_FAILED);
+				done += size_t(n);
+			}
+		} else {
+			f->data.insert(f->data.end(), data, data + len);
+		}
+		if (cfg.file_fail_after && f->received >= cfg.file_fail_after) {
 			end_file(f, false, gdp::session::FILE_ERROR_WRITE_FAILED);
 		}
 	}
@@ -496,6 +519,12 @@ struct TestHost::Impl {
 		if (!gdp::valid_file_name(f->name)) return end_file(f, true, gdp::session::FILE_ERROR_BAD_NAME);
 		if (cfg.file_refuse) return end_file(f, true, static_cast<gdp::session::FileErrorCode>(cfg.file_refuse));
 		if (cfg.file_ignore_offers) return;
+		if (!cfg.file_directory.empty()) {
+			std::string templ = cfg.file_directory + "/.loopback-receiving-XXXXXX";
+			f->fd = ::mkstemp(templ.data());
+			if (f->fd < 0) return end_file(f, true, gdp::session::FILE_ERROR_WRITE_FAILED);
+			f->temp_path = templ;
+		}
 		f->accepted = true;
 		gdp::session::FileReply reply;
 		reply.mutable_accepted();
@@ -507,13 +536,34 @@ struct TestHost::Impl {
 			drop_file(f);
 			return;
 		}
-		if (f->data.size() != f->size) {
+		if (f->received != f->size) {
 			end_file(f, false, gdp::session::FILE_ERROR_SIZE_MISMATCH);
 			return;
 		}
 		std::string saved = f->name;
-		for (unsigned n = 1; saved_names.count(saved); n++) saved = gdp::numbered_file_name(f->name, n);
-		saved_names.insert(saved);
+		std::string path;
+		if (f->fd >= 0) {
+			if (f->modified_unix_ms > 0) {
+				struct timeval times[2] = {};
+				::gettimeofday(&times[0], nullptr);
+				times[1].tv_sec = f->modified_unix_ms / 1000;
+				times[1].tv_usec = int((f->modified_unix_ms % 1000) * 1000);
+				::futimes(f->fd, times);
+			}
+			::close(f->fd);
+			f->fd = -1;
+			// link() fails on a taken name, so nothing is ever replaced; the
+			// temporary name goes with the Incoming.
+			for (unsigned n = 1;; n++) {
+				path = cfg.file_directory + "/" + saved;
+				if (::link(f->temp_path.c_str(), path.c_str()) == 0) break;
+				if (errno != EEXIST || n > 10000) return end_file(f, false, gdp::session::FILE_ERROR_WRITE_FAILED);
+				saved = gdp::numbered_file_name(f->name, n);
+			}
+		} else {
+			for (unsigned n = 1; saved_names.count(saved); n++) saved = gdp::numbered_file_name(f->name, n);
+			saved_names.insert(saved);
+		}
 		gdp::session::FileReply reply;
 		reply.mutable_saved()->set_name(saved);
 		f->stream->send_message(reply);
@@ -521,7 +571,7 @@ struct TestHost::Impl {
 		{
 			std::lock_guard lock(mu);
 			obs.files_saved++;
-			received_files.push_back({f->name, saved, f->modified_unix_ms, std::move(f->data)});
+			received_files.push_back({f->name, saved, f->modified_unix_ms, std::move(f->data), path, f->size});
 		}
 		drop_file(f);
 	}
@@ -684,6 +734,8 @@ TestHost::~TestHost() = default;
 bool TestHost::start(const Config &config, std::string *error) {
 	Impl &m = *impl_;
 	m.cfg = config;
+	// Joined with "/" + name: no trailing slash of its own.
+	while (m.cfg.file_directory.size() > 1 && m.cfg.file_directory.back() == '/') m.cfg.file_directory.pop_back();
 	m.clipboard = config.clipboard;
 	if (!m.loop.start(
 			config.scratch_dir, [&m](std::unique_ptr<gdp::Connection> conn) { m.on_new_connection(std::move(conn)); },

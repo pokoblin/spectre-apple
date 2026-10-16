@@ -41,6 +41,9 @@ public final class GDPTestHost: @unchecked Sendable {
         public var fileRefusal: GDPSession.FileError?
         public var fileFailAfter: UInt64 = 0
         public var fileIgnoreOffers = false
+        /// Write received files here instead of keeping them in memory
+        /// (never over an existing file); ``ReceivedFile/path`` says where.
+        public var fileDirectory: URL?
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -122,7 +125,11 @@ public final class GDPTestHost: @unchecked Sendable {
         /// As offered, and as the viewer was told it was saved.
         public var name, savedName: String
         public var modifiedUnixMilliseconds: Int64
+        public var size: UInt64
+        /// The contents, kept in memory without ``Configuration/fileDirectory``.
         public var data: [UInt8]
+        /// Where it was written, with ``Configuration/fileDirectory``.
+        public var path: String?
     }
 
     /// Every file saved so far, in order.
@@ -132,15 +139,17 @@ public final class GDPTestHost: @unchecked Sendable {
         while true {
             var info = gdpc_test_host_file()
             guard gdpc_test_host_received_file(handle, index, &info, nil, 0) else { return out }
-            var data = [UInt8](repeating: 0, count: Int(info.size))
-            _ = data.withUnsafeMutableBufferPointer {
-                gdpc_test_host_received_file(handle, index, nil, $0.baseAddress, $0.count)
-            }
             func s<T>(_ tuple: T) -> String {
                 withUnsafeBytes(of: tuple) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
             }
+            let path = s(info.path)
+            var data = [UInt8](repeating: 0, count: path.isEmpty ? Int(info.size) : 0)
+            _ = data.withUnsafeMutableBufferPointer {
+                gdpc_test_host_received_file(handle, index, nil, $0.baseAddress, $0.count)
+            }
             out.append(ReceivedFile(name: s(info.name), savedName: s(info.saved_name),
-                                    modifiedUnixMilliseconds: info.modified_unix_ms, data: data))
+                                    modifiedUnixMilliseconds: info.modified_unix_ms, size: info.size, data: data,
+                                    path: path.isEmpty ? nil : path))
             index += 1
         }
     }
@@ -198,6 +207,7 @@ public final class GDPTestHost: @unchecked Sendable {
                         withOptionalCString(config.forceCodec) { force in
                             withOptionalCString(config.rejectReason) { reject in
                             withOptionalCString(config.clipboard) { clipboard in
+                            withOptionalCString(config.fileDirectory?.path(percentEncoded: false)) { fileDirectory in
                                 var c = gdpc_test_host_config()
                                 c.scratch_dir = dir
                                 c.token = token
@@ -226,7 +236,9 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.file_refuse = config.fileRefusal?.rawValue ?? 0
                                 c.file_fail_after = config.fileFailAfter
                                 c.file_ignore_offers = config.fileIgnoreOffers
+                                c.file_directory = fileDirectory
                                 return gdpc_test_host_create(&c, &error, error.count)
+                            }
                             }
                             }
                         }

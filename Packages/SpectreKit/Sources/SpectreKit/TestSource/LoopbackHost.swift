@@ -1,4 +1,5 @@
 import Dispatch
+import Foundation
 import GDPKit
 
 /// A stand-in for wraith in this process: GDPKit's test host on 127.0.0.1,
@@ -9,9 +10,14 @@ import GDPKit
 ///
 /// With `audio`, it also advertises wraith's audio format and sends a test
 /// tone every 10 ms: a 0.1 s, 880 Hz beep once a second, silence between.
+///
+/// Files the viewer sends (gdp-spec.md §7.12) land in ``fileDirectory``,
+/// as wraith's land in the download directory.
 public final class LoopbackHost: @unchecked Sendable {
     public let host: GDPTestHost
     public let stream: TestStream
+    /// Where received files go: "Loopback Files" in the app's temporary directory.
+    public let fileDirectory: URL
     private let queue = DispatchQueue(label: "spectre.loopback-host", qos: .userInteractive)
     private var timer: DispatchSourceTimer?
     private var audioTimer: DispatchSourceTimer?
@@ -28,10 +34,16 @@ public final class LoopbackHost: @unchecked Sendable {
         // Keep a pointer as wraith does, so a captured mouse moves the cursor (§7.4).
         config.simulatePointer = true
         // Take the microphone, so loopback shows what the host receives (§10.1),
-        // gamepads (§8.5), and keep a clipboard: what the viewer copies comes
-        // back on the next attach.
-        config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard]
+        // gamepads (§8.5), files (§7.12), and keep a clipboard: what the
+        // viewer copies comes back on the next attach.
+        config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
+                               GDPSession.Capability.file]
         config.clipboard = clipboard
+        fileDirectory = FileManager.default.temporaryDirectory.appending(path: "Loopback Files", directoryHint: .isDirectory)
+        // Without the directory the files would only be kept in memory.
+        if (try? FileManager.default.createDirectory(at: fileDirectory, withIntermediateDirectories: true)) != nil {
+            config.fileDirectory = fileDirectory
+        }
         beep = audio ? Self.encodeBeep() : []
         config.audio = !beep.isEmpty
         host = try GDPTestHost(config)

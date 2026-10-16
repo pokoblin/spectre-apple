@@ -319,6 +319,7 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	config.file_refuse = c->file_refuse;
 	config.file_fail_after = c->file_fail_after;
 	config.file_ignore_offers = c->file_ignore_offers;
+	if (c->file_directory) config.file_directory = c->file_directory;
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -518,7 +519,8 @@ bool gdpc_test_host_received_file(const gdpc_test_host *host, size_t index, gdpc
 		copy_string(info->name, sizeof(info->name), f.name);
 		copy_string(info->saved_name, sizeof(info->saved_name), f.saved_name);
 		info->modified_unix_ms = f.modified_unix_ms;
-		info->size = f.data.size();
+		info->size = f.size;
+		copy_string(info->path, sizeof(info->path), f.path);
 	}
 	if (data) std::copy_n(f.data.begin(), std::min(cap, f.data.size()), data);
 	return true;
