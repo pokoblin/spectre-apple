@@ -4,6 +4,8 @@
 #include "session_client.hpp"
 #include "test_host.hpp"
 
+#include "gdp/file_transfer.hpp"
+
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -133,6 +135,17 @@ struct gdpc_session {
 		cb.clipboard_text = [this](const uint8_t *text, size_t len) {
 			if (callbacks.clipboard_text) callbacks.clipboard_text(callbacks.ctx, text, len);
 		};
+		cb.file_accepted = [this](uint64_t id) {
+			if (callbacks.file_accepted) callbacks.file_accepted(callbacks.ctx, id);
+		};
+		cb.file_progress = [this](uint64_t id, uint64_t acked) {
+			if (callbacks.file_progress) callbacks.file_progress(callbacks.ctx, id, acked);
+		};
+		cb.file_finished = [this](uint64_t id, gdpcore::FileOutcome outcome, int32_t error, const std::string &name) {
+			if (!callbacks.file_finished) return;
+			bool saved = outcome == gdpcore::FileOutcome::kSaved;
+			callbacks.file_finished(callbacks.ctx, id, static_cast<int32_t>(outcome), error, saved ? name.c_str() : nullptr);
+		};
 		return cb;
 	}
 };
@@ -167,6 +180,7 @@ bool gdpc_session_connect(gdpc_session *session, const gdpc_session_config *c, c
 	config.take_over = c->take_over;
 	config.network_profile = c->network_profile;
 	config.drop_until_keyframe_after_loss = c->drop_until_keyframe_after_loss;
+	config.file_reply_timeout_ms = c->file_reply_timeout_ms;
 	std::string err;
 	bool ok = session->client.start(config, &err);
 	if (!ok && error && error_cap) copy_string(error, error_cap, err);
@@ -204,6 +218,18 @@ void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *
 void gdpc_session_send_clipboard_text(gdpc_session *session, const uint8_t *text, size_t len) {
 	session->client.send_clipboard_text(text, len);
 }
+
+uint64_t gdpc_session_offer_file(gdpc_session *session, const char *name, uint64_t size, int64_t modified_unix_ms) {
+	return name ? session->client.offer_file(name, size, modified_unix_ms) : 0;
+}
+
+bool gdpc_session_send_file_data(gdpc_session *session, uint64_t id, const uint8_t *data, size_t len) {
+	return session->client.send_file_data(id, data, len);
+}
+
+void gdpc_session_cancel_file(gdpc_session *session, uint64_t id) { session->client.cancel_file(id); }
+
+bool gdpc_valid_file_name(const char *name) { return name && gdp::valid_file_name(name); }
 
 void gdpc_session_send_key(gdpc_session *session, uint32_t hid_usage, bool pressed) {
 	session->client.send_key(hid_usage, pressed);
@@ -290,6 +316,9 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	config.first_frame_id = c->first_frame_id;
 	config.simulate_pointer = c->simulate_pointer;
 	if (c->clipboard) config.clipboard = c->clipboard;
+	config.file_refuse = c->file_refuse;
+	config.file_fail_after = c->file_fail_after;
+	config.file_ignore_offers = c->file_ignore_offers;
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -428,6 +457,13 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->cursor_positions_sent = o.cursor_positions_sent;
 	out->clipboard_messages = o.clipboard_messages;
 	copy_string(out->last_clipboard_mime, sizeof(out->last_clipboard_mime), o.last_clipboard_mime);
+	out->files_offered = o.files_offered;
+	out->files_saved = o.files_saved;
+	out->files_refused = o.files_refused;
+	out->files_failed = o.files_failed;
+	out->files_cancelled = o.files_cancelled;
+	out->file_streams_open = o.file_streams_open;
+	copy_string(out->last_file_name, sizeof(out->last_file_name), o.last_file_name);
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 
@@ -471,6 +507,20 @@ bool gdpc_test_host_microphone_packet(const gdpc_test_host *host, size_t index, 
 	*pts = p.pts;
 	*len = p.opus.size();
 	std::copy(p.opus.begin(), p.opus.begin() + static_cast<ptrdiff_t>(std::min(cap, p.opus.size())), opus);
+	return true;
+}
+
+bool gdpc_test_host_received_file(const gdpc_test_host *host, size_t index, gdpc_test_host_file *info, uint8_t *data,
+	size_t cap) {
+	gdpcore::TestHost::ReceivedFile f;
+	if (!host->host.received_file(index, &f)) return false;
+	if (info) {
+		copy_string(info->name, sizeof(info->name), f.name);
+		copy_string(info->saved_name, sizeof(info->saved_name), f.saved_name);
+		info->modified_unix_ms = f.modified_unix_ms;
+		info->size = f.data.size();
+	}
+	if (data) std::copy_n(f.data.begin(), std::min(cap, f.data.size()), data);
 	return true;
 }
 

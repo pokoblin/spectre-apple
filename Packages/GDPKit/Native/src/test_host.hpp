@@ -51,6 +51,15 @@ public:
 		// SessionAccept when `clipboard` is in effect (§7.9). Text the
 		// viewer sends replaces it, so the next viewer gets that.
 		std::string clipboard;
+		// File transfer (§7.12), with `file` among `capabilities`: files the
+		// viewer sends are kept in memory (received_file()), saved under the
+		// offered name or "name (1).ext" when one was already taken.
+		// Misbehaviour, for tests: refuse every offer with this
+		// FileErrorCode; fail (WRITE_FAILED) once this many bytes of a file
+		// have arrived; never answer an offer at all.
+		int32_t file_refuse = 0;
+		uint64_t file_fail_after = 0;
+		bool file_ignore_offers = false;
 	};
 
 	// One input event as received (§8.2, §8.3, §8.5), in order.
@@ -71,6 +80,13 @@ public:
 	};
 	static constexpr size_t kMaxInputLog = 8192;
 	static constexpr size_t kMaxMicrophoneLog = 6000; // a minute of 10 ms packets
+
+	struct ReceivedFile {
+		std::string name;       // as offered
+		std::string saved_name; // what the viewer was told
+		int64_t modified_unix_ms = 0;
+		std::vector<uint8_t> data;
+	};
 
 	struct MicrophonePacket {
 		uint16_t seq = 0;
@@ -152,6 +168,15 @@ public:
 		uint64_t microphone_bytes = 0;
 		uint32_t microphone_dropped = 0;
 
+		// §7.12: file streams from the viewer, by how each ended.
+		uint32_t files_offered = 0;
+		uint32_t files_saved = 0;
+		uint32_t files_refused = 0;
+		uint32_t files_failed = 0;    // accepted, then failed (fail_after, a size mismatch)
+		uint32_t files_cancelled = 0; // the viewer reset the stream
+		uint32_t file_streams_open = 0;
+		std::string last_file_name;   // as offered
+
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;
 		uint16_t max_datagram_size = 0;
@@ -193,6 +218,8 @@ public:
 	Observed observed() const;
 	// Microphone packet `index` in arrival order (the first kMaxMicrophoneLog); false past the end.
 	bool microphone_packet(size_t index, MicrophonePacket *out) const;
+	// File `index` among those saved, in order; false past the end.
+	bool received_file(size_t index, ReceivedFile *out) const;
 	// The most recent microphone packet, past the log too; false before any.
 	bool latest_microphone_packet(MicrophonePacket *out) const;
 

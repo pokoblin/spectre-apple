@@ -44,6 +44,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 | §7.9 剪贴板 | 只有 `clipboard` 生效时才处理和发送 `ClipboardData`：MIME 不是 `text/plain`、内容为空、超过 1 047 552 字节的一律丢弃，也不会发出；Swift 层再丢掉不是合法 UTF-8 的内容。建立之前不发。回声抑制和平台剪贴板在 SpectreKit，见 [clipboard.md](clipboard.md) |
 | §7.10 Logout | 发 LogoutRequest；以 host 关闭时的 `SESSION_ENDED`(40) 作为完成信号 |
 | §7.11 诊断 | 收到请求后回调上层；每个请求只回答一次，超过 512 KiB 的部分截掉 |
+| §7.12 文件传输 | 只有 `file` 生效时才能 `offer_file`；名字不合法（§7.12）的不发出。每个文件一条额外的流，状态机是 offer → 等 `accepted` → 发字节（最后一段带 FIN）→ 等 `saved`；回复顺序不对、解析失败按 `MALFORMED_FRAME` 关闭连接。30 秒没有回复算超时并 reset。见 [file-transfer.md](file-transfer.md) |
 | §8 输入 | 键盘（HID usage）、指针移动（绝对/相对）、按键（`BTN_*`）、滚轮（以 notch 为单位）、触摸。建立之前不发；`client_time_us` 取单调时钟 |
 | §8.5 手柄 | 只有 `gamepad` 生效时才发 `GamepadConnect`/`GamepadState`/`GamepadDisconnect`，槽位 ≥ 4 的不发。`GamepadState` 总是带全 6 个轴、26 个按钮（`GDPKit.GamepadState` 按规范的顺序定义）；摇杆夹到 −1…1、扳机夹到 0…1，NaN 发 0。映射和转发在 SpectreKit，见 [gamepad.md](gamepad.md) |
 | §8.4 input 流上的回程数据 | 没有 `hid` capability 时，host 发来的数据一律忽略 |
@@ -87,6 +88,7 @@ App/Shared/PlaybackModel          来源：loopback（默认）/ direct / remote
 - 按客户端的偏好选择 codec，capability 取双方的交集；发送 Accept、光标和（`clipboard` 生效时）自己的剪贴板；记住 viewer 发来的剪贴板文本，下一个 viewer 连上时发给它；按 §7.2 的规则响应 ResolutionChange；收到 Logout 后以 `SESSION_ENDED` 关闭。
 - 把视频帧切成 datagram 发送（可以指定丢弃某些分片，模拟丢包），也能发送音频、Ping、光标、DisplaysChanged、网络 profile、GatewayPath、诊断请求。音频可以由调用方给出 `seq` 和 `pts`（测乱序、丢包），也可以像真实 host 那样由测试 host 自己编号（从 Accept 时的 0 开始）、用会话时钟打 `pts`（`sendAudio`）；Accept 里的音频格式可以配置（测不支持的格式）。
 - 可以故意出错：选一个客户端没提供的 codec、用指定的码拒绝、发 Reject、在 Accept 之前发 Ping、让 frame_id 从任意值开始。
+- `file` 生效时接收文件（§7.12）：放开 4 条流，收到的文件留在内存里（重名时也按 `name (1).ext` 起名）；可以故意拒绝（指定错误码）、收到一定字节后失败、或者永远不回复。
 - 记录收到的一切，包括每份 StatsReport 的字段、所有被报告为丢失的 frame_id，以及手柄消息原样的内容（轴和按钮的个数、取值）。收到 KeyframeRequest 或有新的丢失时会标记"需要关键帧"。
 
 App 的 loopback 模式（`SpectreKit.LoopbackHost`）就是用它按 60 Hz 播放测试码流，收到"需要关键帧"时从第 0 帧（IDR）重新开始。

@@ -17,12 +17,19 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+namespace gdp {
+class Stream;
+}
+
 namespace gdp::session {
 class ControlEnvelope;
+class FileReply;
 class InputEnvelope;
 class OutputDescriptor;
 class SessionAccept;
@@ -77,6 +84,16 @@ struct VideoFrame {
 	size_t len = 0;
 };
 
+// How a file transfer ended (gdp-spec.md §7.12).
+enum class FileOutcome : int32_t {
+	kSaved = 1,     // the host stored it, under the name it reported
+	kRefused = 2,   // the host refused the offer (a FileErrorCode says why)
+	kFailed = 3,    // the host accepted, then gave up (a FileErrorCode says why)
+	kCancelled = 4, // the host reset the stream
+	kTimedOut = 5,  // no answer to the offer in time
+	kLost = 6,      // the connection ended first
+};
+
 class SessionClient : public gdp::ClientConnection {
 public:
 	struct Config {
@@ -97,6 +114,9 @@ public:
 		int32_t network_profile = 0; // NetworkProfile
 		// §9.3: after a loss, drop non-keyframes until the host's repair keyframe.
 		bool drop_until_keyframe_after_loss = true;
+		// §7.12: how long an offer waits for the host's answer; 0 is the
+		// spec's 30 s (tests shorten it).
+		uint32_t file_reply_timeout_ms = 0;
 	};
 
 	struct Callbacks {
@@ -122,6 +142,15 @@ public:
 		// The host's clipboard text, UTF-8 as sent (§7.9): only with
 		// `clipboard` in effect, never empty or over the size limit.
 		std::function<void(const uint8_t *text, size_t len)> clipboard_text;
+		// File transfer (§7.12), per offer_file() id. `file_accepted`: send
+		// its bytes now. `file_progress`: how many of them the host has
+		// acknowledged, coalesced. `file_finished`: exactly once per offer
+		// (except after cancel_file()), with the FileErrorCode for kRefused
+		// and kFailed and the stored name for kSaved.
+		std::function<void(uint64_t id)> file_accepted;
+		std::function<void(uint64_t id, uint64_t acked)> file_progress;
+		std::function<void(uint64_t id, FileOutcome outcome, int32_t error, const std::string &saved_name)>
+			file_finished;
 	};
 
 	struct LinkStats {
@@ -181,6 +210,20 @@ public:
 	void send_gamepad_state(uint32_t slot, const float *axes, const bool *buttons);
 	void send_gamepad_disconnect(uint32_t slot);
 
+	// File transfer (§7.12). Offers a file on a stream of its own and returns
+	// its id, or 0 before establishment, without `file` in effect, or for a
+	// name that breaks §7.12's rules (gdp::valid_file_name()). The host
+	// grants gdp::kFileStreamsAtOnce streams at once: keep no more offers
+	// than that unfinished, or the rest wait for a stream while their reply
+	// timeout runs.
+	uint64_t offer_file(const std::string &name, uint64_t size, int64_t modified_unix_ms);
+	// The file's next bytes, once file_accepted has fired; the stream is
+	// finished with the last of `size`. False (nothing sent) before then,
+	// after the end, or for more than the rest of the file.
+	bool send_file_data(uint64_t id, const uint8_t *data, size_t len);
+	// Cancels: the stream is reset (code 0). No file_finished follows.
+	void cancel_file(uint64_t id);
+
 	// One Opus packet of the microphone (§10.1) on datagram channel 0x03:
 	// seq counts from 0 at SessionAccept, pts is our session clock. Dropped
 	// (false) unless established with `microphone` in effect.
@@ -196,6 +239,25 @@ private:
 	bool handle_envelope(const gdp::session::ControlEnvelope &env);
 	bool handle_accept(const gdp::session::SessionAccept &accept);
 	void handle_datagram(const uint8_t *data, size_t len, uint64_t arrival_us);
+
+	struct FileTransfer {
+		enum class State { kOffered, kSending, kSent };
+		uint64_t id = 0;
+		std::unique_ptr<gdp::Stream> stream;
+		gdp::FrameReader reader;
+		State state = State::kOffered;
+		uint64_t size = 0;
+		uint64_t sent = 0;
+		size_t open_frame_len = 0; // acks count the StreamOpen frame too
+		uint64_t offered_us = 0;
+	};
+	void handle_file_data(FileTransfer *t, const uint8_t *data, size_t len);
+	// Returns false once `t` is gone (or the connection is being closed).
+	bool handle_file_reply(FileTransfer *t, const gdp::session::FileReply &reply);
+	// Drops the transfer, then reports it.
+	void finish_file(FileTransfer *t, FileOutcome outcome, int32_t error = 0, const std::string &saved_name = {});
+	// Offers the host hasn't answered in time.
+	void expire_file_offers();
 	void handle_video_frame(gdp::VideoFrameReassembler::Frame &frame);
 	void deliver(const gdp::VideoFrameReassembler::Frame &frame);
 	void send_control(const gdp::session::ControlEnvelope &env);
@@ -224,6 +286,9 @@ private:
 	uint64_t microphone_dropped_ = 0;
 	bool clipboard_ = false;                // `clipboard` among them
 	bool gamepad_ = false;                  // `gamepad` among them
+	bool file_ = false;                     // `file` among them
+	std::map<uint64_t, std::unique_ptr<FileTransfer>> files_;
+	uint64_t next_file_id_ = 1;
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}

@@ -7,6 +7,7 @@
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
+#include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
 #include "gdp/gamepad.hpp"
 #include "gdp/version.hpp"
@@ -144,6 +145,8 @@ void SessionClient::report_closed(uint64_t c, const std::string &reason, bool co
 	accepted_ = false;
 	control_ = nullptr;
 	input_ = nullptr;
+	// Every transfer still going ends with the connection, reported first.
+	while (!files_.empty()) finish_file(files_.begin()->second.get(), FileOutcome::kLost);
 	if (cb_.closed) cb_.closed(c, reason, certificate_rejected(), connection_lost);
 }
 
@@ -287,6 +290,7 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	microphone_seq_ = 0; // §10.1
 	clipboard_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityClipboard) != capabilities_.end();
 	gamepad_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityGamepad) != capabilities_.end();
+	file_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFile) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
@@ -410,6 +414,9 @@ void SessionClient::mark_frame_discarded(uint8_t stream_id, uint32_t frame_id) {
 
 void SessionClient::send_stats_report() {
 	if (!accepted_ || !conn_) return;
+	// The same 250 ms tick serves the file offers' reply deadline.
+	expire_file_offers();
+	if (!accepted_) return;
 	gdp::session::ControlEnvelope env;
 	auto *report = env.mutable_stats();
 	report->set_rtt_us(conn_->rtt_us() + upstream_rtt_us_);
@@ -582,6 +589,143 @@ SessionClient::LinkStats SessionClient::link_stats() const {
 	s.microphone_dropped = microphone_dropped_;
 	if (!streams_.empty()) s.video = streams_.front().stats.snapshot();
 	return s;
+}
+
+} // namespace gdpcore
+
+// --- File transfer (§7.12) ---
+
+namespace gdpcore {
+
+uint64_t SessionClient::offer_file(const std::string &name, uint64_t size, int64_t modified_unix_ms) {
+	if (!accepted_ || !file_ || !conn_ || !gdp::valid_file_name(name)) return 0;
+	std::unique_ptr<gdp::Stream> stream = conn_->open_stream();
+	if (!stream) return 0;
+
+	gdp::session::FileOpen file_open;
+	auto *offer = file_open.mutable_offer();
+	offer->set_name(name);
+	offer->set_size(size);
+	offer->set_modified_unix_ms(modified_unix_ms);
+	gdp::session::StreamOpen open;
+	open.set_kind(gdp::kStreamKindFile);
+	open.set_params(file_open.SerializeAsString());
+	std::vector<uint8_t> frame;
+	if (!gdp::encode_frame(open, &frame)) return 0;
+
+	auto owned = std::make_unique<FileTransfer>();
+	FileTransfer *t = owned.get();
+	t->id = next_file_id_++;
+	t->stream = std::move(stream);
+	t->size = size;
+	t->open_frame_len = frame.size();
+	t->offered_us = gdp::monotonic_us();
+	t->stream->on_data = [this, t](const uint8_t *data, size_t len) { handle_file_data(t, data, len); };
+	// The host always says how it ended before its FIN or a reset; one
+	// that doesn't has given up on the file.
+	t->stream->on_fin = [this, t] {
+		finish_file(t, FileOutcome::kFailed, gdp::session::FILE_ERROR_UNSPECIFIED);
+	};
+	t->stream->on_reset = [this, t](uint64_t) { finish_file(t, FileOutcome::kCancelled); };
+	t->stream->on_acked = [this, t](uint64_t acked) {
+		if (t->state == FileTransfer::State::kOffered || !cb_.file_progress) return;
+		uint64_t bytes = acked > t->open_frame_len ? acked - t->open_frame_len : 0;
+		cb_.file_progress(t->id, std::min(bytes, t->size));
+	};
+	t->stream->send(frame.data(), frame.size());
+	files_[t->id] = std::move(owned);
+	return t->id;
+}
+
+bool SessionClient::send_file_data(uint64_t id, const uint8_t *data, size_t len) {
+	auto it = files_.find(id);
+	if (it == files_.end()) return false;
+	FileTransfer *t = it->second.get();
+	if (t->state != FileTransfer::State::kSending || len > t->size - t->sent) return false;
+	if (len == 0) return true;
+	t->sent += len;
+	bool last = t->sent == t->size;
+	t->stream->send(data, len, last);
+	if (last) t->state = FileTransfer::State::kSent;
+	return true;
+}
+
+void SessionClient::cancel_file(uint64_t id) {
+	auto it = files_.find(id);
+	if (it == files_.end()) return;
+	it->second->stream->reset(0);
+	files_.erase(it);
+}
+
+void SessionClient::handle_file_data(FileTransfer *t, const uint8_t *data, size_t len) {
+	gdp::session::FileReply reply;
+	bool ok = t->reader.feed_and_drain(data, len, &reply, [&] { return handle_file_reply(t, reply); });
+	if (!ok) {
+		// `t` is still there: only a parse failure gets here.
+		fail(t->reader.error_code(), t->reader.last_result() == gdp::FrameReader::Result::kTooLarge
+				? "the host sent an oversized file reply"
+				: "the host sent a malformed file reply");
+	}
+}
+
+bool SessionClient::handle_file_reply(FileTransfer *t, const gdp::session::FileReply &reply) {
+	using R = gdp::session::FileReply;
+	using State = FileTransfer::State;
+	if (local_close_ || closed_reported_) return false;
+	auto out_of_order = [&] {
+		fail(code(gdp::ErrorCode::kMalformedFrame), "the host's file reply came out of order");
+		return false;
+	};
+	switch (reply.reply_case()) {
+	case R::kAccepted:
+		if (t->state != State::kOffered) return out_of_order();
+		t->state = State::kSending;
+		if (t->size == 0) {
+			t->stream->send(nullptr, 0, true);
+			t->state = State::kSent;
+		}
+		if (cb_.file_accepted) cb_.file_accepted(t->id);
+		return true;
+	case R::kRefused:
+		if (t->state != State::kOffered) return out_of_order();
+		// §7.12: nothing more but the end of our direction.
+		t->stream->send(nullptr, 0, true);
+		finish_file(t, FileOutcome::kRefused, reply.refused().code());
+		return false;
+	case R::kSaved:
+		if (t->state != State::kSent) return out_of_order();
+		finish_file(t, FileOutcome::kSaved, 0, reply.saved().name());
+		return false;
+	case R::kFailed:
+		if (t->state == State::kOffered) return out_of_order();
+		finish_file(t, FileOutcome::kFailed, reply.failed().code());
+		return false;
+	default:
+		// Unset, or a case from a newer host: ignored (§3.1).
+		return true;
+	}
+}
+
+void SessionClient::finish_file(FileTransfer *t, FileOutcome outcome, int32_t error, const std::string &saved_name) {
+	uint64_t id = t->id;
+	// Dropping the stream: let go gracefully once our side has finished
+	// (the host's last frames still arrive), reset otherwise.
+	files_.erase(id);
+	if (cb_.file_finished) cb_.file_finished(id, outcome, error, saved_name);
+}
+
+void SessionClient::expire_file_offers() {
+	uint64_t timeout_us =
+		uint64_t(config_.file_reply_timeout_ms ? config_.file_reply_timeout_ms : gdp::kFileReplyTimeoutMs) * 1000;
+	uint64_t now = gdp::monotonic_us();
+	std::vector<FileTransfer *> expired;
+	for (auto &[id, t] : files_) {
+		if (t->state == FileTransfer::State::kOffered && now - t->offered_us > timeout_us) expired.push_back(t.get());
+	}
+	for (FileTransfer *t : expired) {
+		t->stream->reset(0);
+		finish_file(t, FileOutcome::kTimedOut);
+	}
 }
 
 } // namespace gdpcore

@@ -6,6 +6,7 @@
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
+#include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
 #include "gdp/negotiation.hpp"
 #include "gdp/transport.hpp"
@@ -14,6 +15,7 @@
 
 #include <algorithm>
 #include <list>
+#include <set>
 
 namespace gdpcore {
 
@@ -37,6 +39,7 @@ struct TestHost::Impl {
 		bool accepted = false;
 		bool microphone = false; // negotiated (§10.1)
 		bool clipboard = false; // `clipboard` in effect
+		bool file = false;      // `file` in effect
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
 		uint64_t close_code = 0;
@@ -49,10 +52,25 @@ struct TestHost::Impl {
 	std::list<std::unique_ptr<Peer>> peers;
 	Peer *viewer = nullptr;
 
+	// §7.12: file streams from the viewer, until each is answered.
+	struct Incoming {
+		Peer *peer = nullptr;
+		std::unique_ptr<gdp::Stream> stream;
+		gdp::FileStreamReader reader;
+		bool accepted = false;
+		std::string name;
+		uint64_t size = 0;
+		int64_t modified_unix_ms = 0;
+		std::vector<uint8_t> data;
+	};
+	std::list<std::unique_ptr<Incoming>> incoming;
+	std::set<std::string> saved_names;
+
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
 	std::vector<MicrophonePacket> microphone_log;
 	std::optional<MicrophonePacket> latest_microphone;
+	std::vector<ReceivedFile> received_files;
 	bool keyframe_wanted = false;
 
 	// Loop thread only.
@@ -102,7 +120,10 @@ struct TestHost::Impl {
 		};
 		p->conn->on_datagram = [this, p](const uint8_t *data, size_t len, uint64_t) { on_datagram(*p, data, len); };
 		p->conn->on_state_changed = [this, p](gdp::ConnectionState st) {
-			if (st != gdp::ConnectionState::kShutdown || p != viewer) return;
+			if (st != gdp::ConnectionState::kShutdown) return;
+			// Its file streams go with it, unanswered.
+			incoming.remove_if([p](const std::unique_ptr<Incoming> &f) { return f->peer == p; });
+			if (p != viewer) return;
 			viewer = nullptr;
 			std::lock_guard lock(mu);
 			obs.viewer_closed = true;
@@ -226,6 +247,7 @@ struct TestHost::Impl {
 			accept->add_capabilities(c);
 			if (c == "microphone") p.microphone = true;
 			if (c == gdp::kCapabilityClipboard) p.clipboard = true;
+			if (c == gdp::kCapabilityFile) p.file = true;
 		}
 		if (p.microphone) {
 			auto *m = accept->mutable_microphone();
@@ -257,6 +279,13 @@ struct TestHost::Impl {
 		c->set_height(2);
 		c->set_argb8888(std::string(16, '\xff'));
 		send(p, cursor);
+
+		// §7.12: the viewer's file streams.
+		if (p.file) {
+			Peer *peer = &p;
+			p.conn->on_stream = [this, peer](std::unique_ptr<gdp::Stream> s) { on_file_stream(peer, std::move(s)); };
+			p.conn->allow_streams(gdp::kFileStreamsAtOnce);
+		}
 
 		// §7.9: and the current clipboard text, if there is any.
 		if (p.clipboard && !clipboard.empty()) {
@@ -389,6 +418,131 @@ struct TestHost::Impl {
 		default:
 			break;
 		}
+	}
+
+	// --- File transfer (§7.12) ---
+
+	void on_file_stream(Peer *p, std::unique_ptr<gdp::Stream> stream) {
+		auto owned = std::make_unique<Incoming>();
+		Incoming *f = owned.get();
+		f->peer = p;
+		f->stream = std::move(stream);
+		f->stream->on_data = [this, f](const uint8_t *data, size_t len) { on_file_data(f, data, len); };
+		f->stream->on_fin = [this, f] { on_file_fin(f); };
+		f->stream->on_reset = [this, f](uint64_t) {
+			{
+				std::lock_guard lock(mu);
+				obs.files_cancelled++;
+			}
+			drop_file(f);
+		};
+		incoming.push_back(std::move(owned));
+		std::lock_guard lock(mu);
+		obs.file_streams_open = static_cast<uint32_t>(incoming.size());
+	}
+
+	void on_file_data(Incoming *f, const uint8_t *data, size_t len) {
+		// Kept in memory: the window comes straight back.
+		f->stream->consume(len);
+		if (!f->accepted) {
+			switch (f->reader.feed(data, len)) {
+			case gdp::FileStreamReader::State::kWaiting: return;
+			case gdp::FileStreamReader::State::kError:
+				close_peer(*f->peer, f->reader.error_code());
+				drop_file(f);
+				return;
+			case gdp::FileStreamReader::State::kOpened: break;
+			}
+			if (!f->reader.take_data().empty()) {
+				// Bytes before "accepted".
+				close_peer(*f->peer, code(gdp::ErrorCode::kMalformedFrame));
+				drop_file(f);
+				return;
+			}
+			on_file_offer(f);
+			return;
+		}
+		if (len > f->size - f->data.size()) {
+			end_file(f, false, gdp::session::FILE_ERROR_SIZE_MISMATCH);
+			return;
+		}
+		f->data.insert(f->data.end(), data, data + len);
+		if (cfg.file_fail_after && f->data.size() >= cfg.file_fail_after) {
+			end_file(f, false, gdp::session::FILE_ERROR_WRITE_FAILED);
+		}
+	}
+
+	void on_file_offer(Incoming *f) {
+		if (f->reader.kind() != gdp::kStreamKindFile) {
+			f->stream->reset(code(gdp::ErrorCode::kUnsupported));
+			drop_file(f);
+			return;
+		}
+		gdp::session::FileOpen open;
+		if (!open.ParseFromString(f->reader.params())) {
+			close_peer(*f->peer, code(gdp::ErrorCode::kMalformedFrame));
+			drop_file(f);
+			return;
+		}
+		f->name = open.offer().name();
+		f->size = open.offer().size();
+		f->modified_unix_ms = open.offer().modified_unix_ms();
+		{
+			std::lock_guard lock(mu);
+			obs.files_offered++;
+			obs.last_file_name = f->name;
+		}
+		if (!open.has_offer()) return end_file(f, true, gdp::session::FILE_ERROR_UNSUPPORTED);
+		if (!gdp::valid_file_name(f->name)) return end_file(f, true, gdp::session::FILE_ERROR_BAD_NAME);
+		if (cfg.file_refuse) return end_file(f, true, static_cast<gdp::session::FileErrorCode>(cfg.file_refuse));
+		if (cfg.file_ignore_offers) return;
+		f->accepted = true;
+		gdp::session::FileReply reply;
+		reply.mutable_accepted();
+		f->stream->send_message(reply);
+	}
+
+	void on_file_fin(Incoming *f) {
+		if (!f->accepted) {
+			drop_file(f);
+			return;
+		}
+		if (f->data.size() != f->size) {
+			end_file(f, false, gdp::session::FILE_ERROR_SIZE_MISMATCH);
+			return;
+		}
+		std::string saved = f->name;
+		for (unsigned n = 1; saved_names.count(saved); n++) saved = gdp::numbered_file_name(f->name, n);
+		saved_names.insert(saved);
+		gdp::session::FileReply reply;
+		reply.mutable_saved()->set_name(saved);
+		f->stream->send_message(reply);
+		f->stream->send(nullptr, 0, true);
+		{
+			std::lock_guard lock(mu);
+			obs.files_saved++;
+			received_files.push_back({f->name, saved, f->modified_unix_ms, std::move(f->data)});
+		}
+		drop_file(f);
+	}
+
+	// Answers `refused` (before acceptance) or `failed`, then FIN.
+	void end_file(Incoming *f, bool refused, gdp::session::FileErrorCode error) {
+		gdp::session::FileReply reply;
+		(refused ? reply.mutable_refused() : reply.mutable_failed())->set_code(error);
+		f->stream->send_message(reply);
+		f->stream->send(nullptr, 0, true);
+		{
+			std::lock_guard lock(mu);
+			(refused ? obs.files_refused : obs.files_failed)++;
+		}
+		drop_file(f);
+	}
+
+	void drop_file(Incoming *f) {
+		incoming.remove_if([f](const std::unique_ptr<Incoming> &i) { return i.get() == f; });
+		std::lock_guard lock(mu);
+		obs.file_streams_open = static_cast<uint32_t>(incoming.size());
 	}
 
 	void on_input(Peer &p, const uint8_t *data, size_t len) {
@@ -669,6 +823,13 @@ bool TestHost::take_keyframe_wanted() {
 TestHost::Observed TestHost::observed() const {
 	std::lock_guard lock(impl_->mu);
 	return impl_->obs;
+}
+
+bool TestHost::received_file(size_t index, ReceivedFile *out) const {
+	std::lock_guard lock(impl_->mu);
+	if (index >= impl_->received_files.size()) return false;
+	*out = impl_->received_files[index];
+	return true;
 }
 
 bool TestHost::latest_microphone_packet(MicrophonePacket *out) const {

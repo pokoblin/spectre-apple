@@ -41,6 +41,9 @@ public final class GDPSession: @unchecked Sendable {
         public var takeOver = false
         public var networkProfile = NetworkProfile.auto
         public var dropUntilKeyframeAfterLoss = true
+        /// How long a file offer waits for the host's answer (§7.12); 0 is
+        /// the spec's 30 s. Tests shorten it.
+        public var fileReplyTimeoutMilliseconds: UInt32 = 0
 
         public init(host: String, port: UInt16, token: String, certificate: CertificateFingerprint, codecs: [String]) {
             self.host = host
@@ -135,6 +138,41 @@ public final class GDPSession: @unchecked Sendable {
         }
     }
 
+    /// §7.12's FileErrorCode: why the host refused a file, or gave up on one.
+    public enum FileError: Int32, Sendable, Equatable {
+        case unspecified = 0
+        /// The host doesn't know this kind of offer.
+        case unsupported
+        /// The name breaks §7.12's rules.
+        case badName
+        /// Not enough free space on the host.
+        case noSpace
+        /// The host's policy or its user said no.
+        case refused
+        /// The host couldn't store it.
+        case writeFailed
+        /// The stream ended before or after the offered size.
+        case sizeMismatch
+
+        init(code: Int32) { self = FileError(rawValue: code) ?? .unspecified }
+    }
+
+    /// How a file transfer ended (§7.12).
+    public enum FileOutcome: Sendable, Equatable {
+        /// The host stored it, under `name` (the offered one, or "name (1).ext" when that was taken).
+        case saved(name: String)
+        /// The host refused the offer.
+        case refused(FileError)
+        /// The host accepted it, then gave up.
+        case failed(FileError)
+        /// The host reset the stream.
+        case cancelledByHost
+        /// No answer to the offer in time.
+        case timedOut
+        /// The connection ended first.
+        case connectionEnded
+    }
+
     /// A reassembled video frame; `data` is valid only during the handler.
     public struct VideoFrame {
         public let streamID: UInt8
@@ -206,6 +244,14 @@ public final class GDPSession: @unchecked Sendable {
         /// The host's clipboard text (§7.9): only with ``Capability/clipboard``
         /// in effect, never empty; text that isn't valid UTF-8 is dropped.
         public var clipboardText: (@Sendable (String) -> Void)?
+        /// File transfer (§7.12), per ``GDPSession/offerFile(name:size:modified:)``
+        /// id: the host accepted the offer (send the bytes with
+        /// ``GDPSession/sendFileData(_:_:)`` now), how many of them it has
+        /// acknowledged (coalesced), and how the transfer ended: once per
+        /// offer, unless it was cancelled with ``GDPSession/cancelFile(_:)``.
+        public var fileAccepted: (@Sendable (_ id: UInt64) -> Void)?
+        public var fileProgress: (@Sendable (_ id: UInt64, _ acknowledged: UInt64) -> Void)?
+        public var fileFinished: (@Sendable (_ id: UInt64, _ outcome: FileOutcome) -> Void)?
 
         public init() {}
     }
@@ -220,6 +266,22 @@ public final class GDPSession: @unchecked Sendable {
     public enum Capability {
         public static let clipboard = "clipboard"
         public static let gamepad = "gamepad"
+        public static let file = "file"
+    }
+
+    /// How many file streams a host grants at once (§7.12): keep no more
+    /// offers than this unfinished; the rest wait their turn.
+    public static let fileStreamsAtOnce = Int(GDPC_FILE_STREAMS_AT_ONCE)
+    /// The longest file name, in UTF-8 bytes (§7.12).
+    public static let maxFileNameBytes = Int(GDPC_MAX_FILE_NAME_BYTES)
+
+    /// Whether `name` may be offered (§7.12), after NFC normalization: valid
+    /// UTF-8, 1-255 bytes, no "/", "\\" or control characters, not "." or "..".
+    public static func isValidFileName(_ name: String) -> Bool {
+        let nfc = name.precomposedStringWithCanonicalMapping
+        // A NUL would end the C string early and hide the rest.
+        guard !nfc.utf8.contains(0) else { return false }
+        return nfc.withCString { gdpc_valid_file_name($0) }
     }
 
     /// The most clipboard text either peer sends, in UTF-8 bytes (§7.9).
@@ -285,6 +347,19 @@ public final class GDPSession: @unchecked Sendable {
                 GDPSession.from(ctx).handlers.networkProfileChanged?(NetworkProfile(rawValue: p) ?? .auto)
             }
             callbacks.diagnostics_requested = { ctx in GDPSession.from(ctx).handlers.diagnosticsRequested?() }
+            callbacks.file_accepted = { ctx, id in GDPSession.from(ctx).handlers.fileAccepted?(id) }
+            callbacks.file_progress = { ctx, id, acked in GDPSession.from(ctx).handlers.fileProgress?(id, acked) }
+            callbacks.file_finished = { ctx, id, outcome, error, name in
+                let result: FileOutcome = switch outcome {
+                case Int32(GDPC_FILE_SAVED.rawValue): .saved(name: name.map { String(cString: $0) } ?? "")
+                case Int32(GDPC_FILE_REFUSED.rawValue): .refused(FileError(code: error))
+                case Int32(GDPC_FILE_FAILED.rawValue): .failed(FileError(code: error))
+                case Int32(GDPC_FILE_CANCELLED.rawValue): .cancelledByHost
+                case Int32(GDPC_FILE_TIMED_OUT.rawValue): .timedOut
+                default: .connectionEnded
+                }
+                GDPSession.from(ctx).handlers.fileFinished?(id, result)
+            }
             callbacks.clipboard_text = { ctx, data, len in
                 guard let text = String(validating: UnsafeBufferPointer(start: data, count: len), as: UTF8.self) else {
                     return
@@ -319,6 +394,7 @@ public final class GDPSession: @unchecked Sendable {
                                     c.take_over = config.takeOver
                                     c.network_profile = config.networkProfile.rawValue
                                     c.drop_until_keyframe_after_loss = config.dropUntilKeyframeAfterLoss
+                                    c.file_reply_timeout_ms = config.fileReplyTimeoutMilliseconds
                                     return gdpc_session_connect(h, &c, &errorBuffer, errorBuffer.count)
                                 }
                             }
@@ -410,6 +486,33 @@ public final class GDPSession: @unchecked Sendable {
         let data = Data(text.utf8)
         async { h in data.withUnsafeBytes { gdpc_session_send_clipboard_text(h, $0.baseAddress, $0.count) } }
     }
+
+    /// Offers a file (§7.12) on a stream of its own; the host's answer
+    /// arrives through ``Handlers/fileAccepted`` or ``Handlers/fileFinished``.
+    /// Returns its id, or nil before establishment, without
+    /// ``Capability/file`` in effect, or for a name that breaks the rules
+    /// (``isValidFileName(_:)``). The name is normalized to NFC here.
+    /// Keep no more than ``fileStreamsAtOnce`` offers unfinished.
+    public func offerFile(name: String, size: UInt64, modified: Date?) -> UInt64? {
+        let nfc = name.precomposedStringWithCanonicalMapping
+        guard !nfc.utf8.contains(0) else { return nil }
+        let milliseconds = modified.map { Int64(($0.timeIntervalSince1970 * 1000).rounded()) } ?? 0
+        return onQueue {
+            guard let handle, !ended else { return nil }
+            let id = nfc.withCString { gdpc_session_offer_file(handle, $0, size, milliseconds) }
+            return id == 0 ? nil : id
+        }
+    }
+
+    /// The next bytes of file `id`, once ``Handlers/fileAccepted`` has
+    /// fired, in order; the last of its size finishes the stream. Anything
+    /// beyond the offered size is dropped.
+    public func sendFileData(_ id: UInt64, _ data: Data) {
+        async { h in _ = data.withUnsafeBytes { gdpc_session_send_file_data(h, id, $0.baseAddress, $0.count) } }
+    }
+
+    /// Cancels file `id` (its stream is reset); no ``Handlers/fileFinished`` follows.
+    public func cancelFile(_ id: UInt64) { async { gdpc_session_cancel_file($0, id) } }
 
     // Input (§8.2, §8.3).
     public func sendKey(hidUsage: UInt32, pressed: Bool) { async { gdpc_session_send_key($0, hidUsage, pressed) } }

@@ -212,6 +212,7 @@ typedef struct {
     bool take_over;                    // §6.4
     int32_t network_profile;           // gdpc_network_profile
     bool drop_until_keyframe_after_loss; // §9.3
+    uint32_t file_reply_timeout_ms;    // §7.12: 0 is the spec's 30 s
 } gdpc_session_config;
 
 // One output (§7.2). Colour fields hold session.proto's enum values; 0 is
@@ -277,7 +278,41 @@ typedef struct {
     // The host's clipboard text, UTF-8 as sent (§7.9): only with `clipboard`
     // in effect, never empty or over 1 047 552 bytes.
     void (*clipboard_text)(void *ctx, const uint8_t *text, size_t len);
+    // File transfer (§7.12), per gdpc_session_offer_file() id: the host
+    // accepted (send the bytes now); how many bytes it has acknowledged
+    // (coalesced); and how it ended, exactly once per offer unless it was
+    // cancelled. `outcome` is a gdpc_file_outcome, `error` the
+    // FileErrorCode of a refusal or failure, `saved_name` the name it was
+    // stored under (NULL unless saved).
+    void (*file_accepted)(void *ctx, uint64_t id);
+    void (*file_progress)(void *ctx, uint64_t id, uint64_t acked);
+    void (*file_finished)(void *ctx, uint64_t id, int32_t outcome, int32_t error, const char *saved_name);
 } gdpc_session_callbacks;
+
+typedef enum {
+    GDPC_FILE_SAVED = 1,     // stored under saved_name
+    GDPC_FILE_REFUSED = 2,   // the offer was refused (error)
+    GDPC_FILE_FAILED = 3,    // accepted, then failed (error)
+    GDPC_FILE_CANCELLED = 4, // the host reset the stream
+    GDPC_FILE_TIMED_OUT = 5, // no answer to the offer in time
+    GDPC_FILE_LOST = 6,      // the connection ended first
+} gdpc_file_outcome;
+
+// §7.12's FileErrorCode.
+typedef enum {
+    GDPC_FILE_ERROR_UNSPECIFIED = 0,
+    GDPC_FILE_ERROR_UNSUPPORTED = 1,
+    GDPC_FILE_ERROR_BAD_NAME = 2,
+    GDPC_FILE_ERROR_NO_SPACE = 3,
+    GDPC_FILE_ERROR_REFUSED = 4,
+    GDPC_FILE_ERROR_WRITE_FAILED = 5,
+    GDPC_FILE_ERROR_SIZE_MISMATCH = 6,
+} gdpc_file_error;
+
+// How many file streams a host grants at once (§7.12): keep no more offers
+// than this unfinished.
+#define GDPC_FILE_STREAMS_AT_ONCE 4
+#define GDPC_MAX_FILE_NAME_BYTES 255
 
 typedef struct {
     uint32_t rtt_us;            // QUIC smoothed RTT plus any gateway leg (§6.10)
@@ -340,6 +375,20 @@ void gdpc_session_send_gamepad_disconnect(gdpc_session *session, uint32_t slot);
 // Dropped unless established with `microphone` in effect.
 bool gdpc_session_send_microphone(gdpc_session *session, const uint8_t *opus, size_t len);
 
+// File transfer (§7.12). Offers a file and returns its id, or 0 before
+// establishment, without `file` in effect, or for a name that breaks the
+// rules (gdpc_valid_file_name). `name` is UTF-8, NFC.
+uint64_t gdpc_session_offer_file(gdpc_session *session, const char *name, uint64_t size, int64_t modified_unix_ms);
+// The file's next bytes, after file_accepted; the last of `size` finishes
+// the stream. False (nothing sent) before acceptance, after the end, or for
+// more than the rest of the file.
+bool gdpc_session_send_file_data(gdpc_session *session, uint64_t id, const uint8_t *data, size_t len);
+// Cancels (resets the stream). No file_finished follows.
+void gdpc_session_cancel_file(gdpc_session *session, uint64_t id);
+// §7.12's name rules: valid UTF-8, 1-255 bytes, no '/', '\\' or control
+// characters, not "." or "..".
+bool gdpc_valid_file_name(const char *name);
+
 void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_stats *out);
 
 // ---------------------------------------------------------------------------
@@ -382,7 +431,22 @@ typedef struct {
     // SessionAccept when `clipboard` is in effect (§7.9). Text the viewer
     // sends replaces it.
     const char *clipboard;
+    // File transfer (§7.12), with "file" in `capabilities`: received files
+    // are kept in memory (gdpc_test_host_received_file). For tests: refuse
+    // every offer with this FileErrorCode (0: don't); fail once this many
+    // bytes of a file arrived (0: never); never answer an offer.
+    int32_t file_refuse;
+    uint64_t file_fail_after;
+    bool file_ignore_offers;
 } gdpc_test_host_config;
+
+// A file the test host saved (§7.12).
+typedef struct {
+    char name[256];          // as offered
+    char saved_name[256];    // the name the viewer was told
+    int64_t modified_unix_ms;
+    uint64_t size;
+} gdpc_test_host_file;
 
 // One input event the test host received (§8.2, §8.3).
 typedef enum {
@@ -486,6 +550,15 @@ typedef struct {
     uint32_t microphone_packets;     // §10.1, from the viewer under `microphone`
     uint64_t microphone_bytes;       // datagram bytes
     uint32_t microphone_dropped;     // without the capability, or not from the accepted viewer
+
+    // §7.12: file streams from the viewer, by how each ended.
+    uint32_t files_offered;
+    uint32_t files_saved;
+    uint32_t files_refused;
+    uint32_t files_failed;           // accepted, then failed
+    uint32_t files_cancelled;        // the viewer reset the stream
+    uint32_t file_streams_open;
+    char last_file_name[256];        // as offered
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
@@ -530,6 +603,10 @@ bool gdpc_test_host_latest_microphone_packet(const gdpc_test_host *host, uint16_
 // The data of the latest ClipboardData from the viewer: copies up to `cap`
 // bytes and returns its full length.
 size_t gdpc_test_host_last_clipboard(const gdpc_test_host *host, uint8_t *out, size_t cap);
+// Saved file `index`, in order: false past the end. Copies at most `cap`
+// bytes of its contents to `data` (which may be NULL with `cap` 0).
+bool gdpc_test_host_received_file(const gdpc_test_host *host, size_t index, gdpc_test_host_file *info, uint8_t *data,
+    size_t cap);
 
 // ---------------------------------------------------------------------------
 // Lobby (§4, §5): logging in to a host agent or a broker, ending in a

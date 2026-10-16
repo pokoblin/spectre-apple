@@ -23,6 +23,11 @@ final class Recorder: Sendable {
         var diagnosticsRequests = 0
         var audio: [(UInt16, UInt32, [UInt8])] = []
         var clipboards: [String] = []
+        var filesAccepted: [UInt64] = []
+        var fileProgress: [UInt64: [UInt64]] = [:]
+        var filesFinished: [UInt64: GDPSession.FileOutcome] = [:]
+        /// File outcomes in the order they came, and whether the session had already ended by then.
+        var fileFinishOrder: [(UInt64, Bool)] = []
     }
 
     let state = Mutex(State())
@@ -50,6 +55,14 @@ final class Recorder: Sendable {
             onDiagnostics?()
         }
         h.clipboardText = { t in self.state.withLock { $0.clipboards.append(t) } }
+        h.fileAccepted = { id in self.state.withLock { $0.filesAccepted.append(id) } }
+        h.fileProgress = { id, acked in self.state.withLock { $0.fileProgress[id, default: []].append(acked) } }
+        h.fileFinished = { id, outcome in
+            self.state.withLock {
+                $0.filesFinished[id] = outcome
+                $0.fileFinishOrder.append((id, $0.ending != nil))
+            }
+        }
         return h
     }
 }

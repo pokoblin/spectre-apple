@@ -33,6 +33,14 @@ public final class GDPTestHost: @unchecked Sendable {
         /// SessionAccept when `clipboard` is in effect (§7.9). Text the
         /// viewer sends replaces it.
         public var clipboard: String?
+        /// File transfer (§7.12), with ``GDPSession/Capability/file`` among
+        /// ``capabilities``: files the viewer sends are kept in memory
+        /// (``GDPTestHost/receivedFiles``). For tests: refuse every offer
+        /// with this error, fail once this many bytes of a file arrived (0:
+        /// never), or never answer an offer at all.
+        public var fileRefusal: GDPSession.FileError?
+        public var fileFailAfter: UInt64 = 0
+        public var fileIgnoreOffers = false
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -101,6 +109,40 @@ public final class GDPTestHost: @unchecked Sendable {
         public var microphonePackets: UInt32
         public var microphoneBytes: UInt64
         public var microphoneDropped: UInt32
+
+        /// File streams from the viewer (§7.12), by how each ended, those
+        /// still open, and the latest offered name.
+        public var filesOffered, filesSaved, filesRefused, filesFailed, filesCancelled: UInt32
+        public var fileStreamsOpen: UInt32
+        public var lastFileName: String
+    }
+
+    /// A file the host saved (§7.12).
+    public struct ReceivedFile: Sendable, Equatable {
+        /// As offered, and as the viewer was told it was saved.
+        public var name, savedName: String
+        public var modifiedUnixMilliseconds: Int64
+        public var data: [UInt8]
+    }
+
+    /// Every file saved so far, in order.
+    public var receivedFiles: [ReceivedFile] {
+        var out: [ReceivedFile] = []
+        var index = 0
+        while true {
+            var info = gdpc_test_host_file()
+            guard gdpc_test_host_received_file(handle, index, &info, nil, 0) else { return out }
+            var data = [UInt8](repeating: 0, count: Int(info.size))
+            _ = data.withUnsafeMutableBufferPointer {
+                gdpc_test_host_received_file(handle, index, nil, $0.baseAddress, $0.count)
+            }
+            func s<T>(_ tuple: T) -> String {
+                withUnsafeBytes(of: tuple) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+            }
+            out.append(ReceivedFile(name: s(info.name), savedName: s(info.saved_name),
+                                    modifiedUnixMilliseconds: info.modified_unix_ms, data: data))
+            index += 1
+        }
     }
 
     public struct MicrophonePacket: Sendable, Equatable {
@@ -181,6 +223,9 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.first_frame_id = config.firstFrameID
                                 c.simulate_pointer = config.simulatePointer
                                 c.clipboard = clipboard
+                                c.file_refuse = config.fileRefusal?.rawValue ?? 0
+                                c.file_fail_after = config.fileFailAfter
+                                c.file_ignore_offers = config.fileIgnoreOffers
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
                             }
@@ -352,7 +397,10 @@ public final class GDPTestHost: @unchecked Sendable {
             viewerCloseReason: s(o.viewer_close_reason),
             framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size,
             microphonePackets: o.microphone_packets, microphoneBytes: o.microphone_bytes,
-            microphoneDropped: o.microphone_dropped)
+            microphoneDropped: o.microphone_dropped,
+            filesOffered: o.files_offered, filesSaved: o.files_saved, filesRefused: o.files_refused,
+            filesFailed: o.files_failed, filesCancelled: o.files_cancelled, fileStreamsOpen: o.file_streams_open,
+            lastFileName: s(o.last_file_name))
     }
 }
 
