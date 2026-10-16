@@ -71,23 +71,48 @@ public struct RegionSignature: Sendable, Equatable {
         let rows = min(maxCells, max(1, (h + cellSize - 1) / cellSize))
         let step = max(1, Int((Double(w * h) / Double(maxSamples)).squareRoot().rounded(.up)))
 
-        var sums = [Int](repeating: 0, count: columns * rows)
-        var counts = [Int](repeating: 0, count: columns * rows)
-        // Which cell each sampled column falls in, worked out once.
-        let cellOfColumn = stride(from: 0, to: w, by: step).map { $0 * columns / w }
+        // Plain pointers and while loops: this runs four times a second, and
+        // in a debug build arrays and strides made it 20 times slower.
+        let cellCount = columns * rows
+        let sums = UnsafeMutablePointer<Int>.allocate(capacity: cellCount)
+        let counts = UnsafeMutablePointer<Int>.allocate(capacity: cellCount)
+        sums.initialize(repeating: 0, count: cellCount)
+        counts.initialize(repeating: 0, count: cellCount)
+        defer {
+            sums.deallocate()
+            counts.deallocate()
+        }
+        // Each cell column's span of sampled pixels: [start, end) in steps.
+        var spans: [(start: Int, end: Int, count: Int)] = []
+        spans.reserveCapacity(columns)
+        for c in 0..<columns {
+            let first = (c * w + columns - 1) / columns, last = ((c + 1) * w + columns - 1) / columns
+            let start = (first + step - 1) / step * step, end = (last + step - 1) / step * step
+            spans.append((start, end, max(0, (end - start) / step)))
+        }
         let bytes = luma.assumingMemoryBound(to: UInt8.self)
-        for y in stride(from: 0, to: h, by: step) {
+        var y = 0
+        while y < h {
             let row = bytes + (y0 + y) * bytesPerRow + x0
             let cellRow = (y * rows / h) * columns
-            var i = 0
-            for x in stride(from: 0, to: w, by: step) {
-                let cell = cellRow + cellOfColumn[i]
-                sums[cell] += Int(row[x])
-                counts[cell] += 1
-                i += 1
+            for c in 0..<columns {
+                let span = spans[c]
+                var p = row + span.start
+                let end = row + span.end
+                var sum = 0
+                while p < end {
+                    sum &+= Int(p.pointee)
+                    p += step
+                }
+                sums[cellRow + c] &+= sum
+                counts[cellRow + c] &+= span.count
             }
+            y += step
         }
-        let cells = zip(sums, counts).map { sum, count in count > 0 ? UInt8((sum + count / 2) / count) : 0 }
+        var cells = [UInt8](repeating: 0, count: cellCount)
+        for i in 0..<cellCount where counts[i] > 0 {
+            cells[i] = UInt8((sums[i] + counts[i] / 2) / counts[i])
+        }
         return RegionSignature(columns: columns, rows: rows, cells: cells)
     }
 }
