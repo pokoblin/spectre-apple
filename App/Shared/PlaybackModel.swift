@@ -49,7 +49,7 @@ final class PlaybackModel {
     private(set) var streamInfo = ""
     /// A remote session's title (user@server, or the --connect target),
     /// which `streamInfo` extends with the codec once accepted.
-    private var title = ""
+    private(set) var title = ""
     var codec: VideoCodec = .h264 {
         // Only a user's change replays; init's assignment comes before start().
         didSet { if codec != oldValue, phase != .idle { Task { await play() } } }

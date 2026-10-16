@@ -186,6 +186,9 @@ public final class SessionInput {
         }
     }
     @ObservationIgnored public var onTouchKeyboardChange: (() -> Void)?
+    /// A finger, a click or a pen came down on the picture (iOS): the app
+    /// puts away controls it opened by itself.
+    @ObservationIgnored public var onPictureTouch: (() -> Void)?
     public private(set) var untypable: Untypable?
 
     /// Text from the touch keyboard (or dictation): typed as key strokes on

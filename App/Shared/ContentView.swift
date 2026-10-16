@@ -25,6 +25,9 @@ struct SessionView: View {
     @State private var confirmLogOut = false
     @State private var viewSize: CGSize = .zero
     @Environment(\.displayScale) private var displayScale
+    #if os(iOS)
+    @State private var chrome = SessionChrome()
+    #endif
 
     init(model: PlaybackModel) {
         self.model = model
@@ -58,30 +61,51 @@ struct SessionView: View {
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
                     #endif
             }
-            VStack(alignment: .leading, spacing: 8) {
-                #if os(iOS)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack { sessionButtons }
-                        .buttonStyle(.bordered)
-                        .tint(.white)
-                }
-                .scrollBounceBehavior(.basedOnSize)
-                #endif
-                if showStats {
-                    overlay.allowsHitTesting(false) // clicks on it go to the remote desktop
-                }
-            }
-            .padding(10)
             #if os(iOS)
-            if let input = model.input {
-                UntypableNotice(input: input)
-            }
-            #endif
+            // Over the picture, bottom to top (docs/ipad-layout.md): the
+            // connection's state, notices, the toolbar, the statistics.
             if case let .reconnecting(attempt, total, reason) = model.phase {
                 ReconnectingCard(attempt: attempt, total: total, reason: reason) { model.cancelReconnect() }
             }
+            if let input = model.input {
+                UntypableNotice(input: input)
+            }
+            SessionToolbar(model: model, chrome: chrome, showsStatistics: $showStats) { confirmLogOut = true }
+            VStack(alignment: .leading, spacing: 8) {
+                if model.isRemoteSession && chrome.isToolbarExpanded {
+                    SessionBackButton(title: model.title) { model.disconnect() }
+                        .transition(.opacity)
+                }
+                if showStats {
+                    overlay.allowsHitTesting(false) // touches on it go to the remote desktop
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            #else
+            if showStats {
+                overlay
+                    .allowsHitTesting(false) // clicks on it go to the remote desktop
+                    .padding(10)
+            }
+            if case let .reconnecting(attempt, total, reason) = model.phase {
+                ReconnectingCard(attempt: attempt, total: total, reason: reason) { model.cancelReconnect() }
+            }
+            #endif
         }
-        #if os(macOS)
+        #if os(iOS)
+        // The picture is surrounded by black and the controls float on it in
+        // glass: always dark, whatever the system's appearance.
+        .environment(\.colorScheme, .dark)
+        .statusBarHidden()
+        .persistentSystemOverlays(.hidden)
+        .onChange(of: model.phase) {
+            if model.phase == .playing { chrome.connected() }
+        }
+        .onChange(of: model.input.map(ObjectIdentifier.init), initial: true) {
+            model.input?.onPictureTouch = { [weak chrome] in chrome?.pictureTouched() }
+        }
+        #else
         .toolbar {
             ToolbarItemGroup { sessionButtons }
             if !model.isRemoteSession {
@@ -107,6 +131,9 @@ struct SessionView: View {
         .task { if !model.isRemoteSession { await diagnostics.run() } }
     }
 
+    #if os(macOS)
+    /// The window's toolbar. iOS floats its controls over the picture instead
+    /// (App/iOS/SessionControls.swift).
     @ViewBuilder private var sessionButtons: some View {
         if model.isRemoteSession {
             Button { model.disconnect() } label: {
@@ -123,9 +150,6 @@ struct SessionView: View {
                 Label("Capture Mouse", systemImage: input.isCaptured ? "cursorarrow.square.fill" : "cursorarrow.square")
             }
             .help("Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)")
-            #if os(iOS)
-            .toggleStyle(.button)
-            #endif
         }
         if let clipboard = model.clipboard {
             ClipboardControls(clipboard: clipboard)
@@ -136,25 +160,6 @@ struct SessionView: View {
         if model.isRemoteSession {
             ResolutionControls(model: model)
         }
-        #if os(iOS)
-        if let input = model.input {
-            Toggle(isOn: Binding(get: { input.showsTouchKeyboard }, set: { input.showsTouchKeyboard = $0 })) {
-                Label("Keyboard", systemImage: input.showsTouchKeyboard ? "keyboard.chevron.compact.down" : "keyboard")
-            }
-            .toggleStyle(.button)
-            .help("Type on the remote desktop with the on-screen keyboard (the host's layout is taken to be US)")
-            Button {
-                input.touchMode = input.touchMode == .direct ? .trackpad : .direct
-            } label: {
-                if input.touchMode == .direct {
-                    Label("Touch", systemImage: "hand.point.up.left")
-                } else {
-                    Label("Trackpad", systemImage: "rectangle.and.hand.point.up.left")
-                }
-            }
-            .help("Touch: the pointer goes where you touch. Trackpad: the screen works like a laptop trackpad.")
-        }
-        #endif
         if model.hasMicrophone {
             Toggle(isOn: Binding(get: { model.isMicrophoneOn }, set: { _ in model.toggleMicrophone() })) {
                 Label("Microphone", systemImage: model.isMicrophoneOn ? "mic.fill" : "mic.slash")
@@ -162,9 +167,6 @@ struct SessionView: View {
             .help(model.isMicrophoneOn
                   ? "Stop sending your microphone"
                   : "Send your microphone to the remote desktop (use headphones, or it hears its own sound)")
-            #if os(iOS)
-            .toggleStyle(.button)
-            #endif
         }
         if model.hasAudio {
             Button { model.isAudioMuted.toggle() } label: {
@@ -179,9 +181,6 @@ struct SessionView: View {
         Toggle(isOn: $showStats) {
             Label("Statistics", systemImage: "chart.bar.xaxis")
         }
-        #if os(iOS)
-        .toggleStyle(.button)
-        #endif
     }
 
     @ViewBuilder private var sourceControls: some View {
@@ -200,6 +199,7 @@ struct SessionView: View {
             Text(verbatim: "Display link").tag(VideoPresenter.Mode.displayLink)
         } label: { Text(verbatim: "Pacing") }
     }
+    #endif
 
     @ViewBuilder private var overlay: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -230,36 +230,16 @@ struct SessionView: View {
     }
 }
 
+#if os(macOS)
 /// Sharing the clipboard with the remote desktop (gdp-spec.md §7.9).
 private struct ClipboardControls: View {
     @Bindable var clipboard: ClipboardSync
 
     var body: some View {
-        #if os(macOS)
         Toggle(isOn: $clipboard.isEnabled) {
             Label("Clipboard", systemImage: clipboard.isEnabled ? "doc.on.clipboard.fill" : "doc.on.clipboard")
         }
         .help("Share the clipboard with the remote desktop: text copied on either side can be pasted on the other")
-        #else
-        Menu {
-            Toggle("Share Clipboard", isOn: $clipboard.isEnabled)
-            Section("iOS asks before Spectre reads what other apps copied, unless allowed in Settings") {
-                Toggle("Send Copies Automatically", isOn: $clipboard.sendsAutomatically)
-                    .disabled(!clipboard.isEnabled)
-            }
-        } label: {
-            Label("Clipboard", systemImage: clipboard.isEnabled ? "doc.on.clipboard.fill" : "doc.on.clipboard")
-        }
-        if clipboard.isEnabled && !clipboard.sendsAutomatically {
-            // The system's paste button reads the clipboard without the paste
-            // prompt; what it reads goes to the host's clipboard.
-            PasteButton(payloadType: String.self) { strings in
-                guard let text = strings.first else { return }
-                Task { @MainActor in clipboard.send(text) }
-            }
-            .help("Send this device's clipboard to the remote desktop")
-        }
-        #endif
     }
 }
 
@@ -276,9 +256,6 @@ private struct GamepadControls: View {
         .help(names.isEmpty
             ? Text("Forward game controllers to the remote desktop, up to four")
             : Text("Forwarding: \(names.formatted(.list(type: .and)))"))
-        #if os(iOS)
-        .toggleStyle(.button)
-        #endif
     }
 }
 
@@ -301,6 +278,7 @@ private struct ResolutionControls: View {
         .help("Resize the remote desktop to fit this window")
     }
 }
+#endif
 
 #if os(iOS)
 /// A short notice when the touch keyboard gave characters the host's

@@ -245,6 +245,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
 
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if input != nil, !isFirstResponder { becomeFirstResponder() }
+        input?.onPictureTouch?()
         pointerTouches(touches, event: event, ending: false)
         fingers(touches, event: event) { $0.began($1, at: $2) }
     }
