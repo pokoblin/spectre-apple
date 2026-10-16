@@ -60,4 +60,6 @@ App/Shared/AppModel.swift       会话列表：每个会话有自己的 id、登
 - 停掉测试 host：30 秒空闲超时后出现重连胶囊、画面压暗，8 次失败后出现“Couldn't connect to “Lobby Echo””卡片；Retry 重新开始重连，Cancel 关掉会话窗口、回到首页。
 - Session 菜单：五项都在，Send Keys 下有两个子菜单；选“Ctrl+L — Clear the screen”，loopback host 收到左 Ctrl（224）+ L（15）的按下和松开。
 
+- iPad 模拟器回归（会话列表改成多会话之后）：首页添加主机 → 登录 sheet（密码、指纹、选桌面）→ 会话全屏打开；用 `kill -STOP` 冻住 App 36 秒再恢复，空闲超时后第 1 次重连按这个会话自己的配方重放登录，画面恢复。
+
 **没有验证**：“更多”菜单展开后的样子（后台的 computer-use 不能打开菜单）；Send Clipboard to Host（会把这台 Mac 剪贴板里的内容写进日志）；菜单里的 Capture Mouse（会抓住正在用的鼠标）；同时开两个会话；需要重新登录时首页弹 sheet；真实 ghost host。
