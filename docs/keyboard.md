@@ -7,10 +7,10 @@
 ## 分层
 
 ```
-App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不出来”的提示；画面避开键盘
+App/iOS/SessionControls           左下工具栏的键盘键；App/Shared/ContentView：“打不出来”的提示
+App/iOS/KeyboardAccessory         键盘上方的完整按键栏（inputAccessoryView，docs/ipad-layout.md）
   └ SpectreKit/Input
       ├ IOSSessionView            实现 UIKeyInput：insertText / deleteBackward；inputView 控制显隐
-      ├ TouchKeyboardBar          键盘上方的附加键条（inputAccessoryView）
       ├ SessionInput              showsTouchKeyboard、type(_:)、untypable
       ├ TextTyper                 字符 → 按键序列；锁定的修饰键；按住
       ├ KeyCombo                  “更多”菜单里的组合键（Super+Tab、Ctrl+Alt+T 等）
@@ -29,7 +29,7 @@ App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不�
 
 ## 附加键条
 
-软键盘上缺的键放在键盘上方的一排里（`inputAccessoryView`，窄屏上可以横向滑动）：
+软键盘上缺的键放在键盘上方的一排里（`inputAccessoryView`，窄屏上可以横向滑动）。2026-10-16 起它和屏幕右下角的悬浮按键栏是同一套键，排在一枚玻璃胶囊里，见 [ipad-layout.md](ipad-layout.md#软键盘上方的按键栏阶段-4)；下表是最初 UIKit 版附加键条的设计，键的行为没有变：
 
 | 键 | 行为 |
 |---|---|

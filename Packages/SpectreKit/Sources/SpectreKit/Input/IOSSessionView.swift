@@ -32,7 +32,6 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
             oldValue?.onTouchModeChange = nil
             oldValue?.onTouchKeyboardChange = nil
             oldValue?.showsTouchKeyboard = false
-            keyboardBar = nil
             endTouches()
             touchMapper = nil
             input?.captureHandler = { [weak self] on in self?.capture(on) ?? false }
@@ -141,31 +140,31 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
 
     public func insertText(_ text: String) {
         input?.type(text)
-        keyboardBar?.refresh()
     }
 
     public func deleteBackward() {
         input?.typer.press(HIDUsage.deleteOrBackspace)
-        keyboardBar?.refresh()
     }
 
     private let noKeyboard = UIView(frame: .zero)
-    private var keyboardBar: TouchKeyboardBar?
+
+    /// Makes what is shown above the touch keyboard (or alone at the
+    /// bottom, with a hardware keyboard): the keys it lacks. The app
+    /// provides it; it is made the first time the keyboard shows.
+    public var makeKeyboardAccessory: (() -> UIView)?
+    private var keyboardAccessory: UIView?
 
     /// Hidden: an empty input view stands in for the keyboard.
     public override var inputView: UIView? { input?.showsTouchKeyboard == true ? nil : noKeyboard }
 
     public override var inputAccessoryView: UIView? {
-        guard let input, input.showsTouchKeyboard else { return nil }
-        if keyboardBar == nil {
-            keyboardBar = TouchKeyboardBar(typer: input.typer) { [weak input] in input?.showsTouchKeyboard = false }
-        }
-        return keyboardBar
+        guard input?.showsTouchKeyboard == true else { return nil }
+        if keyboardAccessory == nil { keyboardAccessory = makeKeyboardAccessory?() }
+        return keyboardAccessory
     }
 
     private func touchKeyboardChanged() {
         if input?.showsTouchKeyboard == true, !isFirstResponder { becomeFirstResponder() }
-        keyboardBar?.refresh()
         reloadInputViews()
     }
 

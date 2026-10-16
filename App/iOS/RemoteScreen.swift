@@ -53,6 +53,10 @@ final class RemoteScreenController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        // Made the first time the keyboard shows: made here, a keyboard-style
+        // input view stopped the picture from being drawn at all (0 fps
+        // shown) and left a white strip where the status bar was.
+        sessionView.makeKeyboardAccessory = { [keyBar] in KeyboardAccessory(model: keyBar) }
         toggle = host(KeyBarToggle(model: keyBar))
         column = host(FloatingKeyColumn(model: keyBar))
         row = host(FloatingKeyRow(model: keyBar))
