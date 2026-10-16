@@ -9,6 +9,11 @@ import UIKit
 /// ContentView as on the Mac.
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
+    override func buildMenu(with builder: any UIMenuBuilder) {
+        super.buildMenu(with: builder)
+        SessionCommands.build(builder)
+    }
+
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
         let config = UISceneConfiguration(name: nil, sessionRole: session.role)
@@ -70,4 +75,21 @@ final class RootViewController: UIHostingController<ContentView>, PointerLockHos
 
     override var prefersPointerLocked: Bool { wantsPointerLock }
     override var childViewControllerForPointerLock: UIViewController? { nil }
+
+    // The menu bar's Session menu (SessionCommands).
+    @objc func sessionWritePrompt(_ sender: Any?) { SessionCommands.shared.writePrompt() }
+    @objc func sessionToggleFill(_ sender: Any?) { SessionCommands.shared.toggleFill() }
+    @objc func sessionToggleKeyBar(_ sender: Any?) { SessionCommands.shared.toggleKeyBar() }
+    @objc func sessionToggleKeyboard(_ sender: Any?) { SessionCommands.shared.toggleKeyboard() }
+    @objc func sessionSendClipboard(_ sender: Any?) { SessionCommands.shared.sendClipboard() }
+    @objc func sessionDisconnect(_ sender: Any?) { SessionCommands.shared.disconnect() }
+
+    override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {
+        SessionCommands.shared.canPerform(action) ?? super.canPerformAction(action, withSender: sender)
+    }
+
+    override func validate(_ command: UICommand) {
+        super.validate(command)
+        SessionCommands.shared.validate(command)
+    }
 }

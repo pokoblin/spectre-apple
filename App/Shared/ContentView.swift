@@ -122,7 +122,9 @@ struct SessionView: View {
         .onChange(of: model.input.map(ObjectIdentifier.init), initial: true) {
             model.input?.onPictureTouch = { [weak chrome] in chrome?.pictureTouched() }
             keyBar.input = model.input
+            SessionCommands.shared.register(model, keyBar: keyBar)
         }
+        .onDisappear { SessionCommands.shared.unregister(model) }
         #else
         .toolbar {
             ToolbarItemGroup { sessionButtons }
@@ -242,9 +244,16 @@ struct SessionView: View {
             ForEach(diagnostics.lines, id: \.self) { Text($0) }
         }
         .font(.system(size: 11, design: .monospaced))
+        #if os(iOS)
+        // Glass like the other floating controls, as wide as its lines.
+        .padding(10)
+        .fixedSize()
+        .glassEffect(.regular, in: .rect(cornerRadius: 12))
+        #else
         .foregroundStyle(.white)
         .padding(8)
         .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+        #endif
     }
 }
 

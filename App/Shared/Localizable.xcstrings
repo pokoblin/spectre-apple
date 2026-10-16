@@ -1798,6 +1798,34 @@
         }
       }
     },
+    "Hide Key Bar" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ocultar barra de teclas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーバーを隠す"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隐藏按键栏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "隱藏按鍵列"
+          }
+        }
+      }
+    },
     "Hide Keyboard" : {
       "localizations" : {
         "es" : {
@@ -3536,6 +3564,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "首次連線時信任的伺服器會顯示在這裡。使用憑證授權單位簽發之憑證的伺服器不會列出，因為不會為它儲存任何內容。"
+          }
+        }
+      }
+    },
+    "Session" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッション"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段"
           }
         }
       }
