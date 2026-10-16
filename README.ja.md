@@ -116,7 +116,7 @@ vcpkg を `~/src/vcpkg` 以外に置く場合は `VCPKG_ROOT` を設定してく
 
 ### ビルド
 
-1. 上流の ghost サブモジュールごとリポジトリをクローンします（既存のクローンでは `git submodule update --init` を実行します）：
+1. ghost サブモジュールごとリポジトリをクローンします（既存のクローンでは `git submodule sync && git submodule update --init` を実行します）。サブモジュールは当面、プロトコルにファイル転送を加えた [pokoblin/ghost](https://github.com/pokoblin/ghost) フォークを指しています（上流に取り込まれるまで）：
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -250,7 +250,7 @@ iOS では、ルートビューコントローラがポインタをロックで�
 | `scripts/` | 依存ライブラリと xcframework をビルドするスクリプト |
 | `docs/` | 設計メモと計測記録（簡体字中国語） |
 | `experiments/` | 一度きりの実験（Swift/C++ 相互運用の検証など）。アプリには含まれません |
-| `third_party/ghost/` | 上流の ghost（git サブモジュール、読み取り専用） |
+| `third_party/ghost/` | ghost（git サブモジュール）。pokoblin/ghost フォークの `feat/file-transfer` ブランチ（上流＋ファイル転送）で、ビルドするのは libgdp だけ |
 
 ### 設計メモ
 

@@ -116,7 +116,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 ### 构建
 
-1. 克隆仓库，连同上游 ghost 子模块一起（已有的克隆里运行 `git submodule update --init`）：
+1. 克隆仓库，连同 ghost 子模块一起（已有的克隆里运行 `git submodule sync && git submodule update --init`）。子模块目前指向 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork，它在协议里加了文件传输，等上游合并后再切回去：
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -250,7 +250,7 @@ iOS 上 App 从 UIKit 的 app delegate 启动，这样根视图控制器才能�
 | `scripts/` | 构建依赖和 xcframework 的脚本 |
 | `docs/` | 设计文档和测量记录（简体中文） |
 | `experiments/` | 一次性的实验（比如 Swift/C++ 互操作的验证），不属于 App |
-| `third_party/ghost/` | 上游 ghost（git 子模块，只读） |
+| `third_party/ghost/` | ghost（git 子模块）：pokoblin/ghost fork 的 `feat/file-transfer` 分支（上游加文件传输），只编译其中的 libgdp |
 
 ### 设计文档
 

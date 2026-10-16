@@ -117,7 +117,7 @@ If you keep vcpkg somewhere other than `~/src/vcpkg`, set `VCPKG_ROOT`.
 
 ### Build
 
-1. Clone the repository with the upstream ghost submodule (in an existing clone, run `git submodule update --init`):
+1. Clone the repository with the ghost submodule (in an existing clone, run `git submodule sync && git submodule update --init`). The submodule points at the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork for now, which adds file transfer to the protocol until upstream takes it:
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -251,7 +251,7 @@ The simulator decodes video in software and reports no `presentedTime`, so its t
 | `scripts/` | Builds the dependencies and the xcframework |
 | `docs/` | Design notes and measurements, in Simplified Chinese |
 | `experiments/` | One-off experiments, such as a Swift/C++ interop probe; not part of the app |
-| `third_party/ghost/` | Upstream ghost, as a read-only git submodule |
+| `third_party/ghost/` | ghost, as a git submodule: the pokoblin/ghost fork's `feat/file-transfer` branch (upstream plus file transfer); only libgdp is built |
 
 ### Design notes
 

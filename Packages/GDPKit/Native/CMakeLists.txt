@@ -1,4 +1,4 @@
-# GDPCore: libgdp (from the ghost submodule, unmodified) plus the C ABI in
+# GDPCore: libgdp (from the ghost submodule, as checked out) plus the C ABI in
 # include/gdpcore.h. scripts/build-gdpcore.sh configures this once per
 # platform with vcpkg's toolchain, then merges the static libraries into
 # GDPCore.xcframework.

@@ -1,3 +1,4 @@
 [submodule "third_party/ghost"]
 	path = third_party/ghost
-	url = https://github.com/jsaiko/ghost
+	url = https://github.com/pokoblin/ghost
+	branch = feat/file-transfer

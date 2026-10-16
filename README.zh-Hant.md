@@ -116,7 +116,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 ### 建置
 
-1. 複製儲存庫，連同上游 ghost 子模組一起（已有的複本中執行 `git submodule update --init`）：
+1. 複製儲存庫，連同 ghost 子模組一起（已有的複本中執行 `git submodule sync && git submodule update --init`）。子模組目前指向 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork，它在協定中加入了檔案傳輸，等上游合併後再切回去：
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -250,7 +250,7 @@ iOS 上 App 從 UIKit 的 app delegate 啟動，這樣根視圖控制器才能�
 | `scripts/` | 建置相依套件和 xcframework 的腳本 |
 | `docs/` | 設計文件和量測紀錄（簡體中文） |
 | `experiments/` | 一次性的實驗（例如 Swift/C++ 互通性的驗證），不屬於 App |
-| `third_party/ghost/` | 上游 ghost（git 子模組，唯讀） |
+| `third_party/ghost/` | ghost（git 子模組）：pokoblin/ghost fork 的 `feat/file-transfer` 分支（上游加上檔案傳輸），只編譯其中的 libgdp |
 
 ### 設計文件
 

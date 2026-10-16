@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds Packages/GDPKit/Artifacts/GDPCore.xcframework: libgdp (from the
-# ghost submodule, unmodified), its dependencies (vcpkg, static) and the C
+# ghost submodule, as checked out), its dependencies (vcpkg, static) and the C
 # ABI in Packages/GDPKit/Native, merged into one static library per platform.
 #
 #   scripts/build-gdpcore.sh                    # macos ios ios-simulator
