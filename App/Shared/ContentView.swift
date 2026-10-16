@@ -34,6 +34,7 @@ struct SessionView: View {
     @State private var chrome = SessionChrome()
     @State private var keyBar = KeyBarModel()
     @State private var prompt = PromptModel()
+    @State private var voice = VoiceInputModel()
     @State private var regions = RegionAlertModel()
     #endif
 
@@ -81,6 +82,7 @@ struct SessionView: View {
             SessionStatusOverlay(model: model)
                 .animation(.easeInOut(duration: 0.2), value: model.phase)
             TopNotices(model: model, regions: regions)
+            VoiceOverlay(voice: voice)
             if keyBar.isPromptOpen {
                 PromptPanel(prompt: prompt, model: model) { keyBar.isPromptOpen = false }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -145,9 +147,14 @@ struct SessionView: View {
         .onChange(of: model.input.map(ObjectIdentifier.init), initial: true) {
             model.input?.onPictureTouch = { [weak chrome] in chrome?.pictureTouched() }
             keyBar.input = model.input
+            keyBar.voice = voice
+            voice.model = model
             SessionCommands.shared.register(model, keyBar: keyBar, regions: regions)
         }
-        .onDisappear { SessionCommands.shared.unregister(model) }
+        .onDisappear {
+            voice.cancel()
+            SessionCommands.shared.unregister(model)
+        }
         #else
         .toolbar {
             ToolbarItemGroup { sessionButtons }

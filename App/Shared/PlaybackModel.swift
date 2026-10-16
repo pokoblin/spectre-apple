@@ -64,11 +64,16 @@ final class PlaybackModel {
     /// remembered across sessions and launches.
     var isAudioMuted = UserDefaults.standard.bool(forKey: PlaybackModel.audioMutedKey) {
         didSet {
-            remote?.isAudioMuted = isAudioMuted
+            remote?.isAudioMuted = isAudioMuted || isQuietForDictation
             UserDefaults.standard.set(isAudioMuted, forKey: Self.audioMutedKey)
         }
     }
     private static let audioMutedKey = "audioMuted"
+    /// The host's sound is silent while voice input listens, so it isn't
+    /// written out with what the user says; ``isAudioMuted`` is left alone.
+    var isQuietForDictation = false {
+        didSet { remote?.isAudioMuted = isAudioMuted || isQuietForDictation }
+    }
     /// Keep the remote desktop the size of the session view (docs/resolution.md);
     /// on unless turned off, remembered.
     var matchesWindowSize = UserDefaults.standard.object(forKey: PlaybackModel.matchesWindowSizeKey) as? Bool ?? true {
@@ -470,7 +475,7 @@ final class PlaybackModel {
         guard let presenter else { return }
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
         remote.offersMicrophone = Self.forwardsMicrophone
-        remote.isAudioMuted = isAudioMuted
+        remote.isAudioMuted = isAudioMuted || isQuietForDictation
         remote.onPictureChange = { [weak presenter, weak self] picture in
             Task { @MainActor in
                 presenter?.displaySize = picture.size

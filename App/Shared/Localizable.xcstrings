@@ -1882,6 +1882,34 @@
         }
       }
     },
+    "Getting ready…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparando…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備しています…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在准备…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在準備⋯"
+          }
+        }
+      }
+    },
     "Hide Key Bar" : {
       "localizations" : {
         "es" : {
@@ -2106,6 +2134,34 @@
         }
       }
     },
+    "Language" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "言語"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语言"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "語言"
+          }
+        }
+      }
+    },
     "Last Connected" : {
       "localizations" : {
         "es" : {
@@ -2186,6 +2242,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "左方向鍵"
+          }
+        }
+      }
+    },
+    "Listening. Release to send, slide away to cancel." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escuchando. Suelta para enviar, desliza fuera para cancelar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聞き取っています。指を離すと送信、横にずらすとキャンセル。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在听。松手发送，滑开取消。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在聽。放開即傳送，滑開即取消。"
+          }
+        }
+      }
+    },
+    "Listening. Tap the microphone to send." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escuchando. Toca el micrófono para enviar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聞き取っています。マイクをもう一度タップすると送信します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在听。再点一下麦克风发送。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在聽。再點一下麥克風即傳送。"
           }
         }
       }
@@ -3002,6 +3114,34 @@
         }
       }
     },
+    "Press Return After" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pulsar Intro después"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "話し終えたらリターン"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "说完后按回车"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "說完後按 Return"
+          }
+        }
+      }
+    },
     "Recent" : {
       "localizations" : {
         "es" : {
@@ -3116,6 +3256,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "區域提醒"
+          }
+        }
+      }
+    },
+    "Release to cancel" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suelta para cancelar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指を離すとキャンセル"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "松手取消"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "放開即取消"
           }
         }
       }
@@ -3624,6 +3792,34 @@
         }
       }
     },
+    "Send What You Said" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar lo que dijiste"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "話した内容を送信"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送你说的内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傳送你說的內容"
+          }
+        }
+      }
+    },
     "Send and Return" : {
       "localizations" : {
         "es" : {
@@ -3704,6 +3900,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "將你的麥克風傳送到遠端桌面（請戴耳機，否則它會聽到自己的聲音）"
+          }
+        }
+      }
+    },
+    "Sending…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviando…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "送信しています…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在发送…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在傳送⋯"
           }
         }
       }
@@ -5278,6 +5502,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用者名稱"
+          }
+        }
+      }
+    },
+    "Voice Input" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrada por voz"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "音声入力"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "语音输入"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "語音輸入"
           }
         }
       }

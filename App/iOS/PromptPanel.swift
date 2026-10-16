@@ -37,6 +37,24 @@ final class PromptModel {
     /// streams (gdp-spec.md §7.9, §8.2) with no order between them.
     static let pasteDelay: Duration = .milliseconds(250)
 
+    /// `text` to where the host's cursor is: on the host's clipboard and
+    /// pasted, or typed. Voice input sends what was said the same way.
+    static func deliver(_ text: String, pressingReturn: Bool, input: SessionInput, clipboard: ClipboardSync?,
+                        method: PasteMethod) {
+        if let combo = method.combo, let clipboard, clipboard.sendForPaste(text) {
+            Task {
+                try? await Task.sleep(for: pasteDelay)
+                input.typer.press(combo)
+                if pressingReturn { input.typer.press(HIDUsage.returnOrEnter) }
+            }
+        } else {
+            // No clipboard on this session (or typing chosen): the host's US
+            // layout, characters it has no key for skipped and counted.
+            input.type(text)
+            if pressingReturn { input.typer.press(HIDUsage.returnOrEnter) }
+        }
+    }
+
     func clearHistory() {
         history = []
         UserDefaults.standard.set(history, forKey: Self.historyKey)
@@ -49,18 +67,7 @@ final class PromptModel {
     func send(pressingReturn: Bool, input: SessionInput, clipboard: ClipboardSync?, method: PasteMethod) -> Bool {
         let text = draft
         guard !text.isEmpty else { return false }
-        if let combo = method.combo, let clipboard, clipboard.sendForPaste(text) {
-            Task {
-                try? await Task.sleep(for: Self.pasteDelay)
-                input.typer.press(combo)
-                if pressingReturn { input.typer.press(HIDUsage.returnOrEnter) }
-            }
-        } else {
-            // No clipboard on this session (or typing chosen): the host's US
-            // layout, characters it has no key for skipped and counted.
-            input.type(text)
-            if pressingReturn { input.typer.press(HIDUsage.returnOrEnter) }
-        }
+        Self.deliver(text, pressingReturn: pressingReturn, input: input, clipboard: clipboard, method: method)
         history.removeAll { $0 == text }
         history.insert(text, at: 0)
         history = Array(history.prefix(Self.historyLimit))

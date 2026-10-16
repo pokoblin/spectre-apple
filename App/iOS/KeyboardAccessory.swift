@@ -58,6 +58,7 @@ struct AgentKeyBarView: View {
             let typer = input.typer
             HStack(spacing: FloatingKeyBar.keySpacing) {
                 PromptKey(model: model)
+                if let voice = model.voice { VoiceKey(voice: voice) }
                 KeyBarSeparator(axis: .horizontal)
                 KeyBarKeys.common(typer)
                 KeyBarSeparator(axis: .horizontal)

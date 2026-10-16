@@ -174,6 +174,9 @@ struct SessionMoreMenu: View {
             if let clipboard = model.clipboard {
                 ClipboardSection(clipboard: clipboard)
             }
+            if let voice = keyBar.voice {
+                VoiceInputSection(voice: voice)
+            }
             if let input = model.input {
                 InputSection(input: input, gamepads: model.gamepads)
             }

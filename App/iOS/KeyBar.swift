@@ -22,6 +22,8 @@ final class KeyBarModel {
     var leadingObstruction: CGFloat = FloatingKeyBar.margin + FloatingKeyBar.toggleSize
     /// The prompt panel is open: both corners' controls make way for it.
     var isPromptOpen = false
+    /// Voice input, for its key on both bars.
+    var voice: VoiceInputModel?
     /// A region to watch is being chosen: the corners make way for that too.
     var isSelectingRegion = false
 
@@ -82,6 +84,7 @@ struct FloatingKeyColumn: View {
                 HeldKey(typer: typer, usage: HIDUsage.downArrow, label: "Down Arrow") { Image(systemName: "arrow.down") }
                 KeyBarSeparator(axis: .vertical)
                 PromptKey(model: model)
+                if let voice = model.voice { VoiceKey(voice: voice) }
             }
         }
     }
