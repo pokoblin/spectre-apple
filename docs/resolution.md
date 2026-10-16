@@ -81,4 +81,4 @@ GDPKit 原来就有这两样（`Configuration.display`、`GDPSession.requestReso
 **还没验证的**：
 
 - 改尺寸时编码器重开要多久（日志没有时间戳，没有测量；每次操作后等 3 秒再看，画面都已更新）；会话不支持改尺寸时 host 的回答。
-- 模拟器面板没有 Simulator App 窗口，没法用菜单旋转，iPad 旋转、分屏、台前调度都还没试；iPhone 和 iPad 真机都没试。
+- 模拟器面板没有 Simulator App 窗口，没法用菜单旋转，iPad 旋转、分屏、台前调度都还没试；iPhone 真机没试。iPad 真机（iPad Pro 11-inch (M5)，1210×834 点）横屏全屏时请求的是 1200×834（宽度取到 16 的倍数），真实 host 用 VAAPI 编码 HEVC 照常接受。

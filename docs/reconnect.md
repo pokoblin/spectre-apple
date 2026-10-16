@@ -89,9 +89,11 @@ App/Shared/PlaybackModel        重连循环；iOS 后台：暂停视频、申�
 **iPad 真机（iPad Pro 11-inch (M5)，iPadOS 27.0.1），loopback**（2026-10-16，测指针时顺带看到的）：
 
 - iPad 自动锁屏、App 留在后台：日志依次是 `in the background, video paused`、`background time ran out, closing`、`ended: closed`，后台时间用完时正常关闭了连接。
-- 回到前台后，对 loopback 的 8 次重连全部 `timed out (no response from host)`。loopback 的测试 host 在 App 进程里，App 被挂起时它的 socket 多半也被系统作废了，所以连不上；这只影响 loopback，真实 host 上要另外测。
+- 回到前台后，对 loopback 的 8 次重连全部 `timed out (no response from host)`。loopback 的测试 host 在 App 进程里，App 被挂起时它的 socket 多半也被系统作废了，所以连不上；这只影响 loopback。
 
-**没有验证的**：真机上后台时间用完以后回到前台的重连（真实 host 上）；真实 wraith 和 ghostd lobby 上的重放（包括多步认证）；换网络（Wi-Fi 换蜂窝）时的恢复速度。
+**iPad 真机，真实 host**（同一天，内网的 ghost host，ghostd + wraith，GNOME，VAAPI 编码的 HEVC）：会话中回到主屏幕 40 秒以上再回来。日志依次是 `in the background, video paused`、`background time ran out, closing`、`ended: closed`、`reconnect 1 of 8`，第 1 次重连就重放了 lobby 登录（只有密码，没有多步认证）并重新建立会话（1200×834），画面恢复，用户什么都不用做。
+
+**没有验证的**：真实 ghostd lobby 上多步认证的重放；被系统直接挂起、来不及关闭时的恢复（真机）；换网络（Wi-Fi 换蜂窝）时的恢复速度。
 
 ## 没有做的
 
