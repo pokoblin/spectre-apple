@@ -158,11 +158,16 @@ public final class RemoteSession: @unchecked Sendable {
     /// capture does with each packet (and what tests use without a device).
     public func sendMicrophonePacket(_ opus: [UInt8]) { session?.sendMicrophone(opus: opus) }
 
+    /// Whether SessionHello offers the `microphone` capability (§10.1). A
+    /// host that takes it may give the desktop a microphone of ours, so an
+    /// app that never sends one turns this off.
+    public var offersMicrophone = true
+
     public func connect(_ config: GDPSession.Configuration) throws(GDPSession.ConnectError) {
-        // Always offered (it is fixed for the connection); the microphone
+        // Offered for the whole connection (it is fixed then); the microphone
         // itself stays closed until the user turns it on (§10.1).
         var config = config
-        if !config.capabilities.contains("microphone") { config.capabilities.append("microphone") }
+        if offersMicrophone, !config.capabilities.contains("microphone") { config.capabilities.append("microphone") }
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
         h.closed = { [weak self] ending in

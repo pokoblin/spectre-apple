@@ -124,6 +124,8 @@ Core Audio 实时线程：AVAudioSourceNode 只做拷贝，不够的部分填静
 
 把本机麦克风的声音发给 host（gdp-spec.md §6.7、§6.8、§10.1）。上游的行为只参考了 `docs/design/audio-cursor-gamepad.md` 的 Microphone 一节。
 
+> **2026-10-16 起停用。** 用户决定 App 里先不提供麦克风转发，iPad 和 iPhone 上的麦克风只给语音输入用（[voice-input.md](voice-input.md)）。`PlaybackModel.forwardsMicrophone` 为 false：SessionHello 不再提供 `microphone` capability（`RemoteSession.offersMicrophone`），host 也就不会给桌面接上一个我们的麦克风；工具栏和“更多”菜单里没有麦克风开关。下面的实现和测试都保留，把这个常量改回 true 就恢复。麦克风权限的说明文字也改成了语音输入的用途。
+
 ## 规范要点
 
 - **是 capability**（`microphone`），这一点和播放不同：客户端在 SessionHello 里提供，host 支持就在 Accept 的 capability 里回应，同时在 `SessionAccept.microphone` 里给出格式（这个版本是 `{48000 Hz, 1 声道, 10 ms, "opus"}`）。客户端必须严格按这个格式编码，做不到就不开麦克风，会话照常进行。capability 在整个连接期间固定，会话中途不能再加。

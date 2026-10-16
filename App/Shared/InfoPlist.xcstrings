@@ -44,31 +44,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "new",
-            "value" : "Spectre sends your microphone to the remote desktop while you have it turned on."
+            "value" : "Spectre listens while you hold or tap the microphone key, and types what you say on the remote desktop."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Spectre envía tu micrófono al escritorio remoto mientras lo tienes activado."
+            "value" : "Spectre escucha mientras mantienes pulsada o tocas la tecla del micrófono, y escribe lo que dices en el escritorio remoto."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "マイクをオンにしている間、Spectre はマイクの音声をリモートデスクトップに送信します。"
+            "value" : "マイクキーを押している間やタップしたあと、Spectre はあなたの声を聞き取り、話した内容をリモートデスクトップに入力します。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Spectre 会在你打开麦克风时，把麦克风的声音发送到远程桌面。"
+            "value" : "按住或轻点麦克风键时，Spectre 会听你说话，并把你说的内容输入到远程桌面上。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Spectre 會在你開啟麥克風時，將麥克風的聲音傳送到遠端桌面。"
+            "value" : "按住或輕點麥克風鍵時，Spectre 會聽你說話，並把你說的內容輸入到遠端桌面上。"
           }
         }
       }

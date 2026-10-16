@@ -93,6 +93,11 @@ final class PlaybackModel {
     private var resolutionTimer: Task<Void, Never>?
     /// The session plays audio (SessionAccept described a format we decode).
     private(set) var hasAudio = false
+    /// Sending the microphone to the host (gdp-spec.md §10.1) is turned off
+    /// for now: the capability isn't offered and no switch shows. On iOS the
+    /// microphone is for voice input, typed on the host (docs/voice-input.md).
+    /// The code stays; this turns it back on.
+    static let forwardsMicrophone = false
     /// The host takes the microphone (`microphone` in effect, a format we encode).
     private(set) var hasMicrophone = false
     /// Off at the start of every session; only the user turns it on (§10.1).
@@ -464,6 +469,7 @@ final class PlaybackModel {
     private func connect(_ config: GDPSession.Configuration) {
         guard let presenter else { return }
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
+        remote.offersMicrophone = Self.forwardsMicrophone
         remote.isAudioMuted = isAudioMuted
         remote.onPictureChange = { [weak presenter, weak self] picture in
             Task { @MainActor in
@@ -549,7 +555,7 @@ final class PlaybackModel {
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
             hasAudio = remote.audio != nil
-            hasMicrophone = remote.microphoneFormat != nil
+            hasMicrophone = Self.forwardsMicrophone && remote.microphoneFormat != nil
             if !hasMicrophone { print("session: no microphone: \(remote.microphoneUnavailable ?? "?")") }
             if let a = remote.audio?.format {
                 print("session: audio opus \(a.sampleRate) Hz, \(a.channels) ch, \(a.frameMilliseconds) ms")
