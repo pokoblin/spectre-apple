@@ -145,7 +145,8 @@ struct MicrophoneEndToEndTests {
         let (host, remote) = try await connect { $0.capabilities = ["microphone"] }
         defer { remote.close() }
         // Offered without being asked: the capability is fixed for the connection.
-        #expect(host.observed.capabilities == ["microphone"])
+        // (So is `file`, offered the same way.)
+        #expect(host.observed.capabilities == ["microphone", "file"])
         let format = try #require(remote.microphoneFormat)
         #expect(format == microphone)
         #expect(remote.microphoneUnavailable == nil)
@@ -176,7 +177,7 @@ struct MicrophoneEndToEndTests {
     @Test func aHostWithoutTheCapability() async throws {
         let (host, remote) = try await connect { _ in }
         defer { remote.close() }
-        #expect(host.observed.capabilities == ["microphone"]) // offered all the same
+        #expect(host.observed.capabilities == ["microphone", "file"]) // offered all the same
         #expect(remote.microphoneFormat == nil)
         #expect(remote.microphoneUnavailable == "the host takes no microphone")
         await #expect(throws: MicrophoneCapture.Failure.self) { try await remote.setMicrophone(true) }

@@ -166,6 +166,12 @@ enum FileErrorCode {
   - 测试 13 个（`FileTransferTests`）：名字和修改时间、NFC、重名编号、8 MiB 按确认量送数据、空文件、一次超过 4 个（流配额补回）、不合法的名字、没有 capability、拒绝、中途失败后会话照常、超时、取消、连接断开、超出大小的数据不发。回环上 8 MiB 用时约 57 ms。
 - **测试 host（已完成）**：`GDPTestHost` 能收文件，可以故意拒绝、中途失败、不回复。默认放在内存里；配置了 `fileDirectory` 就边收边写到那个目录里的隐藏临时文件，收完用 `link()` 改成正式名字（名字被占用时 `link` 失败，所以不会覆盖已有文件，接着试 `name (1).ext`……），并设置修改时间。
   - App 的 loopback 模式（`LoopbackHost`）提供 `file`，收到的文件存到 App 临时目录下的 `Loopback Files`（macOS 沙盒里是 `~/Library/Containers/org.ghost.spectre.apple/Data/tmp/Loopback Files`）。启动时打印 `host files: <目录>`，之后每秒的日志里打印 `host file: saved "名字" (N bytes)`（改了名时加 `as "新名字"`），以及拒绝、失败、取消的累计数。App 自己要到第 6、7 项才会提供 `file`，在那之前 loopback 会话里这个 capability 不会生效。
-- **SpectreKit `FileTransfer`**：队列（最多 4 个同时传）、进度、取消、重试；macOS 的 security-scoped URL，iOS 用 `NSFileCoordinator` 读取（iCloud 里还没下载的文件会先下载）；读取过程中文件大小变了，就当作失败。
+- **SpectreKit `FileTransfers`（已完成）**：一个会话一个，`@MainActor @Observable`，界面直接读 `items`（每一项：名字、大小、已确认的字节数、状态：等待 / 已 offer / 发送中 / 已保存（带 host 用的名字）/ 失败（原因）/ 已取消）。
+  - **队列**：`send(urls:)` 或 `send(_ sources:)` 加进队列，按顺序处理，同时最多 4 个（host 给的流数）。每个文件先在后台打开，打不开的不会 offer 给 host；文件夹（包括 `.app`、Keynote 这类包）直接标成失败。完成、失败、取消都会让下一个开始。`cancel(id)` 等待中的直接去掉，已经 offer 的 reset 掉这条流。
+  - **读文件**：`LocalFile` 先拿 security-scoped 访问，再用 `NSFileCoordinator` 协调读取打开（iCloud 里还没下载的文件会先下载，正在保存的文件会等它保存完），打开之后的文件描述符在协调块外面照样能用。host 接受之后才开始读，每次 256 KiB，读一块发一块；每条传输一个串行队列，不占主线程，整个文件不会读进内存。读到的比预期少（文件变小了），或者发最后一块之前发现文件大小变了，就取消这条流、标成"传输中文件变了"，host 不会留下拼凑出来的文件。
+  - **名字**：`fileNameForHost` 先转 NFC，把 host 不收的字符（`/`、`\`、控制字符）换成 `_`，超过 255 字节就按整个字符截短并保留扩展名；什么都不剩（`""`、`.`、`..`）的标成失败。列表里显示的仍然是用户看到的原名，保存成功后显示 host 实际用的名字。
+  - **限速（`UploadBudget` / `UploadWindow`）**：所有传输共用一个"在途字节"预算，读之前先预留，host 确认之后归还，没有空间的传输在有空间时被唤醒。预算按连接的 RTT 调整，思路和 LEDBAT 这类后台传输一样：RTT 不超过见过的最低值 + 25 ms 时，每个样本加 256 KiB，最多 16 MiB；超过就减半（每个 RTT 最多一次），最少 256 KiB。局域网上 RTT 不会升这么多，预算很快涨到上限；上行慢的链路上，文件数据不会把按键和 StatsReport 挤在后面。RTT 最多每 50 ms 取一次。具体的阈值要在第 10 项连真实 host 时再测。
+  - **会话**：`RemoteSession.offersFiles`（默认开）在 SessionHello 里声明 `file`；三个文件事件通过 `onFileAccepted` / `onFileProgress` / `onFileFinished` 交给 `FileTransfers`，它们在会话队列上被调用，读取器直接收到确认量，不经过主线程。会话结束时调 `sessionEnded()`，还在排队的标成"没有发出"。
+  - 测试 11 个（`FileTransfersTests`、`UploadWindowTests`），走真实的 GDPKit 会话和写目录的测试 host：一次 7 个文件同时不超过 4 个、24 MiB 的文件、文件夹和不存在的文件、打开失败不 offer、名字处理、拒绝、文件变小、取消等待中和已 offer 的、会话结束；预算的增长、减半、下限和唤醒。
 - **macOS**：拖进会话窗口；工具栏"发送文件…"（`NSOpenPanel`，需要 `com.apple.security.files.user-selected.read-only`）；传输列表显示进度、可以取消。
 - **iOS / iPadOS**：工具栏菜单里用 `fileImporter`；iPad 可以拖放；进入后台时用 `beginBackgroundTask` 争取时间，时间到了就当作取消。

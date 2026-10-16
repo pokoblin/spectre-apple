@@ -35,6 +35,11 @@ public final class RemoteSession: @unchecked Sendable {
     public var onCursorPosition: (@Sendable (CGPoint) -> Void)?
     /// Called on the session queue: the host's clipboard text (§7.9).
     public var onClipboardText: (@Sendable (String) -> Void)?
+    /// Called on the session queue: file transfer events (§7.12), for
+    /// ``FileTransfers/fileAccepted(_:)`` and its siblings.
+    public var onFileAccepted: (@Sendable (UInt64) -> Void)?
+    public var onFileProgress: (@Sendable (UInt64, UInt64) -> Void)?
+    public var onFileFinished: (@Sendable (UInt64, GDPSession.FileOutcome) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -163,11 +168,18 @@ public final class RemoteSession: @unchecked Sendable {
     /// app that never sends one turns this off.
     public var offersMicrophone = true
 
+    /// Whether SessionHello offers the `file` capability (§7.12): files the
+    /// user sends to the host. Nothing goes unless they do.
+    public var offersFiles = true
+
     public func connect(_ config: GDPSession.Configuration) throws(GDPSession.ConnectError) {
         // Offered for the whole connection (it is fixed then); the microphone
         // itself stays closed until the user turns it on (§10.1).
         var config = config
         if offersMicrophone, !config.capabilities.contains("microphone") { config.capabilities.append("microphone") }
+        if offersFiles, !config.capabilities.contains(GDPSession.Capability.file) {
+            config.capabilities.append(GDPSession.Capability.file)
+        }
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
         h.closed = { [weak self] ending in
@@ -182,6 +194,9 @@ public final class RemoteSession: @unchecked Sendable {
             self?.audioState.withLock { $0.player }?.receive(sequence: sequence, pts: pts, opus: opus)
         }
         h.clipboardText = { [weak self] text in self?.onClipboardText?(text) }
+        h.fileAccepted = { [weak self] id in self?.onFileAccepted?(id) }
+        h.fileProgress = { [weak self] id, acknowledged in self?.onFileProgress?(id, acknowledged) }
+        h.fileFinished = { [weak self] id, outcome in self?.onFileFinished?(id, outcome) }
         let session = GDPSession(handlers: h)
         self.session = session
         stats.setTimingSink { [weak session] decode, present in
