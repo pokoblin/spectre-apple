@@ -29,7 +29,9 @@ final class RegionAlertModel {
     static let interval: Duration = .milliseconds(250)
 
     @ObservationIgnored private let store = RegionAlertStore.shared
-    @ObservationIgnored private var key = ""
+    /// Observed: views read ``alert`` before ``attach(presenter:key:title:isLive:)``
+    /// sets it, and must read it again then.
+    private var key = ""
     @ObservationIgnored private var title = ""
     @ObservationIgnored private weak var presenter: VideoPresenter?
     @ObservationIgnored private var isLive: () -> Bool = { false }
