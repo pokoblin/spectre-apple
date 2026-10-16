@@ -34,17 +34,27 @@ struct FormHeader: View {
 
 // MARK: - Adding and editing
 
-/// A ghost server and the account on it.
+/// A ghost server, the account on it and, if the user likes, its
+/// password: everything Connect needs in one form (docs/saved-logins.md).
 struct HostEditor: View {
     let isNew: Bool
-    let save: (SavedHost) -> Void
+    /// The account's password is in the Keychain already.
+    let hasSavedPassword: Bool
+    /// The host, the password typed (empty: none, or the saved one stays),
+    /// and whether to keep it in the Keychain.
+    let save: (SavedHost, String, Bool) -> Void
     @State private var host: SavedHost
     @State private var address: String
     @State private var port: String
+    @State private var password = ""
+    /// Off unless the user turns it on.
+    @State private var remember = false
     @Environment(\.dismiss) private var dismiss
 
-    init(host: SavedHost, isNew: Bool, save: @escaping (SavedHost) -> Void) {
+    init(host: SavedHost, isNew: Bool, hasSavedPassword: Bool = false,
+         save: @escaping (SavedHost, String, Bool) -> Void) {
         self.isNew = isNew
+        self.hasSavedPassword = hasSavedPassword
         self.save = save
         _host = State(initialValue: host)
         let parsed = host.address
@@ -89,13 +99,25 @@ struct HostEditor: View {
                 } footer: {
                     Text("The default port is \(String(GDPLobby.defaultPort)). To connect from outside your network, use a VPN such as Tailscale rather than exposing the port to the internet.")
                 }
+                Section {
+                    // iOS shows only the prompt, so it names the field too.
+                    SecureField(text: $password,
+                                prompt: hasSavedPassword ? Text("Password (Saved in Keychain)") : Text("Password (Optional)")) {
+                        Text("Password")
+                    }
+                    .textContentType(.password)
+                    Toggle("Remember in Keychain", isOn: $remember)
+                        .disabled(password.isEmpty)
+                } footer: {
+                    Text("Connect signs in with it. If you leave it empty, or the server asks for more, such as a one-time code, you are asked when you connect. Not remembered, it is kept until Spectre quits; remembered, it stays in this device's Keychain.")
+                }
             }
             .navigationTitle(isNew ? Text("Add Server") : Text("Edit Server"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #else
             .formStyle(.grouped)
-            .frame(minWidth: 440, minHeight: 400)
+            .frame(minWidth: 460, minHeight: 540)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -108,7 +130,7 @@ struct HostEditor: View {
                         saved.server = server.description
                         saved.username = host.username.trimmingCharacters(in: .whitespaces)
                         saved.name = host.name.trimmingCharacters(in: .whitespaces)
-                        save(saved)
+                        save(saved, password, remember)
                         dismiss()
                     }
                     .disabled(!isComplete)

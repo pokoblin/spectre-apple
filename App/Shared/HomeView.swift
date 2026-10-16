@@ -31,8 +31,9 @@ struct HomeView: View {
             HostSidebar(app: app, selection: $selection, isCollapsed: isCollapsed,
                         edit: { editing = $0 }, add: addHost, showTrustedServers: { app.showsTrustedServers = true })
                 .sheet(item: $editing) { host in
-                    HostEditor(host: host, isNew: app.host(host.id) == nil) { saved in
-                        app.saveHost(saved)
+                    HostEditor(host: host, isNew: app.host(host.id) == nil,
+                               hasSavedPassword: app.hasSavedPassword(host)) { saved, password, remember in
+                        app.saveHost(saved, password: password, remember: remember)
                         selection = saved.id
                     }
                 }
@@ -332,7 +333,13 @@ struct HostDetail: View {
             }
             Divider().padding(.leading, 16)
             infoRow("Password") {
-                Text(app.hasSavedPassword(host) ? "Saved in Keychain" : "Not Saved")
+                if app.hasSavedPassword(host) {
+                    Text("Saved in Keychain")
+                } else if app.hasSessionPassword(host) {
+                    Text("Until Spectre Quits")
+                } else {
+                    Text("Not Saved")
+                }
             }
             #if os(iOS)
             Divider().padding(.leading, 16)

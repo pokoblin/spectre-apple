@@ -22,11 +22,17 @@ public struct SavedLogin: Codable, Sendable, Equatable {
     public var answers: [Answer]
     public var deviceID: String?
     public var sessionType: String?
+    /// A password typed in the host's form before any login: it answers the
+    /// server's first secret prompt, whatever that says, as the login
+    /// form's does. Once a login with it succeeds, the answers keep it
+    /// instead. Absent from logins saved before it existed.
+    public var password: String?
 
-    public init(answers: [Answer], deviceID: String? = nil, sessionType: String? = nil) {
+    public init(answers: [Answer], deviceID: String? = nil, sessionType: String? = nil, password: String? = nil) {
         self.answers = answers
         self.deviceID = deviceID
         self.sessionType = sessionType
+        self.password = password
     }
 }
 
@@ -43,6 +49,18 @@ public protocol SavedLogins: AnyObject, Sendable {
 
 extension SavedLogins {
     static func account(server: ServerAddress, username: String) -> String { "\(username)@\(server.key)" }
+
+    /// Keeps `password`, typed in the host's form, for the next login. It
+    /// replaces the secrets saved before; the rest of a saved login (the
+    /// answers that aren't secret, the device, the desktop) stays. False if
+    /// it couldn't be stored.
+    @discardableResult
+    public func savePassword(_ password: String, server: ServerAddress, username: String) -> Bool {
+        var login = load(server: server, username: username) ?? SavedLogin(answers: [])
+        login.answers.removeAll { !$0.echo }
+        login.password = password
+        return save(login, server: server, username: username)
+    }
 }
 
 /// Saved logins in the Keychain: one generic password per username@host:port,

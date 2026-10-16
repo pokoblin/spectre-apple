@@ -124,8 +124,11 @@ final class AppModel {
 
     func host(_ id: SavedHost.ID?) -> SavedHost? { hosts.first { $0.id == id } }
 
-    /// Adds a host, or replaces the one with its id.
-    func saveHost(_ host: SavedHost) {
+    /// Adds a host, or replaces the one with its id. `password`, typed in
+    /// its form (empty: none, or the saved one stays), is kept in the
+    /// Keychain if `remember`, otherwise only until the app quits; either
+    /// way Connect signs in with it (docs/saved-logins.md).
+    func saveHost(_ host: SavedHost, password: String = "", remember: Bool = false) {
         if let i = hosts.firstIndex(where: { $0.id == host.id }) {
             let old = hosts[i]
             hosts[i] = host
@@ -135,6 +138,16 @@ final class AppModel {
             hosts.append(host)
         }
         saveHosts()
+        guard !password.isEmpty, let server = host.address else { return }
+        if remember {
+            login.savedLogins.savePassword(password, server: server, username: host.username)
+            sessionPasswords[host.id] = nil
+            savedRevision += 1
+        } else {
+            // A new password not to keep: the saved one is out of date.
+            forgetPassword(host)
+            sessionPasswords[host.id] = password
+        }
     }
 
     /// Deletes a host with its saved password, thumbnail and region alert.
@@ -151,28 +164,43 @@ final class AppModel {
         return host.address.map { login.hasSavedLogin(server: $0, username: host.username) } ?? false
     }
 
+    /// A password typed for this host but not kept: Connect uses it until the app quits.
+    func hasSessionPassword(_ host: SavedHost) -> Bool { sessionPasswords[host.id] != nil }
+
     func forgetPassword(_ host: SavedHost) {
         if let server = host.address { login.savedLogins.delete(server: server, username: host.username) }
+        sessionPasswords[host.id] = nil
         savedRevision += 1
     }
 
-    /// Bumped when a saved password goes, so ``hasSavedPassword(_:)`` is read again.
+    /// Bumped when a saved password comes or goes, so ``hasSavedPassword(_:)`` is read again.
     private var savedRevision = 0
+    /// Passwords typed but not kept in the Keychain, by host: memory only.
+    private var sessionPasswords: [SavedHost.ID: String] = [:]
 
     /// Connect: the login sheet comes up, already signing in if the
-    /// password is saved. False if the saved one couldn't be read.
+    /// password is known (saved, or typed in the host's form this time);
+    /// it asks for it otherwise. False if the saved one couldn't be read.
     @discardableResult
     func connect(_ host: SavedHost) -> Bool {
         lastSessionEnd = nil
         login.cancel()
         loginHost = host.id
-        guard hasSavedPassword(host), let server = host.address else { return true }
-        return login.signInWithSaved(server: server, username: host.username)
+        guard let server = host.address else { return true }
+        if hasSavedPassword(host) {
+            return login.signInWithSaved(server: server, username: host.username)
+        }
+        if let password = sessionPasswords[host.id] {
+            login.start(server: server, username: host.username, password: password)
+        }
+        return true
     }
 
     /// The login sheet's Connect: `password` answers the server's first secret prompt.
     func signIn(_ host: SavedHost, password: String, remember: Bool) {
         guard let server = host.address else { return }
+        // The latest password typed: not kept, it stands in for the form's until the app quits.
+        sessionPasswords[host.id] = remember || password.isEmpty ? nil : password
         signIn(server: server, username: host.username, password: password, remember: remember)
     }
 

@@ -26,7 +26,7 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 
 - Inicia sesión en un servidor ghost con tu nombre de usuario y contraseña; las demás preguntas, como un código de un solo uso, se hacen por turno. Después eliges un dispositivo y una sesión de escritorio, o tomas el control de una que ya está en marcha.
 - Confianza en el primer uso: en la primera conexión confirmas la huella del certificado del servidor, y se recuerda. **Servidores de confianza…** (en el menú de la app en el Mac; en iPad y iPhone, en el menú de la barra lateral de la pantalla de inicio) muestra las huellas recordadas y te permite olvidarlas.
-- Marca **Recordar** para guardar un inicio de sesión en el llavero, solo en este dispositivo; después, el host se conecta con un clic o un toque.
+- Escribe la contraseña al añadir el servidor y Conectar inicia sesión directamente. Activa **Recordar en el llavero** para guardarla solo en este dispositivo; si no, se guarda hasta que salgas de Spectre.
 - Una conexión perdida (al cambiar de Wi-Fi, al dormirse el Mac o al suspender iOS la app) se vuelve a conectar sola.
 
 **Imagen y sonido**
@@ -152,7 +152,7 @@ Para ejecutar Spectre en un iPhone o iPad, elige tu equipo de desarrollo para el
 
 ## Uso
 
-Spectre se abre en una pantalla de inicio con tus hosts. Añade un servidor con **+** (`host` o `host:port`; el puerto por omisión es 4442) y tu nombre de usuario en él; luego haz clic o toca **Conectar**, escribe tu contraseña y elige un escritorio. En la primera conexión se te pide que confirmes la huella del certificado del servidor. Si el servidor pide algo más, como un código de un solo uso, se pregunta aparte; deja la contraseña vacía para responder así a todas las preguntas.
+Spectre se abre en una pantalla de inicio con tus hosts. Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña, que se guarda en el llavero si activas **Recordar en el llavero**. Luego haz clic o toca **Conectar** y elige un escritorio; sin contraseña, primero se te pide. En la primera conexión se te pide que confirmes la huella del certificado del servidor. Si el servidor pide algo más, como un código de un solo uso, se pregunta aparte; deja la contraseña vacía para responder así a todas las preguntas.
 
 En el Mac la pantalla de inicio es una ventana propia, y cada sesión se abre en otra ventana; al cerrarla se desconecta y la sesión de escritorio sigue abierta en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
 

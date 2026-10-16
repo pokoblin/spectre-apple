@@ -650,6 +650,34 @@
         }
       }
     },
+    "Connect signs in with it. If you leave it empty, or the server asks for more, such as a one-time code, you are asked when you connect. Not remembered, it is kept until Spectre quits; remembered, it stays in this device's Keychain." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar inicia sesión con ella. Si la dejas vacía, o si el servidor pide algo más, como un código de un solo uso, se te pregunta al conectar. Si no la recuerdas, se guarda hasta que salgas de Spectre; si la recuerdas, queda en el llavero de este dispositivo."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「接続」するとこのパスワードでサインインします。空欄のままにした場合や、ワンタイムコードなどサーバーがほかの情報を求める場合は、接続するときに尋ねます。保存しない場合は Spectre を終了するまで、保存する場合はこのデバイスのキーチェーンに残ります。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "点“连接”时用它登录。留空，或服务器还要别的信息（比如一次性验证码）时，会在连接时询问。不记住的话只保留到 Spectre 退出；记住的话保存在这台设备的钥匙串里。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "點「連線」時用它登入。留空，或伺服器還需要其他資訊（例如一次性驗證碼）時，會在連線時詢問。不記住的話只保留到 Spectre 結束；記住的話儲存在這台裝置的鑰匙圈中。"
+          }
+        }
+      }
+    },
     "Connecting to “%@”…" : {
       "localizations" : {
         "es" : {
@@ -2718,6 +2746,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "密碼"
+          }
+        }
+      }
+    },
+    "Password (Optional)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña (opcional)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワード（省略可）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码（可选）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密碼（選填）"
+          }
+        }
+      }
+    },
+    "Password (Saved in Keychain)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña (guardada en el llavero)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワード（キーチェーンに保存済み）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密码（已存在钥匙串中）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "密碼（已儲存在鑰匙圈中）"
           }
         }
       }
@@ -5132,6 +5216,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取消靜音"
+          }
+        }
+      }
+    },
+    "Until Spectre Quits" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hasta salir de Spectre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre の終了まで"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留到 Spectre 退出"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保留到 Spectre 結束"
           }
         }
       }

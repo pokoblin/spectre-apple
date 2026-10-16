@@ -272,7 +272,13 @@ public final class LoginFlow {
         guard let saved = savedLogins.load(server: server, username: username) else { return false }
         cancel()
         replayingSaved = true
-        replay(Recipe(saved, server: server, username: username), allowTakeOver: false)
+        // Only a password from the host's form, never signed in with: the
+        // user chooses the device and the desktop this first time.
+        let onlyPassword = saved.answers.isEmpty && saved.deviceID == nil && saved.sessionType == nil
+        if !onlyPassword { replay = (Recipe(saved, server: server, username: username), 0, false) }
+        // The form's password answers the first secret prompt the answers
+        // don't, and is kept in them once signed in.
+        start(server: server, username: username, password: saved.password, remember: true)
         return true
     }
 

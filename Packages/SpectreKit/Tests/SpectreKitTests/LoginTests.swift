@@ -601,6 +601,62 @@ struct SavedLoginFlowTests {
         flow.answer("demo")
         #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
     }
+
+    // A password typed in the host's form (docs/saved-logins.md).
+
+    @Test func aFormPasswordSignsInAndBecomesTheSavedAnswer() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        #expect(saved.savePassword("demo", server: address, username: "demo"))
+        #expect(flow.signInWithSaved(server: address, username: "demo"))
+        // No prompt for the user: the password answers it, whatever its words.
+        #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
+        flow.open(type: "plasma", takeOver: false)
+        #expect(await step(flow) { if case .redirected = $0 { true } else { false } })
+        #expect(saved.load(server: address, username: "demo") ==
+                SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "demo")], sessionType: "plasma"))
+    }
+
+    @Test func aFormPasswordLeavesAQuestionThatShowsWhatIsTypedToTheUser() async throws {
+        let (flow, server, address, host) = try setUp {
+            $0.prompts = [.init("Code: ", echo: true, expected: "42"), .init("Password: ", expected: "demo")]
+        }
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.savePassword("demo", server: address, username: "demo")
+        flow.signInWithSaved(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt(let p) = $0 { p.text == "Code: " } else { false } })
+        flow.answer("42")
+        #expect(await step(flow) { if case .chooseSession = $0 { true } else { false } })
+    }
+
+    @Test func aWrongFormPasswordIsForgottenAndAsked() async throws {
+        let (flow, server, address, host) = try setUp()
+        defer { withExtendedLifetime((server, host)) { try? FileManager.default.removeItem(at: file) } }
+        saved.savePassword("wrong", server: address, username: "demo")
+        flow.signInWithSaved(server: address, username: "demo")
+        #expect(await step(flow) { if case .prompt = $0 { true } else { false } })
+        #expect(!saved.contains(server: address, username: "demo"))
+        #expect(flow.notice == "The saved password no longer works. Sign in again.")
+    }
+
+    @Test func savingAFormPasswordReplacesTheSecretsAndKeepsTheRest() {
+        let address = ServerAddress(host: "example.org", port: 4442)
+        saved.save(SavedLogin(answers: [.init(prompt: "Password: ", echo: false, text: "old"),
+                                        .init(prompt: "Realm: ", echo: true, text: "lab")],
+                              deviceID: "ws", sessionType: "plasma"),
+                   server: address, username: "demo")
+        saved.savePassword("new", server: address, username: "demo")
+        #expect(saved.load(server: address, username: "demo") ==
+                SavedLogin(answers: [.init(prompt: "Realm: ", echo: true, text: "lab")],
+                           deviceID: "ws", sessionType: "plasma", password: "new"))
+    }
+
+    @Test func aLoginSavedBeforeTheFormPasswordStillReads() throws {
+        let json = #"{"answers":[{"prompt":"Password: ","echo":false,"text":"demo"}],"sessionType":"gnome"}"#
+        let login = try JSONDecoder().decode(SavedLogin.self, from: Data(json.utf8))
+        #expect(login.password == nil)
+        #expect(login.answers.count == 1)
+    }
 }
 
 @Suite("Reconnect policy")

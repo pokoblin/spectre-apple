@@ -26,7 +26,7 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 
 - Sign in to a ghost server with your user name and password; further prompts, such as a one-time code, are asked in turn. Then choose a device and a desktop session, or take over one that is already running.
 - Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** (in the app menu on the Mac, in the home screen's sidebar menu on iPad and iPhone) lists the remembered fingerprints and lets you forget them.
-- Tick **Remember** to keep a login in the Keychain, on this device only; the host then connects with one click or tap.
+- Type the password when you add the server, so Connect signs straight in. Turn on **Remember in Keychain** to keep it on this device only; otherwise it is kept until Spectre quits.
 - A lost connection (Wi-Fi changing, the Mac going to sleep, iOS suspending the app) reconnects by itself.
 
 **Picture and sound**
@@ -153,7 +153,7 @@ To run Spectre on an iPhone or iPad, choose your development team for the target
 
 ## Usage
 
-Spectre opens on a home screen of your hosts. Add a server with **+** (`host` or `host:port`; the port defaults to 4442) and your user name on it, then click or tap **Connect**: enter your password and choose a desktop. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
+Spectre opens on a home screen of your hosts. Add a server with **+**: its address (`host` or `host:port`; the port defaults to 4442), your user name and, if you like, your password, kept in the Keychain if you turn on **Remember in Keychain**. Then click or tap **Connect** and choose a desktop; without a password you are asked for it first. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
 
 On the Mac the home screen is a window of its own, and each session opens in another window; closing it disconnects, and the desktop session keeps running on the host. On iPad and iPhone the session covers the home screen.
 

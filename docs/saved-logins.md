@@ -2,6 +2,18 @@
 
 > 2026-10-16 起登录页和它的最近列表没有了（iPad、iPhone、Mac 都换成了主机首页，见 [ipad-layout.md](ipad-layout.md)、[macos-layout.md](macos-layout.md)）：有保存密码的主机，点“Connect”直接用钥匙串里的回答登录；详情页的“More › Forget Password”忘记密码。下文说的“最近列表”是当时的界面，保存和重放的机制没有变。
 
+## 在添加主机时填密码（2026-10-16）
+
+用户不想在两个地方分别输入（添加主机时填地址和用户名，连接时再在登录弹窗里填密码），所以“Add Server / Edit Server”表单里加了一组：
+
+- **密码**（可选，iOS 上占位文字是 “Password (Optional)”；已存过时是 “Password (Saved in Keychain)”，留空就保留原来的）和 **Remember in Keychain**（**默认关**，没填密码时不能开）。
+- **记住**：`SavedLogins.savePassword` 把它写进这台主机的登录记录的新字段 `SavedLogin.password`，同时去掉以前存的秘密回答，其余（不回显的提问以外的回答、设备、桌面）保留。这个字段是可选的，以前存的记录照样能解码。
+- **不记住**：只放在 `AppModel` 的内存里（`sessionPasswords`），到 App 退出为止；这期间再填一次新密码会替换它，同时删掉钥匙串里过期的那条。详情页“Password”一行显示 “Until Spectre Quits”。
+- **连接**：有保存的记录就 `signInWithSaved`；记录里只有表单密码（还没登录成功过：没有回答、设备、桌面）时不走重放，表单密码像登录页的密码一样回答服务器的**第一个不回显的提问**（不管措辞），`remember` 为真。登录成功后按原来的逻辑写成完整记录（回答按提问文字记下，加上这次选的桌面），`password` 字段就没有了，以后全自动。只在内存里的密码则直接 `login.start(password:)`。
+- 因此登录弹窗只在服务器还要别的东西时出现：第一次连接确认指纹、一次性验证码、选设备、选桌面。密码页只在不知道密码时出现（没填，或保存的密码失效：沿用下面“密码失效”的处理，删掉并提示 “The saved password no longer works. Sign in again.”）。
+- 测试（`SavedLoginFlowTests`）：表单密码登录并变成完整记录；先问一个回显的提问时把它留给用户、之后的密码提问自动答；错误的表单密码被删掉并重新询问；`savePassword` 替换秘密、保留其余；没有 `password` 字段的旧记录能读。
+- 验证：iPad 模拟器上添加主机时填密码、不记住，详情显示 “Until Spectre Quits”；点 Connect 直接到“首次连接”指纹确认，信任后跳过密码页到选桌面，会话打开。Mac 上没有走界面（后台的 computer-use 不能往密码框里打字），表单和 iPad 是同一份代码。
+
 登录时勾选“Remember”，下次在最近列表里点一下就直接登录，不再输入密码。登录回答存在系统 Keychain 里，只在这台设备上，不同步。协议本身不涉及：lobby 的提问（§4.3）照常一问一答，客户端只是替用户把记下的回答再答一遍，用的是断线重连那套重放（见 [reconnect.md](reconnect.md)）。
 
 ![iPad 模拟器上密码提问下面的 Remember 开关](images/ipad-remember-password.jpg)
