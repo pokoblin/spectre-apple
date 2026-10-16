@@ -49,6 +49,7 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 - The remote desktop fills the screen. The controls float over it in Liquid Glass and fold into two round buttons in the bottom corners: the session toolbar on the left (More, paste to the host, the keyboard) and a key bar on the right with arrows, Esc, Ctrl+C, Tab, Backspace and Return, Ctrl, Alt, Super and Shift that stay down until the next key, and the combinations iPadOS keeps for itself, such as Super+Tab.
 - A prompt panel: write with the iPad's input methods, dictation or paste, then send it all at once to the cursor on the host, through the host's clipboard and Ctrl+Shift+V (or Ctrl+V, or typed).
 - Pinch to magnify the picture, or **Fill Screen**; while magnified, the picture follows the pointer near the edges.
+- Region alerts: frame part of the remote desktop, such as a terminal's output, and be told when it stops changing (a build finished) or starts changing, with a banner, or a notification while Spectre's window isn't the active one.
 - A home screen of your hosts with the last picture of each, and a **Session** menu in the iPad menu bar, with no shortcuts that would take keys from the remote desktop.
 
 **Sharing**
