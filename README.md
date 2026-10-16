@@ -25,14 +25,14 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 **Signing in**
 
 - Sign in to a ghost server with your user name and password; further prompts, such as a one-time code, are asked in turn. Then choose a device and a desktop session, or take over one that is already running.
-- Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** on the login screen (on iPad and iPhone, in the home screen's sidebar menu) lists the remembered fingerprints and lets you forget them.
-- Tick **Remember** to keep a login in the Keychain, on this device only; a recent login then connects with one tap.
+- Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** (in the app menu on the Mac, in the home screen's sidebar menu on iPad and iPhone) lists the remembered fingerprints and lets you forget them.
+- Tick **Remember** to keep a login in the Keychain, on this device only; the host then connects with one click or tap.
 - A lost connection (Wi-Fi changing, the Mac going to sleep, iOS suspending the app) reconnects by itself.
 
 **Picture and sound**
 
 - H.264 and HEVC, decoded in hardware by VideoToolbox and shown with Metal without copying frames; frame loss and latency are reported back to the host.
-- The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the toolbar (on iPad and iPhone, the More menu) turns this off, or asks for the full Retina resolution.
+- The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the session's More menu turns this off, or asks for the full Retina resolution.
 - In full screen on the Mac the toolbar and the menu bar slide away and the remote desktop fills the whole screen; push the pointer against the top edge to bring them back. **View → Hide Toolbar in Full Screen** turns this off.
 - The remote desktop's sound, with a jitter buffer that conceals lost packets, and a mute button.
 
@@ -42,6 +42,13 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 - Mouse with every button and smooth scrolling, and a captured mode with relative motion for games and 3D views. The remote cursor is drawn locally.
 - On iPad: hardware keyboards, trackpads and mice, and fingers in either a direct-touch or a trackpad mode.
 - On iPhone and iPad: the on-screen keyboard types on the remote desktop, with the key bar above it.
+
+**On the Mac**
+
+- A home window of your hosts, with the last picture of each; every session opens in a window of its own, so you can have several at once. Closing a session's window disconnects.
+- The window's toolbar keeps the clipboard, mouse capture and mute at hand, with resolution, gamepads, statistics and Log Out in a More menu; its subtitle shows the round trip and frame rate as you go.
+- Connecting, reconnecting and a failed connection show a glass card over the picture, with Retry.
+- A **Session** menu in the menu bar: capture the mouse, send the clipboard to the host, and send the key combinations macOS keeps for itself, such as Super+Tab. No new shortcuts, so every key goes to the remote desktop.
 
 **On iPad and iPhone**
 
@@ -146,9 +153,9 @@ To run Spectre on an iPhone or iPad, choose your development team for the target
 
 ## Usage
 
-Spectre opens on the login screen. Enter the server (`host` or `host:port`; the port defaults to 4442), your user name and password, and choose a desktop. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
+Spectre opens on a home screen of your hosts. Add a server with **+** (`host` or `host:port`; the port defaults to 4442) and your user name on it, then click or tap **Connect**: enter your password and choose a desktop. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
 
-On iPad and iPhone Spectre opens on a home screen of your hosts instead: add a server with **+**, then tap **Connect**, and the same steps come in a sheet. Your recent logins appear there as hosts.
+On the Mac the home screen is a window of its own, and each session opens in another window; closing it disconnects, and the desktop session keeps running on the host. On iPad and iPhone the session covers the home screen.
 
 ### Keyboard and mouse
 
@@ -238,7 +245,7 @@ The simulator decodes video in software and reports no `presentedTime`, so its t
 | Path | Contents |
 |---|---|
 | `project.yml` | The XcodeGen project: one multiplatform app target for macOS and iOS |
-| `App/` | The app: per-platform entry points, the login and session UI, the iPad and iPhone home screen and floating controls, the icon |
+| `App/` | The app: per-platform entry points, the home screen and sign-in sheets, the session UI, the iPad and iPhone floating controls, the icon |
 | `Packages/GDPKit/` | The C bridge to libgdp (`Native/`) and its Swift wrapper: sessions, lobby, test host |
 | `Packages/SpectreKit/` | Shared code: the session, VideoToolbox decoding, Metal presentation, input, the login flow |
 | `scripts/` | Builds the dependencies and the xcframework |
@@ -261,6 +268,7 @@ The notes under [`docs/`](docs/) record how each part works, what was measured a
 - [input.md](docs/input.md): keyboard, mouse, cursor and touch
 - [keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
 - [ipad-layout.md](docs/ipad-layout.md): the iPad and iPhone interface: the floating controls, the key bar, the prompt panel, magnifying, the home screen, region alerts
+- [macos-layout.md](docs/macos-layout.md): the Mac interface: the home window, a window for each session, the toolbar, the Session menu
 - [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone
 - [voice-input.md](docs/voice-input.md): voice input, Speech's on-device models, the microphone key
 - [clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt

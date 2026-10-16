@@ -1,5 +1,7 @@
 # 保存密码（Keychain）
 
+> 2026-10-16 起登录页和它的最近列表没有了（iPad、iPhone、Mac 都换成了主机首页，见 [ipad-layout.md](ipad-layout.md)、[macos-layout.md](macos-layout.md)）：有保存密码的主机，点“Connect”直接用钥匙串里的回答登录；详情页的“More › Forget Password”忘记密码。下文说的“最近列表”是当时的界面，保存和重放的机制没有变。
+
 登录时勾选“Remember”，下次在最近列表里点一下就直接登录，不再输入密码。登录回答存在系统 Keychain 里，只在这台设备上，不同步。协议本身不涉及：lobby 的提问（§4.3）照常一问一答，客户端只是替用户把记下的回答再答一遍，用的是断线重连那套重放（见 [reconnect.md](reconnect.md)）。
 
 ![iPad 模拟器上密码提问下面的 Remember 开关](images/ipad-remember-password.jpg)
