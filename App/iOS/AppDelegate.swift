@@ -22,10 +22,42 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
         guard let scene = scene as? UIWindowScene else { return }
-        let window = UIWindow(windowScene: scene)
+        let window = SessionWindow(windowScene: scene)
         window.rootViewController = RootViewController(rootView: ContentView())
         window.makeKeyAndVisible()
         self.window = window
+    }
+}
+
+/// Sends trackpad and mouse clicks nowhere while the pointer is locked
+/// (the mouse captured). A locked pointer stays where it was, often on the
+/// Capture Mouse button that locked it, and its clicks would still land
+/// there: toggling the capture off and on, and whether GCMouse's report of
+/// the same click reached the host first was down to the order the two
+/// came in. Captured, GCMouse gives the buttons and the session view
+/// ignores these touches anyway.
+///
+/// Routed by hit-testing rather than dropped from `sendEvent`, so UIKit
+/// still sees every touch from start to end: a click begun before the
+/// lock (the one on Capture Mouse) keeps its view, one begun during it
+/// stays with the window after the release. Fingers always hit-test as
+/// usual.
+final class SessionWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        if let event, event.type == .touches, windowScene?.pointerLockState?.isLocked == true,
+           Self.isPointerClick(event) {
+            return self
+        }
+        return super.hitTest(point, with: event)
+    }
+
+    /// A finger coming down hit-tests normally, even while a click is held.
+    /// The click's own touch isn't in `allTouches` yet when it is hit-tested
+    /// (only its buttons are in the mask), so this looks at both.
+    private static func isPointerClick(_ event: UIEvent) -> Bool {
+        let beginning = event.allTouches?.filter { $0.phase == .began } ?? []
+        if beginning.contains(where: { $0.type != .indirectPointer }) { return false }
+        return !beginning.isEmpty || !event.buttonMask.isEmpty
     }
 }
 
