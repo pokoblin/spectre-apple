@@ -1,8 +1,17 @@
 import SpectreKit
 import SwiftUI
 
+/// The glass over a session's picture, on iPad, iPhone and the Mac.
+enum SessionGlass {
+    /// Large glass cards: the connection status, the prompt panel.
+    static let cardCornerRadius: CGFloat = 28
+    /// Small notices at the top of the picture.
+    static let noticePadding = EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14)
+}
+
 /// What the session's connection is doing, over the picture
-/// (docs/ipad-layout.md): connecting, couldn't connect, reconnecting.
+/// (docs/ipad-layout.md, docs/macos-layout.md): connecting, couldn't
+/// connect, reconnecting.
 struct SessionStatusOverlay: View {
     let model: PlaybackModel
 
@@ -52,7 +61,7 @@ struct SessionStatusOverlay: View {
             Color.black.opacity(opacity)
                 .ignoresSafeArea()
                 .contentShape(.rect)
-                .onTapGesture {} // touches stop here, not on the old picture
+                .onTapGesture {} // touches and clicks stop here, not on the old picture
             content()
                 .padding(.horizontal, 16)
         }
@@ -89,10 +98,13 @@ struct SessionStatusCard<Buttons: View>: View {
             }
             HStack(spacing: 12) { buttons() }
                 .padding(.top, 4)
+                #if os(macOS)
+                .controlSize(.large) // the Mac's are small by default
+                #endif
         }
         .padding(28)
         .frame(maxWidth: 420)
-        .glassEffect(.regular, in: .rect(cornerRadius: FloatingKeyBar.cardCornerRadius))
+        .glassEffect(.regular, in: .rect(cornerRadius: SessionGlass.cardCornerRadius))
         .accessibilityElement(children: .contain)
     }
 }
@@ -119,19 +131,23 @@ struct ReconnectingCapsule: View {
 
 // MARK: - Notices
 
-/// Short notices at the top centre of the screen (the bottom corners are
-/// the controls'): clipboard text that crossed, characters the host's
-/// layout can't type. They fade in and out and take no touches.
+/// Short notices at the top centre of the picture (the iPad's bottom
+/// corners are the controls', the Mac's window has its toolbar above):
+/// clipboard text that crossed, characters the host's layout can't type.
+/// They fade in and out and take no touches.
 struct TopNotices: View {
     let model: PlaybackModel
+    #if os(iOS)
     let regions: RegionAlertModel
-    @State private var clipboard: ClipboardSync.Transfer.Direction?
-    @State private var untypable: Int?
     /// The region alert shown (its count), on top of the others.
     @State private var regionAlert: Int?
+    #endif
+    @State private var clipboard: ClipboardSync.Transfer.Direction?
+    @State private var untypable: Int?
 
     var body: some View {
         VStack(spacing: 8) {
+            #if os(iOS)
             // First, at the top; a clipboard notice at the same time comes
             // below it (12 + 36 + 8: at 56).
             if regionAlert != nil {
@@ -140,6 +156,7 @@ struct TopNotices: View {
                     withAnimation(.easeInOut(duration: 0.2)) { regionAlert = nil }
                 }
             }
+            #endif
             Group {
                 if let clipboard {
                     Notice(symbol: "doc.on.clipboard",
@@ -155,10 +172,12 @@ struct TopNotices: View {
         .padding(.top, 12)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity)
+        #if os(iOS)
         .task(id: regions.alertCount) {
             guard regions.alertCount > 0 else { return }
             await show(regions.alertCount, in: $regionAlert, for: .seconds(RegionWatcher.alertedDuration))
         }
+        #endif
         .task(id: model.clipboard?.lastTransfer) {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))
@@ -184,7 +203,7 @@ private struct Notice: View {
         Label { text } icon: { Image(systemName: symbol) }
             .font(.footnote)
             .multilineTextAlignment(.center)
-            .padding(FloatingKeyBar.noticePadding)
+            .padding(SessionGlass.noticePadding)
             .glassEffect(.regular, in: .capsule)
             .transition(.opacity)
     }

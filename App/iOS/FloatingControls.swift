@@ -25,9 +25,9 @@ enum FloatingKeyBar {
     static let separatorInset: CGFloat = 4
 
     /// Large glass cards: the connection status, the prompt panel.
-    static let cardCornerRadius: CGFloat = 28
+    static let cardCornerRadius = SessionGlass.cardCornerRadius
     /// Small notices at the top of the screen.
-    static let noticePadding = EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14)
+    static let noticePadding = SessionGlass.noticePadding
     /// The row of keys above the touch keyboard.
     static let accessoryHeight: CGFloat = 60
     /// Bars of fixed height stop growing here, as the system's tab bar does;

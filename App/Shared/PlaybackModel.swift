@@ -38,6 +38,13 @@ final class PlaybackModel {
         case failed(String)
     }
 
+    struct Quality: Equatable {
+        /// The transport's round trip.
+        var milliseconds: Double
+        /// Frames shown in the last second.
+        var framesPerSecond: Double
+    }
+
     struct BenchOptions {
         var seconds: Double
         var warmup: Double = 2
@@ -46,6 +53,9 @@ final class PlaybackModel {
     private(set) var phase = Phase.idle
     private(set) var statsText = ""
     private(set) var sessionText = ""
+    /// How the connection is doing, each second while it plays: the Mac's
+    /// window subtitle shows it.
+    private(set) var quality: Quality?
     private(set) var streamInfo = ""
     /// A remote session's title (user@server, or the --connect target),
     /// which `streamInfo` extends with the codec once accepted.
@@ -386,6 +396,7 @@ final class PlaybackModel {
         hostInputPrinted = 0
         hostClipboardPrinted = 0
         sessionText = ""
+        quality = nil
     }
 
     /// Lets go of the session (not the test sources): what a reconnect replaces.
@@ -717,16 +728,14 @@ final class PlaybackModel {
     }
 
     /// A session that ended on its own (lost and not restored, refused, closed
-    /// by the host). On iOS it stays on screen, the last picture dimmed under
-    /// a card with Close and Retry (docs/ipad-layout.md); on the Mac, and when
-    /// the user ended it, it goes back to the login screen at once.
+    /// by the host). It stays on screen, the last picture dimmed under a card
+    /// with Close and Retry (docs/ipad-layout.md, docs/macos-layout.md); when
+    /// the user ended it, it goes back to the home screen at once.
     private func endOrShowFailure(_ message: String) {
-        #if os(iOS)
         if !userEnded {
             phase = .failed(message)
             return
         }
-        #endif
         reportEnded(message)
     }
 
@@ -844,6 +853,9 @@ final class PlaybackModel {
                 stats.reset()
                 statsText = Self.overlay(summary, mode: mode)
                 sessionText = sessionOverlay()
+                quality = remote?.linkStats().map {
+                    Quality(milliseconds: Double($0.rttMicroseconds) / 1000, framesPerSecond: summary.presentedFPS)
+                }
                 print(String(format: "decode p50 %.2f / max %.2f ms, decode→present p50 %.2f / max %.2f ms, "
                     + "gpu %.2f ms, %.1f fps shown, replaced %llu, zero-copy %d/%d, cpu %.1f%%",
                     summary.decode.p50, summary.decode.max, summary.present.p50, summary.present.max,

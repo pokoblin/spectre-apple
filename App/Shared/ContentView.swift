@@ -108,14 +108,20 @@ struct SessionView: View {
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
             #else
-            if showStats {
-                overlay
-                    .allowsHitTesting(false) // clicks on it go to the remote desktop
-                    .padding(10)
+            // Over the picture, as on the iPad (docs/macos-layout.md): the
+            // connection's state, notices, the statistics. Dark glass on the
+            // picture, whatever the system's appearance.
+            Group {
+                SessionStatusOverlay(model: model)
+                    .animation(.easeInOut(duration: 0.2), value: model.phase)
+                TopNotices(model: model)
+                if showStats {
+                    overlay
+                        .allowsHitTesting(false) // clicks on it go to the remote desktop
+                        .padding(10)
+                }
             }
-            if case let .reconnecting(attempt, total, reason) = model.phase {
-                ReconnectingCard(attempt: attempt, total: total, reason: reason) { model.cancelReconnect() }
-            }
+            .environment(\.colorScheme, .dark)
             #endif
         }
         #if os(iOS)
@@ -149,11 +155,21 @@ struct SessionView: View {
         }
         #else
         .toolbar {
-            ToolbarItemGroup { sessionButtons }
+            if model.isRemoteSession {
+                // Before the window's title, the host's name: back to the hosts.
+                ToolbarItem(placement: .navigation) {
+                    Button { model.disconnect() } label: {
+                        Label("Disconnect", systemImage: "chevron.backward")
+                    }
+                    .help("Disconnect, leaving the desktop session running")
+                }
+            }
+            ToolbarItemGroup(placement: .primaryAction) { sessionButtons }
             if !model.isRemoteSession {
                 ToolbarItemGroup { sourceControls }
             }
         }
+        .navigationSubtitle(qualityText)
         #endif
         .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
                                                   set: { if !$0 { model.microphoneError = nil } })) {
@@ -179,33 +195,17 @@ struct SessionView: View {
     #endif
 
     #if os(macOS)
-    /// The window's toolbar. iOS floats its controls over the picture instead
-    /// (App/iOS/SessionControls.swift).
+    /// The window's toolbar: what is used during a session, then More. iOS
+    /// floats its controls over the picture instead (App/iOS/SessionControls.swift).
     @ViewBuilder private var sessionButtons: some View {
-        if model.isRemoteSession {
-            Button { model.disconnect() } label: {
-                Label("Disconnect", systemImage: "xmark.circle")
-            }
-            .help("Leave the session running and disconnect")
-            Button { confirmLogOut = true } label: {
-                Label("Log Out", systemImage: "power")
-            }
-            .help("End the desktop session")
+        if let clipboard = model.clipboard {
+            ClipboardControls(clipboard: clipboard)
         }
         if let input = model.input {
             Toggle(isOn: Binding(get: { input.isCaptured }, set: { input.setCaptured($0) })) {
                 Label("Capture Mouse", systemImage: input.isCaptured ? "cursorarrow.square.fill" : "cursorarrow.square")
             }
             .help("Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)")
-        }
-        if let clipboard = model.clipboard {
-            ClipboardControls(clipboard: clipboard)
-        }
-        if let gamepads = model.gamepads {
-            GamepadControls(gamepads: gamepads)
-        }
-        if model.isRemoteSession {
-            ResolutionControls(model: model)
         }
         if model.hasMicrophone {
             Toggle(isOn: Binding(get: { model.isMicrophoneOn }, set: { _ in model.toggleMicrophone() })) {
@@ -225,9 +225,35 @@ struct SessionView: View {
             }
             .help(model.isAudioMuted ? "Play the remote desktop's sound" : "Mute the remote desktop's sound on this device")
         }
-        Toggle(isOn: $showStats) {
-            Label("Statistics", systemImage: "chart.bar.xaxis")
+        Menu {
+            if model.isRemoteSession {
+                ResolutionControls(model: model)
+            }
+            if let gamepads = model.gamepads {
+                GamepadControls(gamepads: gamepads)
+            }
+            Toggle(isOn: $showStats) {
+                Label("Statistics", systemImage: "chart.bar.xaxis")
+            }
+            if model.isRemoteSession {
+                Divider()
+                Button(role: .destructive) { confirmLogOut = true } label: {
+                    Label("Log Out…", systemImage: "power")
+                }
+            }
+        } label: {
+            Label("More", systemImage: "ellipsis")
         }
+        .menuIndicator(.hidden)
+        .help("Resolution, gamepads, statistics, and logging out")
+    }
+
+    /// The window's subtitle while the picture plays: the round trip and
+    /// the frames shown, each second.
+    private var qualityText: String {
+        guard model.phase == .playing, let quality = model.quality else { return "" }
+        let ms = quality.milliseconds < 1 ? "<1" : quality.milliseconds.formatted(.number.precision(.fractionLength(0)))
+        return "\(ms) ms · \(quality.framesPerSecond.formatted(.number.precision(.fractionLength(0)))) fps"
     }
 
     @ViewBuilder private var sourceControls: some View {
@@ -303,13 +329,16 @@ private struct GamepadControls: View {
 
     var body: some View {
         let names = gamepads.slots.sorted { $0.key < $1.key }.map(\.value)
-        Toggle(isOn: $gamepads.isEnabled) {
-            Label(gamepads.isEnabled && !names.isEmpty ? "Gamepads (\(names.count))" : "Gamepads",
-                  systemImage: gamepads.isEnabled ? "gamecontroller.fill" : "gamecontroller")
+        Section {
+            Toggle(isOn: $gamepads.isEnabled) {
+                Label(gamepads.isEnabled && !names.isEmpty ? "Gamepads (\(names.count))" : "Gamepads",
+                      systemImage: gamepads.isEnabled ? "gamecontroller.fill" : "gamecontroller")
+            }
+        } footer: {
+            names.isEmpty
+                ? Text("Forward game controllers to the remote desktop, up to four")
+                : Text("Forwarding: \(names.formatted(.list(type: .and)))")
         }
-        .help(names.isEmpty
-            ? Text("Forward game controllers to the remote desktop, up to four")
-            : Text("Forwarding: \(names.formatted(.list(type: .and)))"))
     }
 }
 
@@ -319,6 +348,7 @@ private struct ResolutionControls: View {
     @Bindable var model: PlaybackModel
 
     var body: some View {
+        // A submenu of More.
         Menu {
             Toggle("Match Window Size", isOn: $model.matchesWindowSize)
             Section("Sharper on Retina screens, at up to four times the work for the host") {
@@ -329,36 +359,7 @@ private struct ResolutionControls: View {
         } label: {
             Label("Resolution", systemImage: "arrow.up.left.and.arrow.down.right")
         }
-        .help("Resize the remote desktop to fit this window")
     }
 }
 #endif
 
-
-#if os(macOS)
-/// Over the last picture while a lost connection is being restored. iOS
-/// has its own (App/iOS/SessionStatus.swift).
-private struct ReconnectingCard: View {
-    let attempt: Int
-    let total: Int
-    let reason: String
-    let cancel: () -> Void
-
-    var body: some View {
-        VStack(spacing: 10) {
-            ProgressView()
-            Text("Connection lost").font(.headline)
-            Text("Reconnecting… (attempt \(attempt) of \(total))").font(.callout)
-            if !reason.isEmpty {
-                Text(reason).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-            }
-            Button("Cancel", role: .cancel, action: cancel)
-                .buttonStyle(.bordered)
-        }
-        .padding(20)
-        .frame(maxWidth: 320)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-#endif

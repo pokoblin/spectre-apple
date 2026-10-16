@@ -678,34 +678,6 @@
         }
       }
     },
-    "Connection lost" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conexión perdida"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "接続が切れました"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接已丢失"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連線已中斷"
-          }
-        }
-      }
-    },
     "Connection lost. Reconnecting (attempt %lld)…" : {
       "localizations" : {
         "es" : {
@@ -1014,6 +986,34 @@
         }
       }
     },
+    "Disconnect, leaving the desktop session running" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desconectar y dejar la sesión de escritorio abierta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "切断します（デスクトップセッションは実行したままです）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "断开连接，桌面会话继续运行"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中斷連線，桌面工作階段繼續執行"
+          }
+        }
+      }
+    },
     "Disconnected." : {
       "localizations" : {
         "es" : {
@@ -1262,34 +1262,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編輯伺服器"
-          }
-        }
-      }
-    },
-    "End the desktop session" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Termina la sesión de escritorio"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デスクトップセッションを終了"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "结束桌面会话"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "結束桌面工作階段"
           }
         }
       }
@@ -2018,34 +1990,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上次連線"
-          }
-        }
-      }
-    },
-    "Leave the session running and disconnect" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Desconecta y deja la sesión en marcha"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "セッションを実行したまま切断"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "断开连接，会话继续运行"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "中斷連線，工作階段繼續執行"
           }
         }
       }
@@ -3002,40 +2946,6 @@
         }
       }
     },
-    "Reconnecting… (attempt %lld of %lld)" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Reconnecting… (attempt %1$lld of %2$lld)"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reconectando… (intento %lld de %lld)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再接続しています…（%lld/%lld 回目）"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重新连接…（第 %lld 次，共 %lld 次）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在重新連線…（第 %lld 次，共 %lld 次）"
-          }
-        }
-      }
-    },
     "Region Alert" : {
       "localizations" : {
         "es" : {
@@ -3176,34 +3086,6 @@
         }
       }
     },
-    "Resize the remote desktop to fit this window" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ajusta el tamaño del escritorio remoto a esta ventana"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リモートデスクトップのサイズをこのウインドウに合わせる"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "调整远程桌面的大小以适合此窗口"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "調整遠端桌面的大小以符合此視窗"
-          }
-        }
-      }
-    },
     "Resolution" : {
       "localizations" : {
         "es" : {
@@ -3228,6 +3110,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "解析度"
+          }
+        }
+      }
+    },
+    "Resolution, gamepads, statistics, and logging out" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Resolución, mandos, estadísticas y cierre de sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解像度、ゲームコントローラ、統計情報、ログアウト"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分辨率、手柄、统计信息和注销"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "解析度、遊戲控制器、統計資料和登出"
           }
         }
       }
