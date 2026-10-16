@@ -25,14 +25,14 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 **Signing in**
 
 - Sign in to a ghost server with your user name and password; further prompts, such as a one-time code, are asked in turn. Then choose a device and a desktop session, or take over one that is already running.
-- Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** on the login screen lists the remembered fingerprints and lets you forget them.
+- Trust on first use: you confirm the server's certificate fingerprint on the first connection, and it is remembered. **Trusted Servers…** on the login screen (on iPad and iPhone, in the home screen's sidebar menu) lists the remembered fingerprints and lets you forget them.
 - Tick **Remember** to keep a login in the Keychain, on this device only; a recent login then connects with one tap.
 - A lost connection (Wi-Fi changing, the Mac going to sleep, iOS suspending the app) reconnects by itself.
 
 **Picture and sound**
 
 - H.264 and HEVC, decoded in hardware by VideoToolbox and shown with Metal without copying frames; frame loss and latency are reported back to the host.
-- The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the toolbar turns this off, or asks for the full Retina resolution.
+- The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the toolbar (on iPad and iPhone, the More menu) turns this off, or asks for the full Retina resolution.
 - In full screen on the Mac the toolbar and the menu bar slide away and the remote desktop fills the whole screen; push the pointer against the top edge to bring them back. **View → Hide Toolbar in Full Screen** turns this off.
 - The remote desktop's sound, with a jitter buffer that conceals lost packets, and a mute button.
 
@@ -72,9 +72,9 @@ Not done yet:
 
 ## Screenshots
 
-| Signing in on the Mac | iPad in trackpad mode |
+| Signing in on the Mac | A session on iPad |
 |---|---|
-| ![The login screen on the Mac](docs/images/macos-login.webp) | ![A session on iPad in trackpad mode, with the remote cursor drawn by Metal](docs/images/ipad-trackpad-mode.jpg) |
+| ![The login screen on the Mac](docs/images/macos-login.webp) | ![A GNOME desktop on iPad, sized to the iPad's screen, with the key bar open in the bottom-right corner](docs/images/ipad-session.webp) |
 
 ## Requirements
 
@@ -148,6 +148,8 @@ To run Spectre on an iPhone or iPad, choose your development team for the target
 
 Spectre opens on the login screen. Enter the server (`host` or `host:port`; the port defaults to 4442), your user name and password, and choose a desktop. On the first connection you are asked to confirm the server's certificate fingerprint. If the server asks for anything else, such as a one-time code, it is asked on its own; leave the password empty to answer every prompt that way.
 
+On iPad and iPhone Spectre opens on a home screen of your hosts instead: add a server with **+**, then tap **Connect**, and the same steps come in a sheet. Your recent logins appear there as hosts.
+
 ### Keyboard and mouse
 
 Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop are still Ctrl+C and Ctrl+V. Only these shortcuts stay on your Mac:
@@ -160,14 +162,14 @@ Cmd is sent as Super (the Windows key), so copy and paste on the remote desktop 
 
 ### Touch on iPad and iPhone
 
-The toolbar switches between two modes:
+**More › Input Mode** in the session toolbar switches between two modes:
 
 - **Touch**: the pointer goes where you touch. Tap to click, long-press to right-click, drag with one finger to drag, drag with two fingers to scroll, and tap with two or three fingers for a right or middle click.
 - **Trackpad** (the default): the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
 ### Sound
 
-The remote desktop's sound plays whenever the host sends it (wraith does when it can capture the session's audio). **Mute** in the toolbar silences it on this device only, and the setting is remembered.
+The remote desktop's sound plays whenever the host sends it (wraith does when it can capture the session's audio). **Mute** in the toolbar (on iPad and iPhone, the More menu) silences it on this device only, and the setting is remembered.
 
 Sending your microphone to the remote desktop is turned off for now. On iPad and iPhone the microphone is for voice input instead: hold the microphone key on the key bar and speak, and what you say is written out on the device and typed at the cursor on the host.
 
@@ -236,7 +238,7 @@ The simulator decodes video in software and reports no `presentedTime`, so its t
 | Path | Contents |
 |---|---|
 | `project.yml` | The XcodeGen project: one multiplatform app target for macOS and iOS |
-| `App/` | The app: per-platform entry points, the login and session UI, the icon |
+| `App/` | The app: per-platform entry points, the login and session UI, the iPad and iPhone home screen and floating controls, the icon |
 | `Packages/GDPKit/` | The C bridge to libgdp (`Native/`) and its Swift wrapper: sessions, lobby, test host |
 | `Packages/SpectreKit/` | Shared code: the session, VideoToolbox decoding, Metal presentation, input, the login flow |
 | `scripts/` | Builds the dependencies and the xcframework |
@@ -258,6 +260,7 @@ The notes under [`docs/`](docs/) record how each part works, what was measured a
 - [full-screen.md](docs/full-screen.md): hiding the toolbar in full screen on the Mac
 - [input.md](docs/input.md): keyboard, mouse, cursor and touch
 - [keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
+- [ipad-layout.md](docs/ipad-layout.md): the iPad and iPhone interface: the floating controls, the key bar, the prompt panel, magnifying, the home screen, region alerts
 - [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone
 - [voice-input.md](docs/voice-input.md): voice input, Speech's on-device models, the microphone key
 - [clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt

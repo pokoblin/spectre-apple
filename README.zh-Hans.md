@@ -25,14 +25,14 @@ spectre-apple 是受 ghost 启发的独立第三方客户端，并非 ghost 官�
 **登录**
 
 - 用用户名和密码登录 ghost 服务器；服务器后续的提问（比如一次性验证码）会依次询问。然后选择设备和桌面会话，或者接管一个正在运行的会话。
-- 首次信任（TOFU）：第一次连接时确认服务器的证书指纹，之后会记住。登录页的 **信任的服务器…** 列出记住的指纹，也可以删除。
+- 首次信任（TOFU）：第一次连接时确认服务器的证书指纹，之后会记住。登录页的 **信任的服务器…**（iPad 和 iPhone 上在首页侧边栏的菜单里）列出记住的指纹，也可以删除。
 - 勾选 **记住**，登录信息会保存在钥匙串里，只留在本机；之后点一下最近登录就能连接。
 - 连接断开时（切换 Wi-Fi、Mac 睡眠、iOS 挂起 App）会自动重连。
 
 **画面与声音**
 
 - H.264 和 HEVC 由 VideoToolbox 硬件解码，交给 Metal 显示，全程不复制帧；丢帧和延迟统计会回报给主机。
-- 远程桌面的大小跟随窗口（iPad 和 iPhone 上是屏幕）。工具栏的**分辨率**菜单可以关掉这个功能，或者改为按 Retina 的完整分辨率请求。
+- 远程桌面的大小跟随窗口（iPad 和 iPhone 上是屏幕）。工具栏的**分辨率**菜单（iPad 和 iPhone 上在「更多」菜单里）可以关掉这个功能，或者改为按 Retina 的完整分辨率请求。
 - 远程桌面的声音，带能掩盖丢包的抖动缓冲，可以静音。
 
 **输入**
@@ -71,9 +71,9 @@ spectre-apple 是受 ghost 启发的独立第三方客户端，并非 ghost 官�
 
 ## 截图
 
-| 在 Mac 上登录 | iPad 的触控板模式 |
+| 在 Mac 上登录 | iPad 上的会话 |
 |---|---|
-| ![Mac 上的登录页](docs/images/macos-login.webp) | ![iPad 上触控板模式的会话，远端光标由 Metal 绘制](docs/images/ipad-trackpad-mode.jpg) |
+| ![Mac 上的登录页](docs/images/macos-login.webp) | ![iPad 上的 GNOME 桌面，大小跟随 iPad 屏幕，右下角的按键栏已展开](docs/images/ipad-session.webp) |
 
 ## 运行要求
 
@@ -147,6 +147,8 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Spectre 打开后是登录页。填写服务器（`host` 或 `host:port`，端口默认 4442）、用户名和密码，再选择一个桌面。第一次连接时会请你确认服务器的证书指纹。服务器如果还要别的信息（比如一次性验证码），会单独询问；密码留空的话，所有提问都会这样逐个询问。
 
+iPad 和 iPhone 上打开后是主机列表首页：用 **+** 添加服务器，再点 **连接**，同样的步骤在弹出的面板里完成。以前的最近登录会作为主机列在这里。
+
 ### 键盘和鼠标
 
 Cmd 作为 Super 键（Windows 键）发送，所以在远程桌面上复制粘贴仍然是 Ctrl+C 和 Ctrl+V。只有下面几个快捷键留在本机：
@@ -159,14 +161,14 @@ Cmd 作为 Super 键（Windows 键）发送，所以在远程桌面上复制粘�
 
 ### iPad 和 iPhone 上的触摸
 
-用工具栏切换两种模式：
+用会话工具栏的 **更多 › 输入方式** 切换两种模式：
 
 - **触摸**：指针跟着手指走。轻点是单击，长按是右键，单指拖动是拖拽，双指拖动是滚动，双指或三指轻点是右键或中键。
 - **触控板**（默认）：屏幕当作触控板用。单指移动光标，轻点单击。
 
 ### 声音
 
-主机发送声音时就会播放（wraith 能采集到会话的音频时会发送）。工具栏的 **静音** 只在本机静音，设置会被记住。
+主机发送声音时就会播放（wraith 能采集到会话的音频时会发送）。工具栏的 **静音**（iPad 和 iPhone 上在「更多」菜单里）只在本机静音，设置会被记住。
 
 把本机麦克风发送到远程桌面的功能暂时停用。iPad 和 iPhone 上的麦克风改为用于语音输入：按住按键栏上的麦克风键说话，说的话在本机转成文字，输入到主机的光标处。
 
@@ -235,7 +237,7 @@ iOS 上 App 从 UIKit 的 app delegate 启动，这样根视图控制器才能�
 | 路径 | 内容 |
 |---|---|
 | `project.yml` | XcodeGen 工程：一个同时支持 macOS 和 iOS 的 App target |
-| `App/` | App 本身：各平台入口、登录和会话界面、图标 |
+| `App/` | App 本身：各平台入口、登录和会话界面、iPad 和 iPhone 的首页与浮动控件、图标 |
 | `Packages/GDPKit/` | 通往 libgdp 的 C 桥接（`Native/`）及其 Swift 封装：会话、lobby、测试主机 |
 | `Packages/SpectreKit/` | 共享代码：会话、VideoToolbox 解码、Metal 显示、输入、登录流程 |
 | `scripts/` | 构建依赖和 xcframework 的脚本 |
@@ -256,6 +258,7 @@ iOS 上 App 从 UIKit 的 app delegate 启动，这样根视图控制器才能�
 - [resolution.md](docs/resolution.md)：远程桌面的分辨率跟随窗口
 - [input.md](docs/input.md)：键盘、鼠标、光标和触摸
 - [keyboard.md](docs/keyboard.md)：iOS 屏幕键盘、字符到按键的转换、按键栏
+- [ipad-layout.md](docs/ipad-layout.md)：iPad 和 iPhone 的界面：浮动控件、按键栏、提示词面板、画面缩放、首页、区域提醒
 - [audio.md](docs/audio.md)：声音、抖动缓冲、Opus 解码、麦克风
 - [voice-input.md](docs/voice-input.md)：语音输入、Speech 的设备端模型、麦克风键
 - [clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪贴板、回声抑制、粘贴提示

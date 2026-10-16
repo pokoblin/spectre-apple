@@ -25,14 +25,14 @@ spectre-apple 是受 ghost 啟發的獨立第三方用戶端，並非 ghost 官�
 **登入**
 
 - 以使用者名稱和密碼登入 ghost 伺服器；伺服器後續的提問（例如一次性驗證碼）會依序詢問。接著選擇裝置和桌面工作階段，或接管一個正在執行的工作階段。
-- 首次信任（TOFU）：第一次連線時確認伺服器的憑證指紋，之後會記住。登入畫面的 **信任的伺服器…** 會列出記住的指紋，也可以刪除。
+- 首次信任（TOFU）：第一次連線時確認伺服器的憑證指紋，之後會記住。登入畫面的 **信任的伺服器…**（iPad 和 iPhone 上在首頁側邊欄的選單裡）會列出記住的指紋，也可以刪除。
 - 勾選 **記住**，登入資訊會儲存在鑰匙圈中，只留在本機；之後點一下最近的登入即可連線。
 - 連線中斷時（切換 Wi-Fi、Mac 進入睡眠、iOS 暫停 App）會自動重新連線。
 
 **畫面與聲音**
 
 - H.264 和 HEVC 由 VideoToolbox 硬體解碼，交給 Metal 顯示，全程不複製影格；掉格和延遲統計會回報給主機。
-- 遠端桌面的大小會跟隨視窗（iPad 和 iPhone 上是螢幕）。工具列的**解析度**選單可以關閉這個功能，或改為以 Retina 的完整解析度請求。
+- 遠端桌面的大小會跟隨視窗（iPad 和 iPhone 上是螢幕）。工具列的**解析度**選單（iPad 和 iPhone 上在「更多」選單裡）可以關閉這個功能，或改為以 Retina 的完整解析度請求。
 - 遠端桌面的聲音，具備能掩蓋封包遺失的抖動緩衝，並可靜音。
 
 **輸入**
@@ -71,9 +71,9 @@ spectre-apple 是受 ghost 啟發的獨立第三方用戶端，並非 ghost 官�
 
 ## 螢幕截圖
 
-| 在 Mac 上登入 | iPad 的觸控式軌跡板模式 |
+| 在 Mac 上登入 | iPad 上的工作階段 |
 |---|---|
-| ![Mac 上的登入畫面](docs/images/macos-login.webp) | ![iPad 上觸控式軌跡板模式的工作階段，遠端游標由 Metal 繪製](docs/images/ipad-trackpad-mode.jpg) |
+| ![Mac 上的登入畫面](docs/images/macos-login.webp) | ![iPad 上的 GNOME 桌面，大小跟隨 iPad 螢幕，右下角的按鍵列已展開](docs/images/ipad-session.webp) |
 
 ## 執行需求
 
@@ -147,6 +147,8 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Spectre 開啟後是登入畫面。填寫伺服器（`host` 或 `host:port`，連接埠預設 4442）、使用者名稱和密碼，再選擇一個桌面。第一次連線時會請你確認伺服器的憑證指紋。伺服器若還需要其他資訊（例如一次性驗證碼），會另外詢問；密碼留空的話，所有提問都會這樣逐一詢問。
 
+iPad 和 iPhone 上開啟後是主機列表首頁：用 **+** 新增伺服器，再點 **連線**，同樣的步驟在彈出的面板裡完成。以前最近的登入會以主機的形式列在這裡。
+
 ### 鍵盤和滑鼠
 
 Cmd 以 Super 鍵（Windows 鍵）傳送，因此在遠端桌面上拷貝貼上仍是 Ctrl+C 和 Ctrl+V。只有下列快速鍵留在本機：
@@ -159,14 +161,14 @@ Cmd 以 Super 鍵（Windows 鍵）傳送，因此在遠端桌面上拷貝貼上�
 
 ### iPad 和 iPhone 上的觸控
 
-以工具列切換兩種模式：
+以工作階段工具列的 **更多 › 輸入方式** 切換兩種模式：
 
 - **觸控**：指標跟著手指移動。點一下是按一下，長按是右鍵，單指拖移是拖曳，雙指拖移是捲動，雙指或三指點一下是右鍵或中鍵。
 - **觸控式軌跡板**（預設）：螢幕當作觸控式軌跡板使用。單指移動游標，點一下即按一下。
 
 ### 聲音
 
-主機傳送聲音時就會播放（wraith 能擷取到工作階段的音訊時會傳送）。工具列的 **靜音** 只在本機靜音，設定會被記住。
+主機傳送聲音時就會播放（wraith 能擷取到工作階段的音訊時會傳送）。工具列的 **靜音**（iPad 和 iPhone 上在「更多」選單裡）只在本機靜音，設定會被記住。
 
 將本機麥克風傳送到遠端桌面的功能暫時停用。iPad 和 iPhone 上的麥克風改為用於語音輸入：按住按鍵列上的麥克風鍵說話，說的話在本機轉成文字，輸入到主機的游標處。
 
@@ -235,7 +237,7 @@ iOS 上 App 從 UIKit 的 app delegate 啟動，這樣根視圖控制器才能�
 | 路徑 | 內容 |
 |---|---|
 | `project.yml` | XcodeGen 專案：一個同時支援 macOS 和 iOS 的 App target |
-| `App/` | App 本身：各平台進入點、登入和工作階段介面、圖示 |
+| `App/` | App 本身：各平台進入點、登入和工作階段介面、iPad 和 iPhone 的首頁與浮動控制項、圖示 |
 | `Packages/GDPKit/` | 通往 libgdp 的 C 橋接（`Native/`）及其 Swift 封裝：工作階段、lobby、測試主機 |
 | `Packages/SpectreKit/` | 共用程式碼：工作階段、VideoToolbox 解碼、Metal 顯示、輸入、登入流程 |
 | `scripts/` | 建置相依套件和 xcframework 的腳本 |
@@ -256,6 +258,7 @@ iOS 上 App 從 UIKit 的 app delegate 啟動，這樣根視圖控制器才能�
 - [resolution.md](docs/resolution.md)：遠端桌面的解析度跟隨視窗
 - [input.md](docs/input.md)：鍵盤、滑鼠、游標和觸控
 - [keyboard.md](docs/keyboard.md)：iOS 螢幕鍵盤、字元到按鍵的轉換、按鍵列
+- [ipad-layout.md](docs/ipad-layout.md)：iPad 和 iPhone 的介面：浮動控制項、按鍵列、提示詞面板、畫面縮放、首頁、區域提醒
 - [audio.md](docs/audio.md)：聲音、抖動緩衝、Opus 解碼、麥克風
 - [voice-input.md](docs/voice-input.md)：語音輸入、Speech 的裝置端模型、麥克風鍵
 - [clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪貼簿、回聲抑制、貼上提示

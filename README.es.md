@@ -25,14 +25,14 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 **Inicio de sesión**
 
 - Inicia sesión en un servidor ghost con tu nombre de usuario y contraseña; las demás preguntas, como un código de un solo uso, se hacen por turno. Después eliges un dispositivo y una sesión de escritorio, o tomas el control de una que ya está en marcha.
-- Confianza en el primer uso: en la primera conexión confirmas la huella del certificado del servidor, y se recuerda. **Servidores de confianza…**, en la pantalla de inicio de sesión, muestra las huellas recordadas y te permite olvidarlas.
+- Confianza en el primer uso: en la primera conexión confirmas la huella del certificado del servidor, y se recuerda. **Servidores de confianza…**, en la pantalla de inicio de sesión (en iPad y iPhone, en el menú de la barra lateral de la pantalla de inicio), muestra las huellas recordadas y te permite olvidarlas.
 - Marca **Recordar** para guardar un inicio de sesión en el llavero, solo en este dispositivo; después, un inicio de sesión reciente se conecta con un toque.
 - Una conexión perdida (al cambiar de Wi-Fi, al dormirse el Mac o al suspender iOS la app) se vuelve a conectar sola.
 
 **Imagen y sonido**
 
 - H.264 y HEVC, decodificados por hardware con VideoToolbox y mostrados con Metal sin copiar fotogramas; las pérdidas de fotogramas y la latencia se comunican al host.
-- El escritorio remoto se ajusta al tamaño de la ventana, o de la pantalla en iPad y iPhone. **Resolución** en la barra de herramientas lo desactiva o pide la resolución Retina completa.
+- El escritorio remoto se ajusta al tamaño de la ventana, o de la pantalla en iPad y iPhone. **Resolución** en la barra de herramientas (en iPad y iPhone, el menú Más) lo desactiva o pide la resolución Retina completa.
 - El sonido del escritorio remoto, con un búfer de fluctuación que disimula los paquetes perdidos, y un botón para silenciarlo.
 
 **Entrada**
@@ -71,9 +71,9 @@ Pendiente:
 
 ## Capturas de pantalla
 
-| Inicio de sesión en el Mac | iPad en modo trackpad |
+| Inicio de sesión en el Mac | Una sesión en iPad |
 |---|---|
-| ![La pantalla de inicio de sesión en el Mac](docs/images/macos-login.webp) | ![Una sesión en iPad en modo trackpad, con el cursor remoto dibujado por Metal](docs/images/ipad-trackpad-mode.jpg) |
+| ![La pantalla de inicio de sesión en el Mac](docs/images/macos-login.webp) | ![Un escritorio GNOME en iPad, del tamaño de la pantalla del iPad, con la barra de teclas abierta en la esquina inferior derecha](docs/images/ipad-session.webp) |
 
 ## Requisitos
 
@@ -147,6 +147,8 @@ Para ejecutar Spectre en un iPhone o iPad, elige tu equipo de desarrollo para el
 
 Spectre se abre en la pantalla de inicio de sesión. Escribe el servidor (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y contraseña, y elige un escritorio. En la primera conexión se te pide que confirmes la huella del certificado del servidor. Si el servidor pide algo más, como un código de un solo uso, se pregunta aparte; deja la contraseña vacía para responder así a todas las preguntas.
 
+En iPad y iPhone, Spectre se abre en cambio en una pantalla de inicio con tus hosts: añade un servidor con **+** y toca **Conectar**; los mismos pasos aparecen en una hoja. Tus inicios de sesión recientes aparecen ahí como hosts.
+
 ### Teclado y ratón
 
 Cmd se envía como Super (la tecla Windows), así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
@@ -159,14 +161,14 @@ Cmd se envía como Super (la tecla Windows), así que copiar y pegar en el escri
 
 ### Toques en iPad y iPhone
 
-La barra de herramientas cambia entre dos modos:
+**Más › Modo de entrada**, en la barra de la sesión, cambia entre dos modos:
 
 - **Táctil**: el puntero va donde tocas. Toca para hacer clic, mantén pulsado para el clic derecho, arrastra con un dedo para arrastrar, arrastra con dos dedos para desplazarte y toca con dos o tres dedos para el clic derecho o central.
 - **Trackpad** (predeterminado): la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
 
 ### Sonido
 
-El sonido del escritorio remoto se reproduce cuando el host lo envía (wraith lo hace cuando puede capturar el audio de la sesión). **Silenciar**, en la barra de herramientas, lo silencia solo en este dispositivo, y el ajuste se recuerda.
+El sonido del escritorio remoto se reproduce cuando el host lo envía (wraith lo hace cuando puede capturar el audio de la sesión). **Silenciar**, en la barra de herramientas (en iPad y iPhone, el menú Más), lo silencia solo en este dispositivo, y el ajuste se recuerda.
 
 Enviar tu micrófono al escritorio remoto está desactivado por ahora. En iPad y iPhone el micrófono sirve en cambio para la entrada por voz: mantén pulsada la tecla del micrófono en la barra de teclas y habla, y lo que digas se transcribe en el dispositivo y se escribe en el cursor del host.
 
@@ -235,7 +237,7 @@ El simulador decodifica el vídeo por software y no informa de `presentedTime`, 
 | Ruta | Contenido |
 |---|---|
 | `project.yml` | El proyecto de XcodeGen: un único target de app multiplataforma para macOS e iOS |
-| `App/` | La app: puntos de entrada por plataforma, la interfaz de inicio de sesión y de sesión, el icono |
+| `App/` | La app: puntos de entrada por plataforma, la interfaz de inicio de sesión y de sesión, la pantalla de inicio y los controles flotantes de iPad y iPhone, el icono |
 | `Packages/GDPKit/` | El puente en C hacia libgdp (`Native/`) y su capa en Swift: sesiones, lobby, host de prueba |
 | `Packages/SpectreKit/` | Código compartido: la sesión, la decodificación con VideoToolbox, la presentación con Metal, la entrada, el flujo de inicio de sesión |
 | `scripts/` | Compilan las dependencias y el xcframework |
@@ -256,6 +258,7 @@ Las notas de [`docs/`](docs/) explican cómo funciona cada parte, qué se midió
 - [resolution.md](docs/resolution.md): ajustar el escritorio remoto al tamaño de la ventana
 - [input.md](docs/input.md): teclado, ratón, cursor y toques
 - [keyboard.md](docs/keyboard.md): el teclado en pantalla en iOS, de caracteres a teclas, la barra de teclas
+- [ipad-layout.md](docs/ipad-layout.md): la interfaz de iPad y iPhone: los controles flotantes, la barra de teclas, el panel de texto, la ampliación, la pantalla de inicio, los avisos de región
 - [audio.md](docs/audio.md): sonido, búfer de fluctuación, decodificación Opus, micrófono
 - [voice-input.md](docs/voice-input.md): entrada por voz, los modelos de Speech en el dispositivo, la tecla del micrófono
 - [clipboard.md](docs/clipboard.md): el portapapeles en el Mac y en iPad, supresión del eco, el aviso de pegar
