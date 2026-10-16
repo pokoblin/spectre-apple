@@ -15,10 +15,12 @@ final class SessionCommands {
 
     private(set) weak var model: PlaybackModel?
     private(set) weak var keyBar: KeyBarModel?
+    private(set) weak var regions: RegionAlertModel?
 
-    func register(_ model: PlaybackModel, keyBar: KeyBarModel) {
+    func register(_ model: PlaybackModel, keyBar: KeyBarModel, regions: RegionAlertModel) {
         self.model = model
         self.keyBar = keyBar
+        self.regions = regions
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -26,6 +28,7 @@ final class SessionCommands {
         guard self.model === model else { return }
         self.model = nil
         keyBar = nil
+        regions = nil
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -41,6 +44,8 @@ final class SessionCommands {
             UIMenu(options: .displayInline, children: [
                 command(String(localized: "Write and Send to Host"), "square.and.pencil",
                         #selector(RootViewController.sessionWritePrompt(_:))),
+                command(String(localized: "Select Region to Watch"), "rectangle.dashed",
+                        #selector(RootViewController.sessionSelectRegion(_:))),
             ]),
             UIMenu(options: .displayInline, children: [
                 command(String(localized: "Fill Screen"), "arrow.up.left.and.arrow.down.right",
@@ -78,6 +83,7 @@ final class SessionCommands {
 /// them in an extension: it inherits from a generic class).
 extension SessionCommands {
     func writePrompt() { keyBar?.isPromptOpen = true }
+    func selectRegion() { regions?.startSelecting() }
     func toggleFill() { model?.input?.toggleFill() }
     func toggleKeyBar() { keyBar?.isShown.toggle() }
     func toggleKeyboard() { model?.input?.showsTouchKeyboard.toggle() }
@@ -100,6 +106,8 @@ extension SessionCommands {
         switch action {
         case #selector(RootViewController.sessionWritePrompt(_:)):
             return input != nil && keyBar?.isPromptOpen == false
+        case #selector(RootViewController.sessionSelectRegion(_:)):
+            return input != nil && keyBar?.isPromptOpen == false && regions?.isSelecting == false
         case #selector(RootViewController.sessionToggleFill(_:)), #selector(RootViewController.sessionToggleKeyboard(_:)):
             return input != nil
         case #selector(RootViewController.sessionToggleKeyBar(_:)):

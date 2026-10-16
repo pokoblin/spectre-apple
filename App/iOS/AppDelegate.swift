@@ -86,6 +86,7 @@ final class RootViewController: UIHostingController<ContentView>, PointerLockHos
 
     // The menu bar's Session menu (SessionCommands).
     @objc func sessionWritePrompt(_ sender: Any?) { SessionCommands.shared.writePrompt() }
+    @objc func sessionSelectRegion(_ sender: Any?) { SessionCommands.shared.selectRegion() }
     @objc func sessionToggleFill(_ sender: Any?) { SessionCommands.shared.toggleFill() }
     @objc func sessionToggleKeyBar(_ sender: Any?) { SessionCommands.shared.toggleKeyBar() }
     @objc func sessionToggleKeyboard(_ sender: Any?) { SessionCommands.shared.toggleKeyboard() }

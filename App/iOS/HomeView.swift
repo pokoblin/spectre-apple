@@ -149,23 +149,36 @@ struct HostRow: View {
 
     var body: some View {
         Label {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: host.title).lineLimit(1)
-                TimelineView(.everyMinute) { _ in
-                    Group {
-                        if let last = host.lastConnected {
-                            Text(last.formatted(.relative(presentation: .named)))
-                        } else {
-                            Text(verbatim: host.account)
-                        }
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+            HStack {
+                titles
+                if RegionAlertStore.shared[host: host.id] != nil {
+                    Spacer()
+                    Image(systemName: "bell.fill")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .accessibilityLabel("Region Alert")
                 }
             }
         } icon: {
             Image(systemName: "pc")
+        }
+    }
+
+    private var titles: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(verbatim: host.title).lineLimit(1)
+            TimelineView(.everyMinute) { _ in
+                Group {
+                    if let last = host.lastConnected {
+                        Text(last.formatted(.relative(presentation: .named)))
+                    } else {
+                        Text(verbatim: host.account)
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
         }
     }
 }
@@ -269,6 +282,17 @@ struct HostDetail: View {
             Divider().padding(.leading, 16)
             infoRow("Password") {
                 Text(app.hasSavedPassword(host) ? "Saved in Keychain" : "Not Saved")
+            }
+            Divider().padding(.leading, 16)
+            infoRow("Region Alert") {
+                switch RegionAlertStore.shared[host: host.id] {
+                case let alert? where alert.condition == .stopsChanging:
+                    Text("When it stops changing for \(RegionAlert.duration(alert.stillSeconds))")
+                case let alert?:
+                    Text("When it starts changing after \(RegionAlert.duration(alert.stillSeconds)) still")
+                case nil:
+                    Text("Off")
+                }
             }
         }
         .frame(maxWidth: 520)

@@ -145,7 +145,7 @@ struct SessionView: View {
         .onChange(of: model.input.map(ObjectIdentifier.init), initial: true) {
             model.input?.onPictureTouch = { [weak chrome] in chrome?.pictureTouched() }
             keyBar.input = model.input
-            SessionCommands.shared.register(model, keyBar: keyBar)
+            SessionCommands.shared.register(model, keyBar: keyBar, regions: regions)
         }
         .onDisappear { SessionCommands.shared.unregister(model) }
         #else
