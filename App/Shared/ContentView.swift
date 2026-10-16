@@ -1,11 +1,15 @@
 import SpectreKit
 import SwiftUI
 
-/// The login screen or a session.
+/// The login screen or a session; on iPad and iPhone, the home screen
+/// with the session over it (App/iOS/HomeView.swift).
 struct ContentView: View {
     @State private var app = AppModel()
 
     var body: some View {
+        #if os(iOS)
+        HomeView(app: app)
+        #else
         switch app.screen {
         case .login:
             LoginView(app: app)
@@ -13,6 +17,7 @@ struct ContentView: View {
             SessionView(model: model)
                 .id(ObjectIdentifier(model))
         }
+        #endif
     }
 }
 

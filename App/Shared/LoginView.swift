@@ -200,7 +200,7 @@ private struct LabeledField<Content: View>: View {
     }
 }
 
-private struct WorkingView: View {
+struct WorkingView: View {
     let message: String
     let onCancel: (() -> Void)?
 
@@ -232,7 +232,7 @@ struct FingerprintText: View {
     }
 }
 
-private struct TrustView: View {
+struct TrustView: View {
     let request: LoginFlow.TrustRequest
     let onTrust: () -> Void
     let onCancel: () -> Void
@@ -262,7 +262,7 @@ private struct TrustView: View {
     }
 }
 
-private struct CertificateChangedView: View {
+struct CertificateChangedView: View {
     let request: LoginFlow.TrustRequest
     let onForget: () -> Void
     let onCancel: () -> Void
@@ -298,7 +298,7 @@ private struct CertificateChangedView: View {
     }
 }
 
-private struct PromptView: View {
+struct PromptView: View {
     let prompt: LoginFlow.Prompt
     let username: String
     let server: ServerAddress?
@@ -367,7 +367,7 @@ private struct PromptView: View {
     }
 }
 
-private struct DeviceListView: View {
+struct DeviceListView: View {
     let devices: [GDPLobby.Device]
     let onSelect: (GDPLobby.Device) -> Void
     let onCancel: () -> Void
@@ -401,7 +401,7 @@ private struct DeviceListView: View {
     }
 }
 
-private struct SessionChoiceView: View {
+struct SessionChoiceView: View {
     let choice: LoginFlow.SessionChoice
     let onOpen: (String?, Bool) -> Void
     let onCancel: () -> Void

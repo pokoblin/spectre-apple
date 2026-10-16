@@ -1,7 +1,9 @@
 import Foundation
 import GDPKit
+import ImageIO
 import Observation
 import SpectreKit
+import UniformTypeIdentifiers
 
 /// The app's two screens: signing in, and a session. Command-line runs
 /// (`--bench`, `--source`, `--connect`) skip the login and play directly.
@@ -21,6 +23,23 @@ final class AppModel {
         var title: String { "\(username) @ \(server)" }
     }
 
+    /// A server and an account on it: what the iPad's home screen lists
+    /// as a host (docs/ipad-layout.md). Kept on this device; its password,
+    /// if saved, is in the Keychain (docs/saved-logins.md).
+    struct SavedHost: Codable, Hashable, Identifiable {
+        var id = UUID()
+        /// The user's name for it; empty: the server's address.
+        var name = ""
+        var server: String
+        var username: String
+        var lastConnected: Date?
+
+        var title: String { name.isEmpty ? server : name }
+        /// As the lists show it, the same in every language.
+        var account: String { "\(username) @ \(server)" }
+        var address: ServerAddress? { ServerAddress(parsing: server) }
+    }
+
     private(set) var screen: Screen = .login
     let login = LoginFlow()
     /// Why the last session ended, for the login screen.
@@ -35,6 +54,16 @@ final class AppModel {
     private var signingInAgain = false
 
     private static let recentKey = "recentLogins"
+    private static let hostsKey = "savedHosts"
+
+    private(set) var hosts: [SavedHost] = []
+    /// The host being signed in to: the iPad's login sheet is up while it is set.
+    var loginHost: SavedHost.ID?
+    /// The host of the session, or of the one that last ended (whose
+    /// ending the home screen says).
+    private(set) var sessionHost: SavedHost.ID?
+    /// Bumped when a thumbnail is written, so the home screen reloads it.
+    private(set) var thumbnailRevision = 0
 
     init(arguments: [String] = CommandLine.arguments) {
         let direct = ["--bench", "--source", "--connect"]
@@ -46,7 +75,118 @@ final class AppModel {
             recent = saved
         }
         login.onRedirect = { [weak self] ticket in self?.open(ticket) }
+        loadHosts()
         refreshSaved()
+    }
+
+    // MARK: Hosts (the iPad's home screen)
+
+    private func loadHosts() {
+        if let data = UserDefaults.standard.data(forKey: Self.hostsKey),
+           let saved = try? JSONDecoder().decode([SavedHost].self, from: data) {
+            hosts = saved
+        } else {
+            // First run with hosts: the recent logins become them.
+            hosts = recent.map { SavedHost(server: $0.server, username: $0.username) }
+            saveHosts()
+        }
+    }
+
+    private func saveHosts() {
+        if let data = try? JSONEncoder().encode(hosts) { UserDefaults.standard.set(data, forKey: Self.hostsKey) }
+    }
+
+    func host(_ id: SavedHost.ID?) -> SavedHost? { hosts.first { $0.id == id } }
+
+    /// Adds a host, or replaces the one with its id.
+    func saveHost(_ host: SavedHost) {
+        if let i = hosts.firstIndex(where: { $0.id == host.id }) {
+            let old = hosts[i]
+            hosts[i] = host
+            // A different server or account: the old one's password goes.
+            if old.server != host.server || old.username != host.username { forgetPassword(old) }
+        } else {
+            hosts.append(host)
+        }
+        saveHosts()
+    }
+
+    /// Deletes a host with its saved password and thumbnail.
+    func deleteHost(_ host: SavedHost) {
+        forgetPassword(host)
+        hosts.removeAll { $0.id == host.id }
+        try? FileManager.default.removeItem(at: Self.thumbnailURL(host.id))
+        saveHosts()
+    }
+
+    func hasSavedPassword(_ host: SavedHost) -> Bool {
+        _ = savedRevision
+        return host.address.map { login.hasSavedLogin(server: $0, username: host.username) } ?? false
+    }
+
+    func forgetPassword(_ host: SavedHost) {
+        if let server = host.address { login.savedLogins.delete(server: server, username: host.username) }
+        savedRevision += 1
+        refreshSaved()
+    }
+
+    /// Bumped when a saved password goes, so ``hasSavedPassword(_:)`` is read again.
+    private var savedRevision = 0
+
+    /// Connect: the login sheet comes up, already signing in if the
+    /// password is saved. False if the saved one couldn't be read.
+    @discardableResult
+    func connect(_ host: SavedHost) -> Bool {
+        lastSessionEnd = nil
+        recipe = nil
+        login.cancel()
+        loginHost = host.id
+        guard hasSavedPassword(host), let server = host.address else { return true }
+        return login.signInWithSaved(server: server, username: host.username)
+    }
+
+    /// The login sheet's Connect: `password` answers the server's first secret prompt.
+    func signIn(_ host: SavedHost, password: String, remember: Bool) {
+        guard let server = host.address else { return }
+        signIn(server: server, username: host.username, password: password, remember: remember)
+    }
+
+    /// The login sheet went away without a session.
+    func cancelLogin() {
+        login.cancel()
+        loginHost = nil
+    }
+
+    /// The session's host connected: it moves to the top of Recent.
+    private func touchHost(server: String, username: String) -> SavedHost.ID {
+        let i = hosts.firstIndex { $0.id == loginHost }
+            ?? hosts.firstIndex { $0.server == server && $0.username == username }
+        if let i {
+            hosts[i].lastConnected = Date()
+            saveHosts()
+            return hosts[i].id
+        }
+        let host = SavedHost(server: server, username: username, lastConnected: Date())
+        hosts.append(host)
+        saveHosts()
+        return host.id
+    }
+
+    // MARK: Thumbnails
+
+    /// The last picture of a host's remote desktop, on this device only
+    /// (Caches: the system may clear it).
+    static func thumbnailURL(_ id: SavedHost.ID) -> URL {
+        URL.cachesDirectory.appending(path: "Thumbnails").appending(path: "\(id.uuidString).jpg")
+    }
+
+    private func saveThumbnail(_ image: CGImage, for id: SavedHost.ID) {
+        let url = Self.thumbnailURL(id)
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
+        else { return }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary)
+        if CGImageDestinationFinalize(destination) { thumbnailRevision += 1 }
     }
 
     /// Which recent logins have a saved login (reads no secret).
@@ -84,10 +224,15 @@ final class AppModel {
         guard !signingInAgain else { return } // signInAgain takes it
         recipe = login.recipe
         remember(RecentLogin(server: ticket.server.description, username: ticket.username))
-        let title = "\(ticket.username)@\(ticket.server)"
+        let hostID = touchHost(server: ticket.server.description, username: ticket.username)
+        sessionHost = hostID
+        loginHost = nil
+        // The host's own name when it has one (the iPad's back button shows it).
+        let title = host(hostID).flatMap { $0.name.isEmpty ? nil : $0.name } ?? "\(ticket.username)@\(ticket.server)"
         let model = PlaybackModel(session: ticket.configuration, title: title) { [weak self] message in
             self?.sessionEnded(message)
         }
+        model.onSnapshot = { [weak self] image in self?.saveThumbnail(image, for: hostID) }
         model.reconnection = { [weak self] allowTakeOver in
             await self?.signInAgain(allowTakeOver: allowTakeOver) ?? .stop("Disconnected.")
         }
@@ -136,6 +281,7 @@ final class AppModel {
     private func needsLogin(_ message: String) {
         lastSessionEnd = message
         refreshSaved()
+        loginHost = sessionHost // the iPad's login sheet, at the step the replay stopped on
         screen = .login
     }
 

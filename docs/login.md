@@ -34,6 +34,8 @@ App/Shared/AppModel       登录页 ↔ 会话页；最近登录；已信任的�
 6. 收到 Redirect 后立即打开会话（token 只有约 30 秒有效，§4.8）：`host` 为空时由 libgdp 换成登录时输入的名字（§4.7）；`cert_sha256` 格式不对就不打开会话；`take_over` 用第 5 步的选择。
 7. 会话结束（断开、注销、被别人顶替、host 关闭）后回到登录页，显示原因，最近登录里会多一条。
 
+2026-10-16 起，iPad 和 iPhone 没有这个登录页：首页列出保存的主机（服务器 + 用户名），点“连接”在 sheet 里走同样的步骤，见 [ipad-layout.md](ipad-layout.md#首页阶段-8)。Mac 照旧。
+
 各种失败的提示文字按 §12 的错误码给出，例如：20 → "Wrong username or password."，23 → 在 host 本机登录着，30 → host 离线，24（会话阶段）→ 有人在看，重新登录时选择 take over。
 
 ## 不同平台

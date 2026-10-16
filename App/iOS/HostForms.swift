@@ -1,0 +1,226 @@
+import GDPKit
+import SpectreKit
+import SwiftUI
+
+/// The top of a form sheet: a large symbol in the accent colour, a title
+/// and a line saying what the form is for, centred on the form's background.
+struct FormHeader: View {
+    var symbol: String
+    var title: Text?
+    var message: Text?
+
+    var body: some View {
+        Section {
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.system(size: 48))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+                    .accessibilityHidden(true)
+                if let title {
+                    title.font(.title2.bold())
+                }
+                if let message {
+                    message.font(.subheadline).foregroundStyle(.secondary)
+                }
+            }
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .listRowBackground(Color.clear)
+        }
+    }
+}
+
+// MARK: - Adding and editing
+
+/// A ghost server and the account on it.
+struct HostEditor: View {
+    let isNew: Bool
+    let save: (SavedHost) -> Void
+    @State private var host: SavedHost
+    @State private var address: String
+    @State private var port: String
+    @Environment(\.dismiss) private var dismiss
+
+    init(host: SavedHost, isNew: Bool, save: @escaping (SavedHost) -> Void) {
+        self.isNew = isNew
+        self.save = save
+        _host = State(initialValue: host)
+        let parsed = host.address
+        _address = State(initialValue: parsed?.host ?? host.server)
+        _port = State(initialValue: parsed.map { $0.port == GDPLobby.defaultPort ? "" : String($0.port) } ?? "")
+    }
+
+    /// The address as the login takes it: `host` or `host:port`, brackets around IPv6.
+    private var server: ServerAddress? {
+        let host = address.trimmingCharacters(in: .whitespaces)
+        guard !host.isEmpty else { return nil }
+        guard !port.isEmpty else { return ServerAddress(parsing: host) }
+        guard let p = UInt16(port), p > 0 else { return nil }
+        return ServerAddress(host: host.trimmingCharacters(in: CharacterSet(charactersIn: "[]")), port: p)
+    }
+
+    private var isComplete: Bool { server != nil && !host.username.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                FormHeader(symbol: "pc", message: Text("Enter the address of the ghost server and your username on it."))
+                Section {
+                    TextField("Name (Optional)", text: $host.name)
+                    TextField("Address", text: $address)
+                        .keyboardType(.URL)
+                        .textContentType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField(text: $port, prompt: Text(verbatim: String(GDPLobby.defaultPort))) { Text("Port") }
+                        .keyboardType(.numberPad)
+                    TextField("Username", text: $host.username)
+                        .textContentType(.username)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } footer: {
+                    Text("The default port is \(String(GDPLobby.defaultPort)). To connect from outside your network, use a VPN such as Tailscale rather than exposing the port to the internet.")
+                }
+            }
+            .navigationTitle(isNew ? Text("Add Server") : Text("Edit Server"))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(isNew ? "Add" : "Save") {
+                        guard let server else { return }
+                        var saved = host
+                        saved.server = server.description
+                        saved.username = host.username.trimmingCharacters(in: .whitespaces)
+                        saved.name = host.name.trimmingCharacters(in: .whitespaces)
+                        save(saved)
+                        dismiss()
+                    }
+                    .disabled(!isComplete)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Signing in
+
+/// Signing in to a host, one step of the login at a time (gdp-spec.md
+/// §4, §5): the password, the server's further questions, its
+/// certificate the first time, the device and the desktop. It goes away
+/// when the session opens.
+struct LoginSheet: View {
+    @Bindable var app: AppModel
+    let host: SavedHost
+    @State private var password = ""
+    @State private var remember: Bool
+    @FocusState private var passwordFocused: Bool
+
+    init(app: AppModel, host: SavedHost) {
+        self.app = app
+        self.host = host
+        _remember = State(initialValue: app.hasSavedPassword(host))
+    }
+
+    private var flow: LoginFlow { app.login }
+
+    private var isAtForm: Bool {
+        switch flow.step {
+        case .idle, .failed: true
+        default: false
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            content
+                .navigationTitle("Sign In")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { app.cancelLogin() }
+                    }
+                    if isAtForm {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Connect", action: connect)
+                        }
+                    }
+                }
+        }
+        .interactiveDismissDisabled()
+    }
+
+    private var header: some View {
+        FormHeader(symbol: "pc", title: Text("Sign In to “\(host.title)”"),
+                   message: Text("Use the password of \(host.username) on this server. If the server asks for more, such as a one-time code, it comes next."))
+    }
+
+    @ViewBuilder private var content: some View {
+        switch flow.step {
+        case .idle, .failed:
+            Form {
+                header
+                Section {
+                    SecureField("Password", text: $password)
+                        .textContentType(.password)
+                        .focused($passwordFocused)
+                        .onSubmit(connect)
+                    Toggle("Remember in Keychain", isOn: $remember)
+                        .disabled(password.isEmpty)
+                } footer: {
+                    if case let .failed(failure) = flow.step {
+                        // The server's own words.
+                        Label { Text(verbatim: failure.message) } icon: { Image(systemName: "exclamationmark.circle.fill") }
+                            .foregroundStyle(.red)
+                    }
+                }
+            }
+            .onAppear { passwordFocused = true }
+        case let .working(message):
+            Form {
+                header
+                Section {
+                    HStack(spacing: 12) {
+                        ProgressView()
+                        Text(verbatim: message).foregroundStyle(.secondary)
+                    }
+                }
+            }
+        case let .trustNewHost(request):
+            step { TrustView(request: request, onTrust: flow.trustAndContinue, onCancel: app.cancelLogin) }
+        case let .certificateChanged(request):
+            step { CertificateChangedView(request: request, onForget: flow.forgetPinnedCertificate, onCancel: app.cancelLogin) }
+        case let .prompt(prompt):
+            step {
+                PromptView(prompt: prompt, username: flow.username, server: flow.server, notice: flow.notice,
+                           remembered: app.hasSavedPassword(host),
+                           onAnswer: { flow.answer($0, remember: $1) }, onCancel: app.cancelLogin)
+            }
+        case let .chooseDevice(devices):
+            step { DeviceListView(devices: devices, onSelect: flow.select(device:), onCancel: app.cancelLogin) }
+        case let .chooseSession(choice):
+            step { SessionChoiceView(choice: choice, onOpen: flow.open(type:takeOver:), onCancel: app.cancelLogin) }
+        case .redirected:
+            ProgressView()
+        }
+    }
+
+    /// A later step: the login screen's own view of it, in the sheet.
+    private func step(@ViewBuilder _ content: () -> some View) -> some View {
+        ScrollView {
+            content()
+                .padding(24)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func connect() {
+        app.signIn(host, password: password, remember: remember && !password.isEmpty)
+        password = "" // the login holds it until a prompt takes it
+    }
+}

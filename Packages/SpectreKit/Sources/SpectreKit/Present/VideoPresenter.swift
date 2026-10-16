@@ -1,3 +1,4 @@
+import CoreImage
 import MetalKit
 import QuartzCore
 import Synchronization
@@ -119,6 +120,26 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         let wasDrawn = cursorOverlay != nil
         cursorPosition = position
         if wasDrawn || cursorOverlay != nil { cursorChanged() }
+    }
+
+    /// The last frame drawn, as an image no larger than `maxDimension`
+    /// pixels on its long side (a thumbnail of the remote desktop), the
+    /// codec's padding cropped off. Nil before the first frame.
+    public func snapshot(maxDimension: CGFloat) -> CGImage? {
+        guard let frame = lastTextures?.frame else { return nil }
+        var image = CIImage(cvPixelBuffer: frame.pixelBuffer)
+        if let displaySize {
+            // CIImage's origin is the bottom left: the picture is the top of the buffer.
+            let extent = image.extent
+            image = image.cropped(to: CGRect(x: 0, y: extent.height - displaySize.height,
+                                             width: min(displaySize.width, extent.width),
+                                             height: min(displaySize.height, extent.height)))
+        }
+        let long = max(image.extent.width, image.extent.height)
+        guard long > 0 else { return nil }
+        let scale = min(1, maxDimension / long)
+        image = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        return CIContext(options: [.cacheIntermediates: false]).createCGImage(image, from: image.extent.integral)
     }
 
     /// How the picture is magnified; the last frame is drawn again at once.

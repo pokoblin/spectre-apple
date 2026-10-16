@@ -311,9 +311,19 @@ final class PlaybackModel {
     /// point, and hidden over a real host's desktop.
     var showsStatisticsByDefault: Bool { !isRemoteSession }
 
+    /// Given the last picture, as a thumbnail (640 pixels at most), when the
+    /// session ends or the app goes to the background.
+    var onSnapshot: ((CGImage) -> Void)?
+
+    private func takeSnapshot() {
+        guard let onSnapshot, let image = presenter?.snapshot(maxDimension: 640) else { return }
+        onSnapshot(image)
+    }
+
     private func reportEnded(_ message: String) {
         guard let onEnded, !endReported else { return }
         endReported = true
+        takeSnapshot()
         ticker?.cancel()
         stopAll()
         onEnded(message)
@@ -746,6 +756,7 @@ final class PlaybackModel {
     /// (about 30 s), enough for a quick visit to another app.
     private func enteredBackground() {
         guard let remote, phase == .playing else { return }
+        takeSnapshot()
         remote.suspendVideo()
         backgroundTask = UIApplication.shared.beginBackgroundTask(withName: "Remote desktop session") { [weak self] in
             MainActor.assumeIsolated { self?.backgroundTimeRanOut() }

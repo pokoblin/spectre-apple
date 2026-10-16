@@ -90,6 +90,118 @@
         }
       }
     },
+    "Add" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "追加"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增"
+          }
+        }
+      }
+    },
+    "Add Server" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir servidor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーを追加"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加服务器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增伺服器"
+          }
+        }
+      }
+    },
+    "Add the server with +, then tap Connect and sign in with your account on it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añade el servidor con + y toca Conectar para iniciar sesión con tu cuenta en él."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "＋ でサーバーを追加し、「接続」をタップして、サーバー上のアカウントでサインインします。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用 + 添加服务器，然后点「连接」，用你在服务器上的账户登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用 + 新增伺服器，然後點「連線」，用你在伺服器上的帳號登入。"
+          }
+        }
+      }
+    },
+    "Address" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アドレス"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "地址"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "位址"
+          }
+        }
+      }
+    },
     "Another client took this session over." : {
       "localizations" : {
         "es" : {
@@ -282,6 +394,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "選擇主機"
+          }
+        }
+      }
+    },
+    "Choose the host to connect to in the sidebar." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige en la barra lateral el host al que conectarte."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サイドバーで接続するホストを選択してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在侧边栏中选择要连接的主机。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在側邊欄中選擇要連線的主機。"
           }
         }
       }
@@ -762,6 +902,62 @@
         }
       }
     },
+    "Delete" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除"
+          }
+        }
+      }
+    },
+    "Delete “%@”?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar “%@”?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」を削除しますか？"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除“%@”？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除「%@」？"
+          }
+        }
+      }
+    },
     "Desktop" : {
       "localizations" : {
         "es" : {
@@ -986,6 +1182,62 @@
         }
       }
     },
+    "Edit" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編集"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯"
+          }
+        }
+      }
+    },
+    "Edit Server" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Editar servidor"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバーを編集"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑服务器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯伺服器"
+          }
+        }
+      }
+    },
     "End the desktop session" : {
       "localizations" : {
         "es" : {
@@ -1010,6 +1262,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "結束桌面工作階段"
+          }
+        }
+      }
+    },
+    "Enter the address of the ghost server and your username on it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introduce la dirección del servidor ghost y tu nombre de usuario en él."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ghost サーバーのアドレスと、そのサーバーでのユーザー名を入力してください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "输入 ghost 服务器的地址，以及你在上面的用户名。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輸入 ghost 伺服器的位址，以及你在上面的使用者名稱。"
           }
         }
       }
@@ -1206,6 +1486,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除 %@"
+          }
+        }
+      }
+    },
+    "Forget Password" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Olvidar contraseña"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パスワードを削除"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忘记密码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "忘記密碼"
           }
         }
       }
@@ -1462,6 +1770,34 @@
         }
       }
     },
+    "Get Started" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primeros pasos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "はじめに"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始使用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始使用"
+          }
+        }
+      }
+    },
     "Hide Keyboard" : {
       "localizations" : {
         "es" : {
@@ -1574,6 +1910,34 @@
         }
       }
     },
+    "Its saved password and last picture are deleted too." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "También se eliminan su contraseña guardada y la última imagen."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存されたパスワードと前回の画面も削除されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它保存的密码和上次的画面也会一并删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "它儲存的密碼和上次的畫面也會一併刪除。"
+          }
+        }
+      }
+    },
     "Keep the password in the Keychain and sign in with one tap next time." : {
       "localizations" : {
         "es" : {
@@ -1626,6 +1990,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "儲存到鑰匙圈，下次點一下即可登入。一次性驗證碼請勿勾選。"
+          }
+        }
+      }
+    },
+    "Last Connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última conexión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前回の接続"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次連線"
           }
         }
       }
@@ -1766,6 +2158,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要登出遠端桌面嗎？"
+          }
+        }
+      }
+    },
+    "Make sure this device can reach it: the same network, or the same VPN, such as Tailscale." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Asegúrate de que este dispositivo pueda llegar a él: en la misma red o en la misma VPN, como Tailscale."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスから接続できることを確認してください：同じネットワーク、または Tailscale などの同じ VPN 上にあること。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确保这台设备能连到它：在同一网络，或同一个 VPN（如 Tailscale）里。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確保這台裝置能連到它：在同一網路，或同一個 VPN（如 Tailscale）裡。"
           }
         }
       }
@@ -1938,6 +2358,62 @@
         }
       }
     },
+    "Name (Optional)" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre (opcional)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前（オプション）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名称（可选）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名稱（選填）"
+          }
+        }
+      }
+    },
+    "Never" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nunca"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "なし"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "从未"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從未"
+          }
+        }
+      }
+    },
     "No Trusted Servers" : {
       "localizations" : {
         "es" : {
@@ -1990,6 +2466,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有指派給你的主機。"
+          }
+        }
+      }
+    },
+    "Not Saved" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardada"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存されていません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未儲存"
           }
         }
       }
@@ -2302,6 +2806,34 @@
         }
       }
     },
+    "Port" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puerto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ポート"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端口"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "埠"
+          }
+        }
+      }
+    },
     "Presented now" : {
       "localizations" : {
         "es" : {
@@ -2444,6 +2976,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "記住"
+          }
+        }
+      }
+    },
+    "Remember in Keychain" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recordar en el llavero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーチェーンに保存"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在钥匙串中记住"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在鑰匙圈中記住"
           }
         }
       }
@@ -2616,6 +3176,34 @@
         }
       }
     },
+    "Save" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存"
+          }
+        }
+      }
+    },
     "Saved" : {
       "localizations" : {
         "es" : {
@@ -2640,6 +3228,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已儲存的"
+          }
+        }
+      }
+    },
+    "Saved in Keychain" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardada en el llavero"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーチェーンに保存済み"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存入钥匙串"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已存入鑰匙圈"
+          }
+        }
+      }
+    },
+    "Select a Host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selecciona un host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホストを選択"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择一台主机"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇一台主機"
           }
         }
       }
@@ -2924,6 +3568,34 @@
         }
       }
     },
+    "Set up ghost on the Linux host: ghostd signs you in, wraith streams the desktop." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Configura ghost en el host Linux: ghostd inicia la sesión y wraith transmite el escritorio."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linux ホストに ghost をセットアップします：ghostd がサインインを、wraith がデスクトップの配信を担当します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 主机上装好 ghost：ghostd 负责登录，wraith 负责传送桌面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 Linux 主機上裝好 ghost：ghostd 負責登入，wraith 負責傳送桌面。"
+          }
+        }
+      }
+    },
     "Share Clipboard" : {
       "localizations" : {
         "es" : {
@@ -3088,6 +3760,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "顯示鍵盤"
+          }
+        }
+      }
+    },
+    "Sign In" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar sesión"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サインイン"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入"
+          }
+        }
+      }
+    },
+    "Sign In to “%@”" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar sesión en “%@”"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」にサインイン"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录“%@”"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入「%@」"
           }
         }
       }
@@ -3508,6 +4236,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "連線已中斷。請重新登入。"
+          }
+        }
+      }
+    },
+    "The default port is %@. To connect from outside your network, use a VPN such as Tailscale rather than exposing the port to the internet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El puerto predeterminado es %@. Para conectarte desde fuera de tu red, usa una VPN como Tailscale en lugar de exponer el puerto a internet."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトのポートは %@ です。外部のネットワークから接続するときは、ポートをインターネットに公開せず、Tailscale などの VPN を使ってください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认端口是 %@。要从外网连接，请使用 Tailscale 等 VPN，不要把端口直接暴露到公网。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預設埠為 %@。要從外部網路連線，請使用 Tailscale 等 VPN，不要把埠直接暴露在網際網路上。"
           }
         }
       }
@@ -4046,6 +4802,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "上方向鍵"
+          }
+        }
+      }
+    },
+    "Use the password of %@ on this server. If the server asks for more, such as a one-time code, it comes next." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Usa la contraseña de %@ en este servidor. Si el servidor pide algo más, como un código de un solo uso, se pedirá a continuación."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このサーバーでの %@ のパスワードを使います。ワンタイムコードなど、ほかにも必要なものがあれば次に尋ねられます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 %@ 在这台服务器上的密码。如果服务器还要别的（比如一次性验证码），会在下一步询问。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 %@ 在這台伺服器上的密碼。如果伺服器還要別的（例如一次性驗證碼），會在下一步詢問。"
           }
         }
       }
