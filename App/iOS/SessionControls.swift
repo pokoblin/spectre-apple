@@ -56,24 +56,34 @@ final class SessionChrome {
 struct SessionToolbar: View {
     let model: PlaybackModel
     let chrome: SessionChrome
+    let keyBar: KeyBarModel
     @Binding var showsStatistics: Bool
     let confirmLogOut: () -> Void
+    @State private var toggleEdge: CGFloat = 0
+    @State private var barEdge: CGFloat = 0
 
     var body: some View {
         HStack(spacing: FloatingKeyBar.spacing) {
             FloatingToggle(symbol: "line.3.horizontal", isExpanded: chrome.isToolbarExpanded,
                            accessibilityLabel: chrome.isToolbarExpanded ? Text("Close Toolbar") : Text("Open Toolbar"),
                            action: chrome.toggleToolbar)
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxX } action: { toggleEdge = $0 }
             bar
+                .onGeometryChange(for: CGFloat.self) { $0.frame(in: .global).maxX } action: { barEdge = $0 }
                 .capsuleReveal(chrome.isToolbarExpanded, from: .leading)
         }
         .padding(FloatingKeyBar.margin)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+        // The key bar's row, coming from the right, stops short of this.
+        .onChange(of: chrome.isToolbarExpanded ? barEdge : toggleEdge, initial: true) { _, edge in
+            keyBar.leadingObstruction = edge
+        }
     }
 
     private var bar: some View {
         HStack(spacing: FloatingKeyBar.keySpacing) {
-            SessionMoreMenu(model: model, showsStatistics: $showsStatistics, confirmLogOut: confirmLogOut)
+            SessionMoreMenu(model: model, keyBar: keyBar, showsStatistics: $showsStatistics,
+                            confirmLogOut: confirmLogOut)
             if let clipboard = model.clipboard, clipboard.isEnabled {
                 // The system's paste button reads the clipboard without the
                 // paste prompt; what it reads goes to the host's clipboard.
@@ -120,6 +130,7 @@ private struct KeyboardKey: View {
 /// clipboard, input, sound, and logging out.
 struct SessionMoreMenu: View {
     @Bindable var model: PlaybackModel
+    @Bindable var keyBar: KeyBarModel
     @Binding var showsStatistics: Bool
     let confirmLogOut: () -> Void
 
@@ -130,6 +141,9 @@ struct SessionMoreMenu: View {
                     Toggle(isOn: $model.matchesWindowSize) {
                         Label("Match Window Size", systemImage: "aspectratio")
                     }
+                }
+                Toggle(isOn: $keyBar.isShown) {
+                    Label("Show Key Bar", systemImage: "keyboard")
                 }
                 Toggle(isOn: $showsStatistics) {
                     Label("Performance", systemImage: "gauge.with.dots.needle.33percent")

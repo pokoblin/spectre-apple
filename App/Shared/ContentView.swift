@@ -27,6 +27,7 @@ struct SessionView: View {
     @Environment(\.displayScale) private var displayScale
     #if os(iOS)
     @State private var chrome = SessionChrome()
+    @State private var keyBar = KeyBarModel()
     #endif
 
     init(model: PlaybackModel) {
@@ -50,16 +51,18 @@ struct SessionView: View {
                 } action: { viewSize = $0 }
                 #endif
             if let presenter = model.presenter {
-                VideoView(presenter: presenter, input: model.input)
-                    #if os(iOS)
-                    // Edge to edge, except where the touch keyboard is: the
-                    // picture shrinks to fit above it, so nothing is hidden.
+                #if os(iOS)
+                // Edge to edge, except where the touch keyboard is: the
+                // picture shrinks to fit above it, so nothing is hidden.
+                // The key bar of the bottom-right corner is part of it.
+                RemoteScreen(presenter: presenter, input: model.input, keyBar: keyBar)
                     .ignoresSafeArea(.container)
-                    #else
+                #else
+                VideoView(presenter: presenter, input: model.input)
                     // On the Mac the picture starts below the toolbar: under
                     // it, the remote desktop's top edge (GNOME's top bar) is hidden.
                     .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
-                    #endif
+                #endif
             }
             #if os(iOS)
             // Over the picture, bottom to top (docs/ipad-layout.md): the
@@ -70,7 +73,9 @@ struct SessionView: View {
             if let input = model.input {
                 UntypableNotice(input: input)
             }
-            SessionToolbar(model: model, chrome: chrome, showsStatistics: $showStats) { confirmLogOut = true }
+            SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, showsStatistics: $showStats) {
+                confirmLogOut = true
+            }
             VStack(alignment: .leading, spacing: 8) {
                 if model.isRemoteSession && chrome.isToolbarExpanded {
                     SessionBackButton(title: model.title) { model.disconnect() }
@@ -104,6 +109,7 @@ struct SessionView: View {
         }
         .onChange(of: model.input.map(ObjectIdentifier.init), initial: true) {
             model.input?.onPictureTouch = { [weak chrome] in chrome?.pictureTouched() }
+            keyBar.input = model.input
         }
         #else
         .toolbar {

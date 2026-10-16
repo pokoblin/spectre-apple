@@ -20,7 +20,7 @@ iPad 和 iPhone 的界面按一份 iPad 远程桌面布局规范重做。核心�
 |---|---|---|
 | 1 | 修饰键改为锁定；组合键菜单；强调色；浮动控件的公共组件 | 完成 |
 | 2 | 会话界面骨架：强制深色、图层顺序、左下会话工具栏、返回按钮、自动收起、“更多”菜单 | 完成 |
-| 3 | 右下 L 形按键栏（UIKit 容器 + 三个 hosting controller，触摸穿透） | |
+| 3 | 右下 L 形按键栏（UIKit 容器 + 三个 hosting controller，触摸穿透） | 完成 |
 | 4 | 软键盘上方 60 pt 的完整按键栏，和悬浮栏共用状态 | |
 | 5 | 连接状态卡片、重连胶囊、顶部通知胶囊 | |
 | 6 | 提示词面板 | |
@@ -64,3 +64,27 @@ iPad Pro 11-inch (M5) 模拟器，iOS 27.0：
 - 独立测试主机（草稿目录里的小工具，跑 `LoopbackHost`，App 用 `--connect` 连接，算远程会话）：左上角出现返回按钮“‹ 127.0.0.1:端口”；重新连接后约 1.5 秒点一下画面，工具栏和返回按钮立即一起收起。
 - 菜单、键帽都是深色玻璃，模拟器本身是浅色外观。
 - Mac 只做了编译检查（改动只是把 iOS 不再用的代码包进 `#if os(macOS)`），没有重新运行。
+
+## 右下按键栏（阶段 3）
+
+`App/iOS/KeyBar.swift`（模型和 SwiftUI 视图）、`App/iOS/RemoteScreen.swift`（UIKit 容器）。
+
+- **结构**：iOS 的画面不再用 SpectreKit 的 `VideoView`，改用 `RemoteScreen`（`UIViewControllerRepresentable`）。它的 `RemoteScreenController` 里铺满一个 `IOSSessionView`，上面是三个 `UIHostingController`：圆钮、竖条、横条，各自 `sizingOptions = .intrinsicContentSize`，只有内容那么大，用 Auto Layout 钉在安全区右下角。L 形之间的空当、收起后的空白，触摸都直接落到画面上。收起时竖条和横条 `isUserInteractionEnabled = false`；隐藏（“更多 › 显示按键栏”关掉，或软键盘弹出）时三者都 `isHidden`。容器用 `withObservationTracking` 跟着 `KeyBarModel` 更新这些属性和横条的左端约束。
+- **圆钮**：和左下完全对称（`FloatingToggle`，图标 `keyboard`）。收起时如果有锁定的修饰键，玻璃改用强调色 tint。每次进入会话都从收起开始。
+- **竖条**（`FloatingKeyColumn`）：圆钮正上方，和圆钮同宽（52 pt），`capsuleReveal(from: .bottom)` 从下往上展开；顶端不越过安全区顶部（约束 + 放不下时竖向滚动）。目前是 ↑ ← → ↓；写提示词、语音输入在对应阶段再加。
+- **横条**（`FloatingKeyRow`）：圆钮左侧、中线对齐，`capsuleReveal(from: .trailing)` 从右往左展开。三组：Esc、⌃C、Tab、Shift+Tab、退格、回车 ┃ Ctrl、Alt、Super、Shift ┃ “更多组合键”菜单（`KeyCombo.menu`，标题加说明）。`ViewThatFits` 放得下就按内容宽度显示，放不下改为横向 `ScrollView` 并裁成胶囊。左端约束为 ≥ 左下工具栏右端 + 8 pt：`SessionToolbar` 用 `onGeometryChange` 量出圆钮和工具条的右端（全局坐标，和全屏的容器一致），展开时报工具条的、收起时报圆钮的，写进 `KeyBarModel.leadingObstruction`。
+- **按键**：Tab、Esc、退格、回车和方向键是“按住”的键（`HeldKey`）：手指停留 0.15 秒后在 host 上按下，直到松手，由 host 自己连发；不到 0.15 秒就松手算一次轻点。⌃C、Shift+Tab 和菜单里的组合键松手时发送。修饰键点一下锁定、再点一下松开（见 [keyboard.md](keyboard.md#附加键条)），锁定时键帽是强调色实心、带 `.isSelected`。
+- **按住的键为什么是 Button**：第一版用 `DragGesture(minimumDistance: 0)`，结果在 iPhone 窄屏上，横条变成滚动视图后，从这些键上开始的滑动既不能滚动，还会发出一次 Tab。改成 `.simultaneousGesture` 后不再误发，但仍然滚不动：SwiftUI 的拖动手势会挡住外层 ScrollView 的平移。最后改成 `Button`，再用一个 `ButtonStyle` 上报 `isPressed` 的变化：滚动视图可以把触摸收回去（按钮的按下状态取消，action 不触发），所以滑动照常滚动、什么都不发；按下 0.15 秒没被取消才开始按住。代价是按住的开始晚了 0.15 秒（加上滚动视图本身的触摸延迟）。
+
+### 验证
+
+iPad Pro 11-inch (M5) 和 iPhone 17 模拟器，iOS 27.0，loopback：
+
+- 左右圆钮对称；展开后竖条在圆钮正上方、横条在左侧与圆钮中线对齐；两侧同时展开时 iPad 竖屏放得下。
+- 点 Ctrl：host 立即收到 Ctrl 按下；再长按 →：→ 按下，约 2 秒后（按住 3 秒）松开，接着 Ctrl 松开。轻点 → 只有一次按下和松开。
+- 菜单里点 Super+Tab：host 收到 `Super↓ Tab↓↑ Super↑`。
+- 锁定 Super 后收起，右下圆钮变成强调色；再展开点 Super 松开。
+- 触摸穿透：展开时点 L 形中间的空当、收起后点原来竖条和横条的位置，都作为点击送到 host，没有发出按键。
+- 打开软键盘：悬浮按键栏隐藏，键盘上方仍是原来的附加键条（第 4 阶段替换）。
+- iPhone 17 竖屏：两侧都展开时横条收窄到左侧工具栏右边 8 pt 处，变成横向滚动；从 Esc 上开始的滑动可以滚到 Alt、Super、Shift，host 没有收到任何按键。
+- 没有在真机上试，没有试台前调度的窄窗口（模拟器里不方便调窗口大小），也没有试最大号的动态字体。
