@@ -1,24 +1,35 @@
 import SpectreKit
 import SwiftUI
+#if os(iOS)
 import UIKit
+#else
+import AppKit
+#endif
 
 typealias SavedHost = AppModel.SavedHost
 
-/// The iPad's (and iPhone's) home screen (docs/ipad-layout.md): hosts in
-/// a sidebar, the selected one's details, and the session over all of it
-/// in full screen. Collapses to one column in a narrow window.
+/// The home screen (docs/ipad-layout.md, docs/macos-layout.md): hosts in a
+/// sidebar, the selected one's details. On iPad and iPhone the session
+/// covers it in full screen, and it collapses to one column in a narrow
+/// window; on the Mac it is a window of its own and each session opens in
+/// another.
 struct HomeView: View {
     @Bindable var app: AppModel
     @State private var selection: SavedHost.ID?
     @State private var editing: SavedHost?
-    @State private var showsTrustedServers = false
+    #if os(iOS)
     @Environment(\.horizontalSizeClass) private var sizeClass
+    private var isCollapsed: Bool { sizeClass == .compact }
+    #else
+    @Environment(\.openWindow) private var openWindow
+    private let isCollapsed = false
+    #endif
 
     var body: some View {
         NavigationSplitView {
             // The sidebar column is always compact itself: the window's size class decides.
-            HostSidebar(app: app, selection: $selection, isCollapsed: sizeClass == .compact,
-                        edit: { editing = $0 }, add: addHost, showTrustedServers: { showsTrustedServers = true })
+            HostSidebar(app: app, selection: $selection, isCollapsed: isCollapsed,
+                        edit: { editing = $0 }, add: addHost, showTrustedServers: { app.showsTrustedServers = true })
                 .sheet(item: $editing) { host in
                     HostEditor(host: host, isNew: app.host(host.id) == nil) { saved in
                         app.saveHost(saved)
@@ -36,21 +47,41 @@ struct HomeView: View {
                                            description: Text("Choose the host to connect to in the sidebar."))
                 }
             }
-            .sheet(isPresented: $showsTrustedServers) { TrustedServersView(app: app) }
+            .sheet(isPresented: $app.showsTrustedServers) { TrustedServersView(app: app) }
         }
-        .sheet(isPresented: Binding(get: { app.loginHost != nil && session == nil },
+        .sheet(isPresented: Binding(get: { app.loginHost != nil && !isCoveredBySession },
                                     set: { if !$0, app.loginHost != nil { app.cancelLogin() } })) {
             if let host = app.host(app.loginHost) {
                 LoginSheet(app: app, host: host)
             }
         }
+        #if os(iOS)
         .fullScreenCover(item: Binding(get: { session }, set: { _ in })) { item in
             SessionView(model: item.model)
                 .id(item.id)
         }
+        .onChange(of: sizeClass) { selectFirstIfWide() }
+        #else
+        .frame(minWidth: 640, minHeight: 440)
+        .onAppear {
+            app.onSessionOpened = { [openWindow] id in openWindow(value: id) }
+            app.onShowHome = { [openWindow] in openWindow(id: SpectreApp.homeWindow) }
+            // Sessions from the command line, already open at launch.
+            for session in app.sessions { openWindow(value: session.id) }
+        }
+        #endif
         .onAppear(perform: selectFirstIfWide)
         .onChange(of: app.hosts.map(\.id)) { selectFirstIfWide() }
-        .onChange(of: sizeClass) { selectFirstIfWide() }
+    }
+
+    /// iOS: a session covers the home screen, and its sheets wait. On the
+    /// Mac sessions have windows of their own.
+    private var isCoveredBySession: Bool {
+        #if os(iOS)
+        session != nil
+        #else
+        false
+        #endif
     }
 
     /// The session being shown, as the cover's item.
@@ -66,7 +97,7 @@ struct HomeView: View {
     /// selecting would push straight into a host.
     private func selectFirstIfWide() {
         if let selection, app.host(selection) == nil { self.selection = nil }
-        guard sizeClass == .regular, selection == nil else { return }
+        guard !isCollapsed, selection == nil else { return }
         selection = HostSidebar.recent(app.hosts).first?.id ?? HostSidebar.saved(app.hosts).first?.id
     }
 }
@@ -121,13 +152,24 @@ struct HostSidebar: View {
         }
         .listStyle(.sidebar)
         .navigationTitle(Text(verbatim: "Spectre"))
+        #if os(macOS)
+        // Room for the toolbar's buttons above it, and for the account.
+        .navigationSplitViewColumnWidth(min: 220, ideal: 250)
+        #endif
         .toolbar {
+            #if os(iOS)
             ToolbarItem(placement: .primaryAction) {
                 Button(action: add) { Label("Add Server", systemImage: "plus") }
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button(action: showTrustedServers) { Label("Trusted Servers…", systemImage: "lock.shield") }
             }
+            #else
+            // Above the sidebar, beside its toggle; Trusted Servers… is in the app menu.
+            ToolbarItem {
+                Button(action: add) { Label("Add Server", systemImage: "plus") }
+            }
+            #endif
         }
     }
 
@@ -151,6 +193,7 @@ struct HostRow: View {
         Label {
             HStack {
                 titles
+                #if os(iOS)
                 if RegionAlertStore.shared[host: host.id] != nil {
                     Spacer()
                     Image(systemName: "bell.fill")
@@ -158,6 +201,7 @@ struct HostRow: View {
                         .foregroundStyle(.secondary)
                         .accessibilityLabel("Region Alert")
                 }
+                #endif
             }
         } icon: {
             Image(systemName: "pc")
@@ -226,7 +270,9 @@ struct HostDetail: View {
         .defaultScrollAnchor(.center)
         .scrollBounceBehavior(.basedOnSize)
         .navigationTitle("")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
@@ -249,14 +295,19 @@ struct HostDetail: View {
 
     /// The last picture of its remote desktop, kept on this device.
     private var thumbnail: some View {
-        let image = app.thumbnailRevision >= 0 ? UIImage(contentsOfFile: AppModel.thumbnailURL(host.id).path()) : nil
+        let path = AppModel.thumbnailURL(host.id).path()
+        #if os(iOS)
+        let image = app.thumbnailRevision >= 0 ? UIImage(contentsOfFile: path).map(Image.init(uiImage:)) : nil
+        #else
+        let image = app.thumbnailRevision >= 0 ? NSImage(contentsOfFile: path).map(Image.init(nsImage:)) : nil
+        #endif
         // The image goes in an overlay, so its own size can't widen the page.
         return Rectangle()
             .fill(.quaternary)
             .aspectRatio(16 / 10, contentMode: .fit)
             .overlay {
                 if let image {
-                    Image(uiImage: image)
+                    image
                         .resizable()
                         .scaledToFill()
                 } else {
@@ -283,6 +334,7 @@ struct HostDetail: View {
             infoRow("Password") {
                 Text(app.hasSavedPassword(host) ? "Saved in Keychain" : "Not Saved")
             }
+            #if os(iOS)
             Divider().padding(.leading, 16)
             infoRow("Region Alert") {
                 switch RegionAlertStore.shared[host: host.id] {
@@ -294,6 +346,7 @@ struct HostDetail: View {
                     Text("Off")
                 }
             }
+            #endif
         }
         .frame(maxWidth: 520)
         .background(.background.secondary, in: .rect(cornerRadius: 16))

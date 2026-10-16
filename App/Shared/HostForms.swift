@@ -70,22 +70,33 @@ struct HostEditor: View {
                 Section {
                     TextField("Name (Optional)", text: $host.name)
                     TextField("Address", text: $address)
+                        #if os(iOS)
                         .keyboardType(.URL)
-                        .textContentType(.URL)
                         .textInputAutocapitalization(.never)
+                        #endif
+                        .textContentType(.URL)
                         .autocorrectionDisabled()
                     TextField(text: $port, prompt: Text(verbatim: String(GDPLobby.defaultPort))) { Text("Port") }
+                        #if os(iOS)
                         .keyboardType(.numberPad)
+                        #endif
                     TextField("Username", text: $host.username)
                         .textContentType(.username)
+                        #if os(iOS)
                         .textInputAutocapitalization(.never)
+                        #endif
                         .autocorrectionDisabled()
                 } footer: {
                     Text("The default port is \(String(GDPLobby.defaultPort)). To connect from outside your network, use a VPN such as Tailscale rather than exposing the port to the internet.")
                 }
             }
             .navigationTitle(isNew ? Text("Add Server") : Text("Edit Server"))
+            #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
+            #else
+            .formStyle(.grouped)
+            .frame(minWidth: 440, minHeight: 400)
+            #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
@@ -135,14 +146,34 @@ struct LoginSheet: View {
         }
     }
 
+    /// The step's view has a Cancel button of its own (the Mac shows only that one).
+    private var hasOwnCancel: Bool {
+        #if os(macOS)
+        switch flow.step {
+        case .trustNewHost, .certificateChanged, .prompt, .chooseDevice, .chooseSession: true
+        default: false
+        }
+        #else
+        false
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             content
                 .navigationTitle("Sign In")
+                #if os(iOS)
                 .navigationBarTitleDisplayMode(.inline)
+                #else
+                .formStyle(.grouped)
+                .frame(minWidth: 480, minHeight: 440)
+                #endif
                 .toolbar {
-                    ToolbarItem(placement: .cancellationAction) {
-                        Button("Cancel") { app.cancelLogin() }
+                    // The Mac puts it at the bottom, beside a later step's own Cancel.
+                    if !hasOwnCancel {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Cancel") { app.cancelLogin() }
+                        }
                     }
                     if isAtForm {
                         ToolbarItem(placement: .confirmationAction) {

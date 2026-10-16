@@ -650,62 +650,6 @@
         }
       }
     },
-    "Connect to a ghost host" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conéctate a un host de ghost"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ghost ホストに接続"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "连接到 ghost 主机"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "連線到 ghost 主機"
-          }
-        }
-      }
-    },
-    "Connect with the saved password" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conectar con la contraseña guardada"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存したパスワードで接続"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "用保存的密码连接"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "使用儲存的密碼連線"
-          }
-        }
-      }
-    },
     "Connecting to “%@”…" : {
       "localizations" : {
         "es" : {
@@ -1434,34 +1378,6 @@
         }
       }
     },
-    "Fill in this server and username" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rellena este servidor y nombre de usuario"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このサーバーとユーザー名を入力"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "填入这个服务器和用户名"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "填入這個伺服器和使用者名稱"
-          }
-        }
-      }
-    },
     "First connection to %@" : {
       "localizations" : {
         "es" : {
@@ -1626,62 +1542,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除儲存的指紋…"
-          }
-        }
-      }
-    },
-    "Forget Saved Password" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvidar contraseña guardada"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存したパスワードを削除"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除保存的密码"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除儲存的密碼"
-          }
-        }
-      }
-    },
-    "Forget This Login" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Olvidar este inicio de sesión"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このログイン履歴を削除"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "删除这条登录记录"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "刪除這筆登入紀錄"
           }
         }
       }
@@ -2074,34 +1934,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "它儲存的密碼和上次的畫面也會一併刪除。"
-          }
-        }
-      }
-    },
-    "Keep the password in the Keychain and sign in with one tap next time." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Guarda la contraseña en el llavero e inicia sesión con un toque la próxima vez."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "パスワードをキーチェーンに保存し、次回はタップするだけでサインインします。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "把密码保存到钥匙串，下次点一下即可登录。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "把密碼儲存到鑰匙圈，下次點一下即可登入。"
           }
         }
       }
@@ -2914,34 +2746,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "展開工具列"
-          }
-        }
-      }
-    },
-    "Opening the session…" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Abriendo la sesión…"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "セッションを開いています…"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在打开会话…"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "正在開啟工作階段…"
           }
         }
       }
@@ -3956,34 +3760,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已傳送到主機的剪貼簿"
-          }
-        }
-      }
-    },
-    "Server" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Servidor"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "サーバー"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "服务器"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "伺服器"
           }
         }
       }
@@ -5698,34 +5474,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的工作階段"
-          }
-        }
-      }
-    },
-    "host or host:port" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "host o host:puerto"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ホスト または ホスト:ポート"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "主机 或 主机:端口"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "主機 或 主機:連接埠"
           }
         }
       }

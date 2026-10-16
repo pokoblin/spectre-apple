@@ -1,25 +1,17 @@
 import SpectreKit
 import SwiftUI
 
-/// The login screen or a session; on iPad and iPhone, the home screen
-/// with the session over it (App/iOS/HomeView.swift).
+#if os(iOS)
+/// iPad and iPhone: the home screen, with the session over it. The Mac
+/// has a window for each (SpectreApp.swift).
 struct ContentView: View {
     @State private var app = AppModel()
 
     var body: some View {
-        #if os(iOS)
         HomeView(app: app)
-        #else
-        switch app.screen {
-        case .login:
-            LoginView(app: app)
-        case let .session(model):
-            SessionView(model: model)
-                .id(ObjectIdentifier(model))
-        }
-        #endif
     }
 }
+#endif
 
 /// A session (or, from the command line, the prototype's test sources): the
 /// video, its statistics, and the session controls.

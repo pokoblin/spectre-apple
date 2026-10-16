@@ -65,8 +65,6 @@ final class AppModel {
     /// Why the last session ended, for the login screen.
     private(set) var lastSessionEnd: String?
     private(set) var recent: [RecentLogin] = []
-    /// The recent logins with a saved login in the Keychain (docs/saved-logins.md).
-    private(set) var savedRecent: Set<RecentLogin> = []
     /// What each session's login answered and chose, to sign in again after
     /// a lost connection. Memory only, gone when the session ends.
     private var recipes: [UUID: LoginFlow.Recipe] = [:]
@@ -75,8 +73,10 @@ final class AppModel {
     private static let hostsKey = "savedHosts"
 
     private(set) var hosts: [SavedHost] = []
-    /// The host being signed in to: the iPad's login sheet is up while it is set.
+    /// The host being signed in to: the home screen's login sheet is up while it is set.
     var loginHost: SavedHost.ID?
+    /// The trusted servers sheet is up (the Mac's app menu opens it too).
+    var showsTrustedServers = false
     /// The host of the session, or of the one that last ended (whose
     /// ending the home screen says).
     private(set) var sessionHost: SavedHost.ID?
@@ -95,7 +95,6 @@ final class AppModel {
         }
         wire(login)
         loadHosts()
-        refreshSaved()
     }
 
     /// A login whose redirect opens a session.
@@ -155,7 +154,6 @@ final class AppModel {
     func forgetPassword(_ host: SavedHost) {
         if let server = host.address { login.savedLogins.delete(server: server, username: host.username) }
         savedRevision += 1
-        refreshSaved()
     }
 
     /// Bumped when a saved password goes, so ``hasSavedPassword(_:)`` is read again.
@@ -216,29 +214,6 @@ final class AppModel {
         if CGImageDestinationFinalize(destination) { thumbnailRevision += 1 }
     }
 
-    /// Which recent logins have a saved login (reads no secret).
-    private func refreshSaved() {
-        savedRecent = Set(recent.filter { entry in
-            ServerAddress(parsing: entry.server).map { login.hasSavedLogin(server: $0, username: entry.username) } ?? false
-        })
-    }
-
-    /// One tap on a recent login with a saved one: signs in with it. False
-    /// if it couldn't be read (on the Mac, keychain access not allowed).
-    func signInWithSaved(_ entry: RecentLogin) -> Bool {
-        guard let server = ServerAddress(parsing: entry.server) else { return false }
-        lastSessionEnd = nil
-        return login.signInWithSaved(server: server, username: entry.username)
-    }
-
-    /// Forgets the saved password, keeps the recent login.
-    func forgetSavedLogin(_ entry: RecentLogin) {
-        if let server = ServerAddress(parsing: entry.server) {
-            login.savedLogins.delete(server: server, username: entry.username)
-        }
-        refreshSaved()
-    }
-
     /// `password`: the form's, for the server's first secret prompt (empty: none).
     func signIn(server: ServerAddress, username: String, password: String, remember: Bool) {
         lastSessionEnd = nil
@@ -274,8 +249,9 @@ final class AppModel {
         recipes[id] = nil
         replays[id]?.cancel()
         replays[id] = nil
-        refreshSaved()
         sessions.removeAll { $0.id == id }
+        // The Mac: back to the home window, which says why.
+        onShowHome?()
     }
 
     /// A session's window closed (the Mac): the session disconnects (the
@@ -340,7 +316,6 @@ final class AppModel {
         sessions.removeAll { $0.id == id }
         lastSessionEnd = message
         sessionHost = hostID ?? sessionHost
-        refreshSaved()
         loginHost = hostID
         onShowHome?()
     }
@@ -355,14 +330,6 @@ final class AppModel {
     func forgetTrusted(_ pin: KnownHosts.Pin) {
         login.knownHosts.forget(pin.server)
         trustedRevision += 1
-    }
-
-    /// Forgets a recent login, and its saved password with it.
-    func forgetRecent(_ entry: RecentLogin) {
-        forgetSavedLogin(entry)
-        recent.removeAll { $0 == entry }
-        save()
-        refreshSaved()
     }
 
     private func remember(_ entry: RecentLogin) {

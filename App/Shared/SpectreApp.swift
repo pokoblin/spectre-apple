@@ -1,14 +1,23 @@
 import SwiftUI
 
 #if os(macOS)
+/// The Mac: the home screen in a window of its own, and a window for each
+/// session (docs/macos-layout.md).
 @main
 struct SpectreApp: App {
+    static let homeWindow = "home"
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbarInFullScreen = true
+    @State private var app = AppModel()
 
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Window(Text(verbatim: "Spectre"), id: Self.homeWindow) {
+            HomeView(app: app)
+        }
+        .defaultSize(width: 960, height: 640)
+
+        WindowGroup(for: UUID.self) { $id in
+            SessionWindow(app: app, id: id)
                 .windowToolbarFullScreenVisibility(hidesToolbarInFullScreen ? .onHover : .visible)
                 .onChange(of: hidesToolbarInFullScreen) { AppDelegate.reenterFullScreen() }
         }
@@ -17,6 +26,48 @@ struct SpectreApp: App {
             CommandGroup(after: .toolbar) {
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbarInFullScreen)
             }
+            AppCommands(app: app)
+        }
+    }
+}
+
+/// The app menu's own items.
+struct AppCommands: Commands {
+    let app: AppModel
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some Commands {
+        CommandGroup(after: .appSettings) {
+            Button("Trusted Servers…") {
+                openWindow(id: SpectreApp.homeWindow)
+                app.showsTrustedServers = true
+            }
+        }
+    }
+}
+
+/// A session's window: titled with its host, closing it disconnects. It
+/// closes itself when the session is over (or, restored after a crash,
+/// was never there).
+struct SessionWindow: View {
+    let app: AppModel
+    let id: UUID?
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        if let id, let session = app.session(id) {
+            SessionView(model: session.model)
+                .id(id)
+                .navigationTitle(Text(verbatim: session.model.title.isEmpty ? "Spectre" : session.model.title))
+                .onAppear {
+                    // The home window may be closed: this one can open the next.
+                    app.onSessionOpened = { [openWindow] id in openWindow(value: id) }
+                    app.onShowHome = { [openWindow] in openWindow(id: SpectreApp.homeWindow) }
+                }
+                .onDisappear { app.windowClosed(id) }
+        } else {
+            Color.clear.onAppear { dismiss() }
         }
     }
 }
@@ -28,9 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// View menu.
     static let hidesToolbarKey = "hidesToolbarInFullScreen"
 
-    /// One window is the whole app: closing it quits, which also closes the
-    /// session properly (PlaybackModel, on willTerminate) instead of leaving
-    /// a windowless app holding it open.
+    /// Closing the last window, the home window or a session's, quits:
+    /// a windowless app has nothing to show.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
