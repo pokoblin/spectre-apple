@@ -40,6 +40,8 @@ final class RegionAlertModel {
     /// The frame the last signature is of: an unchanged picture isn't read again.
     @ObservationIgnored private var last: (sequence: UInt64, signature: RegionSignature)?
     @ObservationIgnored private var wasPaused = false
+    /// How long reading the region took since the last state change, for the log.
+    @ObservationIgnored private var reads: (count: Int, total: Double, max: Double) = (0, 0, 0)
 
     /// The session's alert, if it has one.
     var alert: RegionAlert? { store[key] }
@@ -78,6 +80,8 @@ final class RegionAlertModel {
         alert.region = region
         store[key] = alert
         isSelecting = false
+        print(String(format: "region: selected %.3f, %.3f, %.3f × %.3f of the picture", region.minX, region.minY,
+                     region.width, region.height))
         restartWatcher()
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
@@ -133,9 +137,12 @@ final class RegionAlertModel {
             signature = last.signature
         } else {
             let displaySize = presenter.displaySize, region = alert.region
-            let made = await Task.detached(priority: .utility) {
-                RegionSignature.make(pixelBuffer: frame.pixelBuffer, displaySize: displaySize, region: region)
+            let (made, seconds) = await Task.detached(priority: .utility) {
+                let start = ProcessInfo.processInfo.systemUptime
+                let made = RegionSignature.make(pixelBuffer: frame.pixelBuffer, displaySize: displaySize, region: region)
+                return (made, ProcessInfo.processInfo.systemUptime - start)
             }.value
+            reads = (reads.count + 1, reads.total + seconds, max(reads.max, seconds))
             // The region or its alert may have changed meanwhile.
             guard let made, self.alert == alert else { return }
             last = (frame.sequence, made)
@@ -147,7 +154,15 @@ final class RegionAlertModel {
 
     private func updateState() {
         let state = watcher?.state(at: Self.now)
-        if state != self.state { self.state = state }
+        guard state != self.state else { return }
+        self.state = state
+        // The log shows when the region changed and settled, and what reading it costs.
+        let read = reads.count > 0
+            ? String(format: ", read %.2f ms avg / %.2f max over %d", reads.total / Double(reads.count) * 1000,
+                     reads.max * 1000, reads.count)
+            : ""
+        print("region: \(state.map { "\($0)" } ?? "none")\(read)")
+        reads = (0, 0, 0)
     }
 
     private func alerted(_ condition: RegionWatcher.Condition) {
