@@ -2,17 +2,16 @@
 import UIKit
 
 /// The row above the touch keyboard: the keys it lacks. Esc and Tab; Ctrl,
-/// Shift, Alt and Super as sticky modifiers (tap: the next key, double tap:
-/// locked); the arrows, held down for as long as the finger is (the host
-/// repeats them); the rest of a PC keyboard in a menu; and a key that puts
-/// the keyboard away. Scrolls sideways where the screen is narrow.
+/// Shift, Alt and Super as locked modifiers (tap: down on the host until
+/// tapped again or a key is typed); the arrows, held down for as long as
+/// the finger is (the host repeats them); combinations and the rest of a PC
+/// keyboard in a menu; and a key that puts the keyboard away. Scrolls
+/// sideways where the screen is narrow.
 @MainActor
 final class TouchKeyboardBar: UIInputView {
     private let typer: TextTyper
     private let onHide: () -> Void
     private var modifierButtons: [(TextTyper.Modifier, UIButton)] = []
-    private var lastModifierTap: [TextTyper.Modifier: TimeInterval] = [:]
-    private static let doubleTapInterval: TimeInterval = 0.35
 
     init(typer: TextTyper, onHide: @escaping () -> Void) {
         self.typer = typer
@@ -26,15 +25,10 @@ final class TouchKeyboardBar: UIInputView {
 
     override var intrinsicContentSize: CGSize { CGSize(width: UIView.noIntrinsicMetric, height: 48) }
 
-    /// Shows the modifiers' latches (typing a key ends a one-shot latch).
+    /// Shows which modifiers are locked (typing a key releases them).
     func refresh() {
         for (modifier, button) in modifierButtons {
-            var config: UIButton.Configuration
-            switch typer.latch(modifier) {
-            case .off: config = .gray()
-            case .once: config = .tinted()
-            case .locked: config = .filled()
-            }
+            var config: UIButton.Configuration = typer.isLocked(modifier) ? .filled() : .gray()
             config.title = button.configuration?.title
             config.cornerStyle = .medium
             button.configuration = config
@@ -114,50 +108,26 @@ final class TouchKeyboardBar: UIInputView {
 
     private func modifierButton(_ title: String, _ modifier: TextTyper.Modifier) -> UIButton {
         let button = baseButton(title: title)
-        button.addAction(UIAction { [weak self] _ in self?.modifierTapped(modifier) }, for: .touchUpInside)
+        button.addAction(UIAction { [weak self] _ in
+            self?.typer.toggle(modifier)
+            self?.refresh()
+        }, for: .touchUpInside)
         return button
-    }
-
-    /// Tap: for the next key; tapped again quickly: locked.
-    private func modifierTapped(_ modifier: TextTyper.Modifier) {
-        let now = ProcessInfo.processInfo.systemUptime
-        let quick = lastModifierTap[modifier].map { now - $0 < Self.doubleTapInterval } ?? false
-        lastModifierTap[modifier] = now
-        if quick, typer.latch(modifier) == .once {
-            // The first tap latched it once; the second makes it stick.
-            typer.lock(modifier)
-        } else {
-            typer.tap(modifier)
-        }
-        refresh()
     }
 
     private func moreButton() -> UIButton {
         let button = baseButton(symbol: "ellipsis", label: String(localized: "More Keys", bundle: .module))
-        func item(_ title: String, _ usage: UInt32) -> UIAction {
-            UIAction(title: title) { [weak self] _ in
-                self?.typer.press(usage)
-                self?.refresh()
+        let groups = KeyCombo.menu.map { group in
+            let items = group.combos.map { combo in
+                UIAction(title: combo.title, subtitle: combo.purpose) { [weak self] _ in
+                    self?.typer.press(combo)
+                    self?.refresh()
+                }
             }
+            return group.submenu.map { UIMenu(title: $0, children: items) }
+                ?? UIMenu(options: .displayInline, children: items)
         }
-        let functionKeys: [UInt32] = [HIDUsage.f1, HIDUsage.f2, HIDUsage.f3, HIDUsage.f4, HIDUsage.f5, HIDUsage.f6,
-                                      HIDUsage.f7, HIDUsage.f8, HIDUsage.f9, HIDUsage.f10, HIDUsage.f11, HIDUsage.f12]
-        button.menu = UIMenu(children: [
-            UIMenu(title: String(localized: "Function Keys", bundle: .module),
-                   children: functionKeys.enumerated().map { item("F\($0.offset + 1)", $0.element) }),
-            UIMenu(options: .displayInline, children: [
-                item(String(localized: "Home", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.home),
-                item(String(localized: "End", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.end),
-                item(String(localized: "Page Up", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.pageUp),
-                item(String(localized: "Page Down", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.pageDown),
-            ]),
-            UIMenu(options: .displayInline, children: [
-                item(String(localized: "Delete", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.deleteForward),
-                item(String(localized: "Insert", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.insert),
-                item(String(localized: "Print Screen", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.printScreen),
-                item(String(localized: "Menu", bundle: .module, comment: "A key on a PC keyboard"), HIDUsage.application),
-            ]),
-        ])
+        button.menu = UIMenu(children: groups)
         button.showsMenuAsPrimaryAction = true
         return button
     }

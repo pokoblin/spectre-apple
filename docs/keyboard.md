@@ -12,7 +12,8 @@ App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不�
       ├ IOSSessionView            实现 UIKeyInput：insertText / deleteBackward；inputView 控制显隐
       ├ TouchKeyboardBar          键盘上方的附加键条（inputAccessoryView）
       ├ SessionInput              showsTouchKeyboard、type(_:)、untypable
-      ├ TextTyper                 字符 → 按键序列；粘滞修饰键；按住
+      ├ TextTyper                 字符 → 按键序列；锁定的修饰键；按住
+      ├ KeyCombo                  “更多”菜单里的组合键（Super+Tab、Ctrl+Alt+T 等）
       └ KeyboardLayout            每种布局一张表，目前只有 US QWERTY
           └ InputSender           和硬件键盘共用：按住的键都记着，releaseAll 照样有效
 ```
@@ -20,7 +21,7 @@ App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不�
 ## 字符怎么变成按键
 
 - **假设 host 是 US QWERTY**：`KeyboardLayout.usQWERTY` 覆盖全部可打印 ASCII（0x20–0x7E），加上 Tab 和回车（`\n`、`\r`、`\r\n`）。大写字母和上档符号带 Shift，例如 `A` = Shift+a，`!` = Shift+1，`"` = Shift+'。按布局分表存放，以后加 UK、德语等只要加表。
-- **每个字符一次完整的按键**：按下修饰键 → 按下键 → 松开键 → 反序松开修饰键。不会有键留在按下状态；同一个 Shift 只按一次（字符本身要 Shift、Shift 又被锁定时）。
+- **每个字符一次完整的按键**：按下键 → 松开键，字符要 Shift 而 Shift 没有锁定时前后加上 Shift。普通键不会留在按下状态；同一个 Shift 只按一次（字符本身要 Shift、Shift 又被锁定时）。
 - **打不出来的字符**（é、汉字、emoji、听写给出的非 ASCII）：跳过，并在画面底部提示 “N 个字符无法在 host 的 US 布局上输入，其他文字请用 host 的输入法”。
 - **中文**：软键盘固定为 ASCII 键盘（`keyboardType = .asciiCapable`），切换不到中文或 emoji 键盘。打中文的方式是在 host 上打开输入法（IBus、Fcitx 等），然后在 iPad 上照常打拼音字母，由 host 转换成汉字，和外接实体键盘时一样。
 - **退格**：`deleteBackward` 发 Backspace。`hasText` 始终为真，否则 iOS 在它认为“没有文字”时不会再调用 `deleteBackward`。
@@ -33,12 +34,21 @@ App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不�
 | 键 | 行为 |
 |---|---|
 | Esc、Tab | 按住期间保持按下 |
-| Ctrl、Shift、Alt、Super | **粘滞**：点一下，只对下一个键生效（浅色高亮）；0.35 秒内连点两下则锁定（实心高亮），直到再点一下。所以 Ctrl+C 是先点 Ctrl 再打 c；Shift 锁定后连按方向键可以选中文字 |
+| Ctrl、Shift、Alt、Super | **锁定**：点一下，立刻在 host 上按下并保持（实心高亮）；再点一下松开。打任何一个键（软键盘的字、键条上的键、菜单里的组合键、硬件键盘的键）之后，所有锁定的修饰键按按下的反序一起松开。所以 Ctrl+C 是先点 Ctrl 再打 c；修饰键按着时也可以点击或拖动，得到 Ctrl+点击、Shift+拖动 |
 | ← ↑ ↓ → | 手指按住期间保持按下、松手才松开，由 host 自己连发，和实体键盘一样 |
-| ⋯ | 菜单：F1–F12、Home、End、Page Up、Page Down、Delete、Insert、Print Screen、Menu |
+| ⋯ | 菜单（`KeyCombo.menu`）：iPadOS 会截走、只能从这里发的 Super、Super+Tab、Alt+Tab，以及 Ctrl+Alt+T；终端常用的 Ctrl+Shift+C/V、Ctrl+D、Ctrl+Z、Ctrl+L、Ctrl+R；Home、End、Page Up、Page Down；子菜单“其他按键”（Delete、Insert、Print Screen、Menu）和“功能键”（F1–F12）。组合键自带的修饰键和已锁定的叠加，发完后锁定一并松开 |
 | ⌨︎↓ | 收起键盘 |
 
-修饰键用的都是左侧的键（Left Control 0xE0、Left Shift 0xE1、Left Alt 0xE2、Left GUI 0xE3）。修饰键只在按键的那一刻按下，所以“锁定”不会让 host 上一直按着某个键；收起键盘时所有锁定都会清掉。
+修饰键用的都是左侧的键（Left Control 0xE0、Left Shift 0xE1、Left Alt 0xE2、Left GUI 0xE3）。
+
+锁定的修饰键在 host 上是真的一直按着，所以不能让它留下：
+
+- **收起键盘不松开**：屏幕上的悬浮按键栏也显示同一份锁定状态（`TextTyper` 是共享的），收起键盘后锁定照旧。
+- **失去焦点时松开**：切到别的 App、下拉控制中心、会话视图失去第一响应者（以后的提示词面板、语音输入会先拿走焦点）时，`SessionInput.focusLost()` 先松开锁定的修饰键，再 `releaseAll()`。
+- **断开、注销时松开**：`input.end()` 同样经过 `focusLost()`。规范建议有锁定键时延迟约 150 ms 再断开，这里不用另加：`GDPSession.close()` 本来就会等两个往返（20–250 ms）让之前排队的输入发出去再关连接。
+- **硬件键盘**：硬件键盘松开一个普通键也会结束锁定；硬件键盘松开的修饰键如果正好被锁定，就从锁定里去掉，免得界面上还亮着、host 上其实已经松开。
+
+2026-10-16 之前的做法是“点一下只作用于下一个键（浅色高亮），0.35 秒内连点两下才锁定”，而且修饰键只在打字的那一刻才按下。现在照 iPad 界面规范改成点一下就在 host 上按下，好处是能和指针一起用（Ctrl+点击多选、Shift+点击扩展选区），也少了双击这种不容易发现的手势。
 
 ## 显示与收起
 
@@ -52,8 +62,8 @@ App/Shared/ContentView            iOS 工具栏的 Keyboard 开关；“打不�
 
 - **SpectreKitTests**（新增 13 个）：
   - `KeyboardLayout`：每个可打印 ASCII 字符都有键；字母、数字、符号、空格、回车、Tab 的对应；é、中、😀、€、DEL 没有键。
-  - `TextTyper`：字符变成按键序列（含 Shift）；打不出来的字符跳过并计数；点一下的修饰键只作用于下一个键；锁定的修饰键一直有效、再点一下解除；字符和锁定都要 Shift 时只按一次；连点两次关闭；按住的键直到松手才松开、期间修饰键保持；打字或清除锁定会先松开按住的键。
-  - `SessionInput`：打不出来的字符计入 `untypable`（每次递增 `serial`）；收起键盘清掉锁定。
+  - `TextTyper`：字符变成按键序列（含 Shift）；打不出来的字符跳过并计数；点一下修饰键立刻按下，下一个键之后松开；再点一下松开；一个键松开全部锁定，按按下的反序；字符和锁定都要 Shift 时只按一次；按住的键直到松手才松开、期间修饰键保持；打字或 `releaseModifiers` 会先松开按住的键；组合键和锁定的修饰键叠加；不带键的组合（Super）单独点一下修饰键；菜单里有 iPadOS 截走的组合键、没有重复。
+  - `SessionInput`：打不出来的字符计入 `untypable`（每次递增 `serial`）；收起键盘保留锁定；失去焦点松开锁定；硬件键盘的键结束锁定；硬件键盘松开的修饰键解除对应的锁定。
 
 ## 实测
 

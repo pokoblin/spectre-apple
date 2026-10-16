@@ -153,7 +153,17 @@ public final class SessionInput {
 
     // MARK: Keyboard
 
-    public func key(_ usage: UInt32, pressed: Bool) { sender.key(usage, pressed: pressed) }
+    /// A hardware key. Letting go of one that isn't a modifier ends the
+    /// key bar's locked modifiers, as a key typed on the touch keyboard does.
+    public func key(_ usage: UInt32, pressed: Bool) {
+        sender.key(usage, pressed: pressed)
+        guard !pressed else { return }
+        if HIDUsage.isModifier(usage) {
+            typer.hostReleased(usage)
+        } else {
+            typer.releaseModifiers()
+        }
+    }
 
     /// A lock key reported once per toggle: pressed and released.
     public func tapKey(_ usage: UInt32) { sender.tap(usage) }
@@ -170,8 +180,8 @@ public final class SessionInput {
     /// Whether the touch keyboard is up (iOS). The view shows or hides it.
     public var showsTouchKeyboard = false {
         didSet {
+            // Locked modifiers stay: the key bar on the screen shows them too.
             guard showsTouchKeyboard != oldValue else { return }
-            if !showsTouchKeyboard { typer.clearLatches() }
             onTouchKeyboardChange?()
         }
     }
@@ -190,6 +200,7 @@ public final class SessionInput {
     /// The session view lost the keyboard (another window or app, or a
     /// control in this window took it): nothing may stay held (§8.2).
     public func focusLost() {
+        typer.releaseModifiers()
         sender.releaseAll()
         setCaptured(false)
     }

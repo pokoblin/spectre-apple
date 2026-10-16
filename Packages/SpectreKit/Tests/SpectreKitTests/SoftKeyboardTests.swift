@@ -65,76 +65,95 @@ struct TextTyperTests {
         #expect(sink.events == [.key(HIDUsage.n, true), .key(HIDUsage.n, false)])
     }
 
-    @Test func aTappedModifierAppliesToTheNextStrokeOnly() {
-        typer.tap(.control)
-        #expect(typer.latch(.control) == .once)
+    @Test func aTappedModifierGoesDownAtOnceAndUpAfterTheNextStroke() {
+        typer.toggle(.control)
+        #expect(typer.isLocked(.control))
+        #expect(sink.events == [.key(Self.ctrl, true)]) // in time for a click or a drag
         typer.type("cc")
         #expect(sink.events == [
             .key(Self.ctrl, true), .key(HIDUsage.c, true), .key(HIDUsage.c, false), .key(Self.ctrl, false),
             .key(HIDUsage.c, true), .key(HIDUsage.c, false),
         ])
-        #expect(typer.latch(.control) == .off)
+        #expect(!typer.isLocked(.control))
     }
 
-    @Test func aLockedModifierStaysUntilTapped() {
-        typer.lock(.shift)
+    @Test func tappingALockedModifierAgainLetsGo() {
+        typer.toggle(.alt)
+        typer.toggle(.alt)
+        #expect(!typer.isLocked(.alt))
+        #expect(sink.events == [.key(HIDUsage.leftAlt, true), .key(HIDUsage.leftAlt, false)])
+        #expect(sender.heldKeys.isEmpty)
+    }
+
+    @Test func aKeyLetsGoOfEveryLockedModifierInReverse() {
+        typer.toggle(.control)
+        typer.toggle(.alt)
         typer.press(HIDUsage.rightArrow)
-        typer.press(HIDUsage.rightArrow)
-        #expect(typer.latch(.shift) == .locked)
-        typer.tap(.shift)
-        #expect(typer.latch(.shift) == .off)
+        #expect(typer.locked.isEmpty)
         #expect(sink.events == [
-            .key(Self.shift, true), .key(HIDUsage.rightArrow, true), .key(HIDUsage.rightArrow, false), .key(Self.shift, false),
-            .key(Self.shift, true), .key(HIDUsage.rightArrow, true), .key(HIDUsage.rightArrow, false), .key(Self.shift, false),
+            .key(Self.ctrl, true), .key(HIDUsage.leftAlt, true),
+            .key(HIDUsage.rightArrow, true), .key(HIDUsage.rightArrow, false),
+            .key(HIDUsage.leftAlt, false), .key(Self.ctrl, false),
         ])
     }
 
-    @Test func shiftIsPressedOnceWhenBothTheCharacterAndTheLatchWantIt() {
-        typer.tap(.shift)
-        typer.tap(.control)
+    @Test func shiftIsPressedOnceWhenBothTheCharacterAndTheLockWantIt() {
+        typer.toggle(.shift)
+        typer.toggle(.control)
         typer.type("T") // Ctrl+Shift+T
         #expect(sink.events == [
-            .key(Self.ctrl, true), .key(Self.shift, true),
+            .key(Self.shift, true), .key(Self.ctrl, true),
             .key(HIDUsage.t, true), .key(HIDUsage.t, false),
-            .key(Self.shift, false), .key(Self.ctrl, false),
+            .key(Self.ctrl, false), .key(Self.shift, false),
         ])
-    }
-
-    @Test func tappingTwiceTurnsItOffAndLockingTwiceToo() {
-        typer.tap(.alt)
-        typer.tap(.alt)
-        #expect(typer.latch(.alt) == .off)
-        typer.lock(.superKey)
-        typer.lock(.superKey)
-        #expect(typer.latch(.superKey) == .off)
-        typer.lock(.alt)
-        typer.clearLatches()
-        #expect(typer.latch(.alt) == .off)
-        #expect(sink.events.isEmpty)
     }
 
     @Test func aHeldKeyStaysDownUntilLetGo() {
-        typer.tap(.control)
+        typer.toggle(.control)
         typer.beginHold(HIDUsage.leftArrow)
         #expect(sink.events == [.key(Self.ctrl, true), .key(HIDUsage.leftArrow, true)])
-        #expect(typer.latch(.control) == .once) // until the key is let go
+        #expect(typer.isLocked(.control)) // until the key is let go
         typer.endHold()
         #expect(sink.events.suffix(2) == [.key(HIDUsage.leftArrow, false), .key(Self.ctrl, false)])
-        #expect(typer.latch(.control) == .off)
+        #expect(!typer.isLocked(.control))
         typer.endHold() // nothing held: nothing sent
         #expect(sink.events.count == 4)
     }
 
-    @Test func typingOrClearingLetsGoOfAHeldKey() {
+    @Test func typingOrReleasingLetsGoOfAHeldKey() {
         typer.beginHold(HIDUsage.upArrow)
         typer.type("a")
         typer.beginHold(HIDUsage.downArrow)
-        typer.clearLatches()
+        typer.releaseModifiers()
         #expect(sink.events == [
             .key(HIDUsage.upArrow, true), .key(HIDUsage.upArrow, false),
             .key(HIDUsage.a, true), .key(HIDUsage.a, false),
             .key(HIDUsage.downArrow, true), .key(HIDUsage.downArrow, false),
         ])
+    }
+
+    @Test func aComboAddsItsModifiersToTheLockedOnes() {
+        typer.toggle(.control)
+        typer.press(KeyCombo([.control, .alt], HIDUsage.t, title: "Ctrl+Alt+T"))
+        #expect(sink.events == [
+            .key(Self.ctrl, true),
+            .key(HIDUsage.leftAlt, true), .key(HIDUsage.t, true), .key(HIDUsage.t, false), .key(HIDUsage.leftAlt, false),
+            .key(Self.ctrl, false),
+        ])
+        #expect(typer.locked.isEmpty)
+    }
+
+    @Test func aComboWithoutAKeyTapsItsModifier() {
+        typer.press(KeyCombo([.superKey], nil, title: "Super"))
+        #expect(sink.events == [.key(HIDUsage.leftGUI, true), .key(HIDUsage.leftGUI, false)])
+    }
+
+    @Test func theMenuHasTheCombinationsIPadOSKeeps() {
+        let titles = KeyCombo.menu.flatMap(\.combos).map(\.title)
+        for title in ["Super", "Super+Tab", "Alt+Tab", "Ctrl+Alt+T", "Ctrl+Shift+V", "F12"] {
+            #expect(titles.contains(title))
+        }
+        #expect(Set(titles).count == titles.count)
     }
 
     @Test func sessionInputCountsWhatItCouldNotType() {
@@ -147,11 +166,36 @@ struct TextTyperTests {
         #expect(input.untypable == SessionInput.Untypable(count: 2, serial: 2))
     }
 
-    @Test func hidingTheKeyboardDropsTheLatches() {
+    @Test func hidingTheKeyboardKeepsTheLockedModifiers() {
         let input = SessionInput(sink: sink)
         input.showsTouchKeyboard = true
-        input.typer.lock(.control)
+        input.typer.toggle(.control)
         input.showsTouchKeyboard = false
-        #expect(input.typer.latch(.control) == .off)
+        #expect(input.typer.isLocked(.control)) // the key bar on the screen still shows it
+    }
+
+    @Test func losingFocusReleasesTheLockedModifiers() {
+        let input = SessionInput(sink: sink)
+        input.typer.toggle(.superKey)
+        input.focusLost()
+        #expect(!input.typer.isLocked(.superKey))
+        #expect(sink.events == [.key(HIDUsage.leftGUI, true), .key(HIDUsage.leftGUI, false)])
+    }
+
+    @Test func aHardwareKeyEndsTheLockedModifiers() {
+        let input = SessionInput(sink: sink)
+        input.typer.toggle(.control)
+        input.key(HIDUsage.c, pressed: true)
+        input.key(HIDUsage.c, pressed: false)
+        #expect(!input.typer.isLocked(.control))
+        #expect(sink.events.last == .key(Self.ctrl, false))
+    }
+
+    @Test func aHardwareModifierLetGoUnlocksIt() {
+        let input = SessionInput(sink: sink)
+        input.typer.toggle(.shift)
+        input.key(Self.shift, pressed: false)
+        #expect(!input.typer.isLocked(.shift))
+        #expect(input.sender.heldKeys.isEmpty)
     }
 }
