@@ -35,7 +35,6 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 - The remote desktop is resized to fit the window, or the screen on iPad and iPhone. **Resolution** in the toolbar turns this off, or asks for the full Retina resolution.
 - In full screen on the Mac the toolbar and the menu bar slide away and the remote desktop fills the whole screen; push the pointer against the top edge to bring them back. **View → Hide Toolbar in Full Screen** turns this off.
 - The remote desktop's sound, with a jitter buffer that conceals lost packets, and a mute button.
-- Your microphone, sent to the remote desktop while you turn it on.
 
 **Input**
 
@@ -48,6 +47,7 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 
 - The remote desktop fills the screen. The controls float over it in Liquid Glass and fold into two round buttons in the bottom corners: the session toolbar on the left (More, paste to the host, the keyboard) and a key bar on the right with arrows, Esc, Ctrl+C, Tab, Backspace and Return, Ctrl, Alt, Super and Shift that stay down until the next key, and the combinations iPadOS keeps for itself, such as Super+Tab.
 - A prompt panel: write with the iPad's input methods, dictation or paste, then send it all at once to the cursor on the host, through the host's clipboard and Ctrl+Shift+V (or Ctrl+V, or typed).
+- Voice input: hold the microphone key and speak (or tap it, speak, and tap again); what you say is written out on the device, in your language, and sent to the cursor on the host like the prompt panel's text.
 - Pinch to magnify the picture, or **Fill Screen**; while magnified, the picture follows the pointer near the edges.
 - Region alerts: frame part of the remote desktop, such as a terminal's output, and be told when it stops changing (a build finished) or starts changing, with a banner, or a notification while Spectre's window isn't the active one.
 - A home screen of your hosts with the last picture of each, and a **Session** menu in the iPad menu bar, with no shortcuts that would take keys from the remote desktop.
@@ -67,7 +67,7 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 Not done yet:
 
 - The lossless refinement layer (refine), and the AV1 and PyroWave codecs
-- Echo cancellation for the microphone
+- Sending your microphone to the remote desktop: written and tested, turned off for now
 - Checking certificates issued by a certificate authority on iOS (for now they are trusted on first use, like any other)
 
 ## Screenshots
@@ -165,11 +165,11 @@ The toolbar switches between two modes:
 - **Touch**: the pointer goes where you touch. Tap to click, long-press to right-click, drag with one finger to drag, drag with two fingers to scroll, and tap with two or three fingers for a right or middle click.
 - **Trackpad** (the default): the screen works like a trackpad. Move the cursor with one finger and tap to click.
 
-### Sound and microphone
+### Sound
 
 The remote desktop's sound plays whenever the host sends it (wraith does when it can capture the session's audio). **Mute** in the toolbar silences it on this device only, and the setting is remembered.
 
-**Microphone** in the toolbar sends your microphone to the remote desktop, where it becomes the session's default recording device. It starts off in every session, and the system asks for permission the first time. There is no echo cancellation yet, so use headphones, or the remote desktop will hear its own sound.
+Sending your microphone to the remote desktop is turned off for now. On iPad and iPhone the microphone is for voice input instead: hold the microphone key on the key bar and speak, and what you say is written out on the device and typed at the cursor on the host.
 
 ## Development
 
@@ -259,6 +259,7 @@ The notes under [`docs/`](docs/) record how each part works, what was measured a
 - [input.md](docs/input.md): keyboard, mouse, cursor and touch
 - [keyboard.md](docs/keyboard.md): the on-screen keyboard on iOS, characters to keys, the key bar
 - [audio.md](docs/audio.md): sound, the jitter buffer, Opus decoding, the microphone
+- [voice-input.md](docs/voice-input.md): voice input, Speech's on-device models, the microphone key
 - [clipboard.md](docs/clipboard.md): the clipboard on the Mac and on iPad, echo suppression, the paste prompt
 - [gamepad.md](docs/gamepad.md): game controllers, the button mapping, the Home button
 - [localization.md](docs/localization.md): the interface languages, the glossary, adding a string

@@ -34,7 +34,6 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 - H.264 y HEVC, decodificados por hardware con VideoToolbox y mostrados con Metal sin copiar fotogramas; las pérdidas de fotogramas y la latencia se comunican al host.
 - El escritorio remoto se ajusta al tamaño de la ventana, o de la pantalla en iPad y iPhone. **Resolución** en la barra de herramientas lo desactiva o pide la resolución Retina completa.
 - El sonido del escritorio remoto, con un búfer de fluctuación que disimula los paquetes perdidos, y un botón para silenciarlo.
-- Tu micrófono, enviado al escritorio remoto mientras lo tengas activado.
 
 **Entrada**
 
@@ -47,6 +46,7 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 
 - El escritorio remoto ocupa toda la pantalla. Los controles flotan encima en Liquid Glass y se recogen en dos botones redondos en las esquinas inferiores: a la izquierda, la barra de la sesión (Más, pegar en el host, el teclado); a la derecha, una barra de teclas con flechas, Esc, Ctrl+C, Tab, Retroceso e Intro, Ctrl, Alt, Super y Mayús que quedan pulsadas hasta la siguiente tecla, y las combinaciones que iPadOS se reserva, como Super+Tab.
 - Un panel de texto: escribe con los métodos de entrada del iPad, el dictado o pegando, y envíalo todo de una vez al cursor del host, mediante su portapapeles y Ctrl+Mayús+V (o Ctrl+V, o tecleado).
+- Entrada por voz: mantén pulsada la tecla del micrófono y habla (o tócala, habla y vuelve a tocarla); lo que digas se transcribe en el dispositivo, en tu idioma, y se envía al cursor del host como el texto del panel.
 - Pellizca para ampliar la imagen, o **Llenar la pantalla**; ampliada, la imagen sigue al puntero cerca de los bordes.
 - Avisos de región: enmarca una parte del escritorio remoto, como la salida de un terminal, y Spectre te avisa cuando deja de cambiar (terminó una compilación) o empieza a cambiar, con un banner, o una notificación si su ventana no es la activa.
 - Una pantalla de inicio con tus hosts y la última imagen de cada uno, y un menú **Sesión** en la barra de menús del iPad, sin atajos que quiten teclas al escritorio remoto.
@@ -66,7 +66,7 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 Pendiente:
 
 - La capa de refinamiento sin pérdidas (refine) y los códecs AV1 y PyroWave
-- Cancelación de eco para el micrófono
+- Enviar tu micrófono al escritorio remoto: escrito y probado, desactivado por ahora
 - Comprobar en iOS los certificados emitidos por una autoridad de certificación (por ahora se confía en ellos en el primer uso, como en cualquier otro)
 
 ## Capturas de pantalla
@@ -164,11 +164,11 @@ La barra de herramientas cambia entre dos modos:
 - **Táctil**: el puntero va donde tocas. Toca para hacer clic, mantén pulsado para el clic derecho, arrastra con un dedo para arrastrar, arrastra con dos dedos para desplazarte y toca con dos o tres dedos para el clic derecho o central.
 - **Trackpad** (predeterminado): la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
 
-### Sonido y micrófono
+### Sonido
 
 El sonido del escritorio remoto se reproduce cuando el host lo envía (wraith lo hace cuando puede capturar el audio de la sesión). **Silenciar**, en la barra de herramientas, lo silencia solo en este dispositivo, y el ajuste se recuerda.
 
-**Micrófono**, en la barra de herramientas, envía tu micrófono al escritorio remoto, donde pasa a ser el dispositivo de grabación por omisión de la sesión. Empieza desactivado en cada sesión, y la primera vez el sistema pide permiso. Todavía no hay cancelación de eco, así que usa auriculares, o el escritorio remoto oirá su propio sonido.
+Enviar tu micrófono al escritorio remoto está desactivado por ahora. En iPad y iPhone el micrófono sirve en cambio para la entrada por voz: mantén pulsada la tecla del micrófono en la barra de teclas y habla, y lo que digas se transcribe en el dispositivo y se escribe en el cursor del host.
 
 ## Desarrollo
 
@@ -257,6 +257,7 @@ Las notas de [`docs/`](docs/) explican cómo funciona cada parte, qué se midió
 - [input.md](docs/input.md): teclado, ratón, cursor y toques
 - [keyboard.md](docs/keyboard.md): el teclado en pantalla en iOS, de caracteres a teclas, la barra de teclas
 - [audio.md](docs/audio.md): sonido, búfer de fluctuación, decodificación Opus, micrófono
+- [voice-input.md](docs/voice-input.md): entrada por voz, los modelos de Speech en el dispositivo, la tecla del micrófono
 - [clipboard.md](docs/clipboard.md): el portapapeles en el Mac y en iPad, supresión del eco, el aviso de pegar
 - [gamepad.md](docs/gamepad.md): mandos, la asignación de botones, el botón Home
 - [localization.md](docs/localization.md): los idiomas de la interfaz, el glosario, cómo añadir un texto
