@@ -42,7 +42,14 @@ spectre-apple is an independent, third-party client inspired by ghost; it is not
 - Keys are sent by physical position, so the remote keyboard layout decides what they type.
 - Mouse with every button and smooth scrolling, and a captured mode with relative motion for games and 3D views. The remote cursor is drawn locally.
 - On iPad: hardware keyboards, trackpads and mice, and fingers in either a direct-touch or a trackpad mode.
-- On iPhone and iPad: the on-screen keyboard types on the remote desktop, with a key bar for Esc, Tab, modifiers, arrows and function keys.
+- On iPhone and iPad: the on-screen keyboard types on the remote desktop, with the key bar above it.
+
+**On iPad and iPhone**
+
+- The remote desktop fills the screen. The controls float over it in Liquid Glass and fold into two round buttons in the bottom corners: the session toolbar on the left (More, paste to the host, the keyboard) and a key bar on the right with arrows, Esc, Ctrl+C, Tab, Backspace and Return, Ctrl, Alt, Super and Shift that stay down until the next key, and the combinations iPadOS keeps for itself, such as Super+Tab.
+- A prompt panel: write with the iPad's input methods, dictation or paste, then send it all at once to the cursor on the host, through the host's clipboard and Ctrl+Shift+V (or Ctrl+V, or typed).
+- Pinch to magnify the picture, or **Fill Screen**; while magnified, the picture follows the pointer near the edges.
+- A home screen of your hosts with the last picture of each, and a **Session** menu in the iPad menu bar, with no shortcuts that would take keys from the remote desktop.
 
 **Sharing**
 

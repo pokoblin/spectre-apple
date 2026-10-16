@@ -41,7 +41,14 @@ spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no f
 - Las teclas se envían por su posición física, así que la distribución de teclado remota decide qué escriben.
 - Ratón con todos los botones y desplazamiento suave, y un modo capturado con movimiento relativo para juegos y vistas 3D. El cursor remoto se dibuja localmente.
 - En iPad: teclados, trackpads y ratones físicos, y los dedos en modo de toque directo o de trackpad.
-- En iPhone y iPad: el teclado en pantalla escribe en el escritorio remoto, con una barra de teclas para Esc, Tab, modificadores, flechas y teclas de función.
+- En iPhone y iPad: el teclado en pantalla escribe en el escritorio remoto, con la barra de teclas encima.
+
+**En iPad y iPhone**
+
+- El escritorio remoto ocupa toda la pantalla. Los controles flotan encima en Liquid Glass y se recogen en dos botones redondos en las esquinas inferiores: a la izquierda, la barra de la sesión (Más, pegar en el host, el teclado); a la derecha, una barra de teclas con flechas, Esc, Ctrl+C, Tab, Retroceso e Intro, Ctrl, Alt, Super y Mayús que quedan pulsadas hasta la siguiente tecla, y las combinaciones que iPadOS se reserva, como Super+Tab.
+- Un panel de texto: escribe con los métodos de entrada del iPad, el dictado o pegando, y envíalo todo de una vez al cursor del host, mediante su portapapeles y Ctrl+Mayús+V (o Ctrl+V, o tecleado).
+- Pellizca para ampliar la imagen, o **Llenar la pantalla**; ampliada, la imagen sigue al puntero cerca de los bordes.
+- Una pantalla de inicio con tus hosts y la última imagen de cada uno, y un menú **Sesión** en la barra de menús del iPad, sin atajos que quiten teclas al escritorio remoto.
 
 **Compartir**
 
