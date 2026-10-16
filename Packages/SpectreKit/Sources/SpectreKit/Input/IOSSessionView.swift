@@ -48,7 +48,9 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     private var heldPointerButtons: Set<UInt32> = []
     private var lastScrollTranslation: CGPoint = .zero
     private var observers: [NSObjectProtocol] = []
-    private var mouse: GCMouse?
+    /// The mice listened to while captured, and the observers that keep the list current.
+    private var mice: [GCMouse] = []
+    private var mouseObservers: [NSObjectProtocol] = []
     private var touchMapper: TouchPointerMapper?
     private var touchDeadline: DispatchWorkItem?
 
@@ -115,7 +117,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     }
 
     isolated deinit {
-        observers.forEach(NotificationCenter.default.removeObserver)
+        (observers + mouseObservers).forEach(NotificationCenter.default.removeObserver)
     }
 
     // MARK: - Touch keyboard
@@ -368,23 +370,46 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
 
     /// Locks the pointer (through the root view controller) and takes
     /// motion and buttons from GCMouse, which reports raw deltas.
+    ///
+    /// From every mouse there is, not just `GCMouse.current`: the system
+    /// can have virtual ones too (on a real iPad, "CoreDevice
+    /// touchscreenGesture" appeared beside the trackpad), and `current` may
+    /// be one of those while the trackpad sends everything. Mice that come
+    /// and go while captured are taken and let go of as they do.
     private func capture(_ on: Bool) -> Bool {
         guard let host = window?.rootViewController as? PointerLockHost else { return false }
         if on {
-            guard let mouse = GCMouse.current else { return false }
+            guard !GCMouse.mice().isEmpty else { return false }
             for code in heldPointerButtons.sorted() { input?.button(code, pressed: false) }
             heldPointerButtons = []
-            attach(mouse)
+            syncMice()
+            let sync: @Sendable (Notification) -> Void = { [weak self] _ in
+                MainActor.assumeIsolated { self?.syncMice() }
+            }
+            let center = NotificationCenter.default
+            mouseObservers = [
+                center.addObserver(forName: .GCMouseDidConnect, object: nil, queue: .main, using: sync),
+                center.addObserver(forName: .GCMouseDidDisconnect, object: nil, queue: .main, using: sync),
+            ]
         } else {
-            detachMouse()
+            mouseObservers.forEach(NotificationCenter.default.removeObserver)
+            mouseObservers = []
+            mice.forEach(detach)
         }
         host.wantsPointerLock = on
         return true
     }
 
+    /// Listens to the mice there are now, and stops listening to the ones gone.
+    private func syncMice() {
+        let now = GCMouse.mice()
+        for mouse in mice where !now.contains(where: { $0 === mouse }) { detach(mouse) }
+        for mouse in now where !mice.contains(where: { $0 === mouse }) { attach(mouse) }
+    }
+
     private func attach(_ mouse: GCMouse) {
-        self.mouse = mouse
         guard let m = mouse.mouseInput else { return }
+        mice.append(mouse)
         m.mouseMovedHandler = { [weak self] _, dx, dy in
             MainActor.assumeIsolated {
                 guard let self, let input = self.input, input.isCaptured else { return }
@@ -410,14 +435,14 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         }
     }
 
-    private func detachMouse() {
-        guard let m = mouse?.mouseInput else { return }
+    private func detach(_ mouse: GCMouse) {
+        mice.removeAll { $0 === mouse }
+        guard let m = mouse.mouseInput else { return }
         m.mouseMovedHandler = nil
         m.leftButton.pressedChangedHandler = nil
         m.rightButton?.pressedChangedHandler = nil
         m.middleButton?.pressedChangedHandler = nil
         m.auxiliaryButtons?.forEach { $0.pressedChangedHandler = nil }
-        mouse = nil
     }
 }
 #endif
