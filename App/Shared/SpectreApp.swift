@@ -27,6 +27,7 @@ struct SpectreApp: App {
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbarInFullScreen)
             }
             AppCommands(app: app)
+            SessionMenu()
         }
     }
 }

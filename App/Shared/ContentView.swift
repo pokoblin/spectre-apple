@@ -170,6 +170,7 @@ struct SessionView: View {
             }
         }
         .navigationSubtitle(qualityText)
+        .focusedSceneValue(\.session, SessionActions(model: model) { confirmLogOut = true })
         #endif
         .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
                                                   set: { if !$0 { model.microphoneError = nil } })) {
