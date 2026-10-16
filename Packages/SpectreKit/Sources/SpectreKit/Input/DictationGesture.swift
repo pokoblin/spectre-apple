@@ -179,3 +179,23 @@ extension Locale.Language {
         Locale.Language(identifier: maximalIdentifier).script?.identifier
     }
 }
+
+/// What is done to the words before they go to the host.
+public enum DictationText {
+    /// Sentence punctuation the recognizer puts at the very end, in any
+    /// script: the user's choice is to send none there (a terminal prompt
+    /// or a search box doesn't want a full stop). Inside the text it stays,
+    /// and so do closing quotes and brackets.
+    static let closing: Set<Character> = [
+        ".", "!", "?", ",", ";", ":", "…",
+        "。", "．", "！", "？", "，", "、", "；", "：", "⋯", "｡", "､",
+    ]
+
+    public static func withoutClosingPunctuation(_ text: String) -> String {
+        var text = Substring(text)
+        while let last = text.last, closing.contains(last) || last.isWhitespace {
+            text = text.dropLast()
+        }
+        return String(text)
+    }
+}

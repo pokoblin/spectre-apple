@@ -105,7 +105,8 @@ final class VoiceInputModel {
     private func send() {
         let pressesReturn = pressesReturn
         Task {
-            let text = await dictation.finish()
+            // No full stop or the like at the very end (the user's choice).
+            let text = DictationText.withoutClosingPunctuation(await dictation.finish())
             model?.isQuietForDictation = false
             noteFailure()
             guard !text.isEmpty, let model, let input = model.input else { return }

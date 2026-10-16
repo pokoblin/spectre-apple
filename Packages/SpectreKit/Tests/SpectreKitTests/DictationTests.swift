@@ -182,3 +182,21 @@ struct VoiceDictationEndToEnd {
         #expect(await dictation.finish() == "")
     }
 }
+
+@Suite("Voice input: the text sent")
+struct DictationTextTests {
+    @Test func noPunctuationAtTheEnd() {
+        #expect(DictationText.withoutClosingPunctuation("列出当前目录的文件。") == "列出当前目录的文件")
+        #expect(DictationText.withoutClosingPunctuation("你好，请列出文件？ ") == "你好，请列出文件")
+        #expect(DictationText.withoutClosingPunctuation("Please list the files.") == "Please list the files")
+        #expect(DictationText.withoutClosingPunctuation("Really?!") == "Really")
+        #expect(DictationText.withoutClosingPunctuation("Wait...") == "Wait")
+    }
+
+    @Test func insideItStaysAndSoDoQuotesAndBrackets() {
+        #expect(DictationText.withoutClosingPunctuation("先构建，再测试。然后提交。") == "先构建，再测试。然后提交")
+        #expect(DictationText.withoutClosingPunctuation("run “make test”") == "run “make test”")
+        #expect(DictationText.withoutClosingPunctuation("看一下（日志）。") == "看一下（日志）")
+        #expect(DictationText.withoutClosingPunctuation("。") == "")
+    }
+}
