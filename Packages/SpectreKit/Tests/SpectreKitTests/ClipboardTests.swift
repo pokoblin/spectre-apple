@@ -166,6 +166,22 @@ struct ClipboardSyncTests {
         #expect(sent() == ["copied", "copied"])
     }
 
+    @Test func eachTransferIsNotedForTheNotice() {
+        let pb = FakePasteboard()
+        let (sync, _) = make(pb)
+        sync.start()
+        #expect(sync.lastTransfer == nil)
+        sync.hostChanged("from host")
+        #expect(sync.lastTransfer == ClipboardSync.Transfer(direction: .fromHost, serial: 1))
+        sync.hostChanged("from host") // the same text again: nothing crossed
+        #expect(sync.lastTransfer?.serial == 1)
+        pb.copy("mine")
+        sync.checkLocal()
+        #expect(sync.lastTransfer == ClipboardSync.Transfer(direction: .toHost, serial: 2))
+        sync.send("mine") // an explicit send goes, and is noted, even if the host has it
+        #expect(sync.lastTransfer == ClipboardSync.Transfer(direction: .toHost, serial: 3))
+    }
+
     @Test func nothingIsWatchedBeforeStartOrAfterStop() {
         let pb = FakePasteboard()
         let (sync, sent) = make(pb)

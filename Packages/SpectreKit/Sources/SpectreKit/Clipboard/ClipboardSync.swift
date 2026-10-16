@@ -106,6 +106,15 @@ public final class ClipboardSync {
     public static let automaticIsOptional = true
     #endif
 
+    /// Text that crossed, last time some did, for a notice on screen;
+    /// `serial` tells repeats apart.
+    public struct Transfer: Equatable, Sendable {
+        public enum Direction: Sendable { case fromHost, toHost }
+        public var direction: Direction
+        public var serial: Int
+    }
+    public private(set) var lastTransfer: Transfer?
+
     @ObservationIgnored private let pasteboard: LocalPasteboard
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let sendText: (String) -> Void
@@ -130,6 +139,7 @@ public final class ClipboardSync {
         pasteboard.writeText(text)
         // Our own write is not a local copy.
         seenChangeCount = pasteboard.changeCount
+        noteTransfer(.fromHost)
     }
 
     /// Looks for a local change and sends it. Cheap when nothing changed: it
@@ -141,12 +151,18 @@ public final class ClipboardSync {
         seenChangeCount = count
         guard pasteboard.hasText, let text = pasteboard.readText(), filter.shouldSend(text) else { return }
         sendText(text)
+        noteTransfer(.toHost)
     }
 
     /// Text the user explicitly sent (a paste button).
     public func send(_ text: String) {
         guard isEnabled, filter.shouldSendExplicitly(text) else { return }
         sendText(text)
+        noteTransfer(.toHost)
+    }
+
+    private func noteTransfer(_ direction: Transfer.Direction) {
+        lastTransfer = Transfer(direction: direction, serial: (lastTransfer?.serial ?? 0) + 1)
     }
 
     /// Starts watching the local clipboard: once the session is established

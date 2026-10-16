@@ -155,6 +155,9 @@ final class PlaybackModel {
     private var lifecycleObservers: [NSObjectProtocol] = []
     #endif
     private var endReported = false
+    /// The user disconnected, logged out or gave up reconnecting: the
+    /// session ends without the failure card.
+    private var userEnded = false
     private var streams: [VideoCodec: TestStream] = [:]
     private var ticker: Task<Void, Never>?
     private let bench: BenchOptions?
@@ -287,7 +290,9 @@ final class PlaybackModel {
     }
 
     func disconnect() {
+        userEnded = true
         if reconnectTask != nil { return cancelReconnect() }
+        if case .failed = phase { return reportEnded("Disconnected.") }
         guard let remote else { return reportEnded("Disconnected.") }
         input?.end() // §8.2: release what is held before detaching
         remote.close()
@@ -295,6 +300,7 @@ final class PlaybackModel {
 
     /// End the desktop session itself; the host closes with SESSION_ENDED.
     func logOut() {
+        userEnded = true
         input?.end()
         remote?.session?.sendLogout()
     }
@@ -565,7 +571,7 @@ final class PlaybackModel {
                 return
             }
             if onEnded != nil {
-                reportEnded(Self.explain(ending))
+                endOrShowFailure(Self.explain(ending))
             } else if !(phase == .idle) {
                 phase = .failed("session ended: \(ending)")
             }
@@ -612,6 +618,7 @@ final class PlaybackModel {
 
     /// The user gave up waiting.
     func cancelReconnect() {
+        userEnded = true
         reconnectTask?.cancel()
         reconnectTask = nil
         end("Disconnected.")
@@ -678,7 +685,41 @@ final class PlaybackModel {
     /// (the command line's sources) a message over the picture.
     private func end(_ message: String) {
         endSession()
-        if onEnded != nil { reportEnded(message) } else { phase = .failed(message) }
+        if onEnded != nil { endOrShowFailure(message) } else { phase = .failed(message) }
+    }
+
+    /// A session that ended on its own (lost and not restored, refused, closed
+    /// by the host). On iOS it stays on screen, the last picture dimmed under
+    /// a card with Close and Retry (docs/ipad-layout.md); on the Mac, and when
+    /// the user ended it, it goes back to the login screen at once.
+    private func endOrShowFailure(_ message: String) {
+        #if os(iOS)
+        if !userEnded {
+            phase = .failed(message)
+            return
+        }
+        #endif
+        reportEnded(message)
+    }
+
+    /// Whether ``retry()`` has a way back in: a login to replay, or the
+    /// configuration last connected.
+    var canRetry: Bool { canReconnect && (reconnection != nil || lastConfig != nil) }
+
+    /// Retry from the failure card: the reconnect attempts again, from the first.
+    func retry() {
+        guard case let .failed(message) = phase, canRetry else { return }
+        userEnded = false
+        startReconnecting(reason: message)
+    }
+
+    /// Whether there is a login screen to go back to (not for `--connect`).
+    var canClose: Bool { onEnded != nil }
+
+    /// Close from the failure card: back to the login screen with why.
+    func closeFailure() {
+        guard case let .failed(message) = phase else { return }
+        reportEnded(message)
     }
 
     /// Waits `delay`, cut short by `retryNow`; on iOS also until the app is

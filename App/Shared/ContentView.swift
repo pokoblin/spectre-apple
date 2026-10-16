@@ -67,12 +67,9 @@ struct SessionView: View {
             #if os(iOS)
             // Over the picture, bottom to top (docs/ipad-layout.md): the
             // connection's state, notices, the toolbar, the statistics.
-            if case let .reconnecting(attempt, total, reason) = model.phase {
-                ReconnectingCard(attempt: attempt, total: total, reason: reason) { model.cancelReconnect() }
-            }
-            if let input = model.input {
-                UntypableNotice(input: input)
-            }
+            SessionStatusOverlay(model: model)
+                .animation(.easeInOut(duration: 0.2), value: model.phase)
+            TopNotices(model: model)
             SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, showsStatistics: $showStats) {
                 confirmLogOut = true
             }
@@ -286,40 +283,10 @@ private struct ResolutionControls: View {
 }
 #endif
 
-#if os(iOS)
-/// A short notice when the touch keyboard gave characters the host's
-/// layout has no key for (see TextTyper).
-private struct UntypableNotice: View {
-    let input: SessionInput
-    @State private var shown: SessionInput.Untypable?
 
-    var body: some View {
-        VStack {
-            Spacer()
-            if let shown {
-                Text("\(shown.count) characters can't be typed on the host's US layout. Use the host's input method for other scripts.")
-                    .font(.callout)
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.black.opacity(0.75), in: Capsule())
-                    .padding(.bottom, 12)
-                    .transition(.opacity)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .allowsHitTesting(false)
-        .task(id: input.untypable) {
-            guard let notice = input.untypable else { return }
-            withAnimation { shown = notice }
-            try? await Task.sleep(for: .seconds(3))
-            withAnimation { if shown == notice { shown = nil } }
-        }
-    }
-}
-#endif
-
-/// Over the last picture while a lost connection is being restored.
+#if os(macOS)
+/// Over the last picture while a lost connection is being restored. iOS
+/// has its own (App/iOS/SessionStatus.swift).
 private struct ReconnectingCard: View {
     let attempt: Int
     let total: Int
@@ -343,3 +310,4 @@ private struct ReconnectingCard: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
+#endif
