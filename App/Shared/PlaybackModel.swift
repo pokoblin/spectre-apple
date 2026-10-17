@@ -1053,7 +1053,10 @@ final class PlaybackModel {
         print("files: saved \(batch.saved.map(\.debugDescription).joined(separator: ", ")); "
             + "downloaded \(batch.downloaded.map(\.debugDescription).joined(separator: ", ")); "
             + "failed \(batch.failed.map(\.debugDescription).joined(separator: ", "))")
-        for item in files.items { print("files: \(item.name.debugDescription) \(item.state) \(item.sent)/\(item.size)") }
+        for item in files.items {
+            let folder = item.hostDirectory.map { " in \($0.debugDescription)" } ?? ""
+            print("files: \(item.name.debugDescription) \(item.state)\(folder) \(item.sent)/\(item.size)")
+        }
     }
 
     /// Prints each input event the in-process test host received since the last call.

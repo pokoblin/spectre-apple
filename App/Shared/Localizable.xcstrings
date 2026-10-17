@@ -4066,6 +4066,62 @@
         }
       }
     },
+    "Saved to %@ as “%@” · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado en %1$@ como “%2$@” · %3$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ に「%2$@」として保存 · %3$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存到 %1$@，名为“%2$@” · %3$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存到 %1$@，名稱為「%2$@」 · %3$@"
+          }
+        }
+      }
+    },
+    "Saved to %@ · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado en %1$@ · %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ に保存 · %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存到 %1$@ · %2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已儲存到 %1$@ · %2$@"
+          }
+        }
+      }
+    },
     "Select Region Again" : {
       "localizations" : {
         "es" : {
@@ -4458,6 +4514,34 @@
         }
       }
     },
+    "Sent %lld files to %@ on the host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se han enviado %1$lld archivos a %2$@ en el host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$lld 個のファイルをホストの %2$@ に送信しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已将 %1$lld 个文件发送到主机的 %2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已將 %1$lld 個檔案傳送到主機的 %2$@"
+          }
+        }
+      }
+    },
     "Sent %lld files to the host" : {
       "localizations" : {
         "es" : {
@@ -4510,6 +4594,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已傳送 %1$lld 個檔案，共 %2$lld 個"
+          }
+        }
+      }
+    },
+    "Sent %lld of %lld files to %@ on the host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se han enviado %1$lld de %2$lld archivos a %3$@ en el host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld 個中 %1$lld 個のファイルをホストの %3$@ に送信しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已发送 %1$lld 个文件到主机的 %3$@，共 %2$lld 个"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已傳送 %1$lld 個檔案到主機的 %3$@，共 %2$lld 個"
           }
         }
       }
@@ -4594,6 +4706,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已傳送 · %@"
+          }
+        }
+      }
+    },
+    "Sent “%@” to %@ on the host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se ha enviado “%1$@” a %2$@ en el host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%1$@」をホストの %2$@ に送信しました"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已将“%1$@”发送到主机的 %2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已將「%1$@」傳送到主機的 %2$@"
           }
         }
       }

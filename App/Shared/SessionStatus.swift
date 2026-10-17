@@ -203,7 +203,8 @@ struct TopNotices: View {
         }
         .task(id: model.files.lastBatch) {
             guard let batch = model.files.lastBatch else { return }
-            await show(batch, in: $fileBatch, for: .seconds(3))
+            // Longer when it says where on the host they went: a path to read.
+            await show(batch, in: $fileBatch, for: .seconds(batch.hostDirectory == nil ? 3 : 5))
         }
         .task(id: model.input?.untypable) {
             guard let notice = model.input?.untypable else { return }

@@ -63,6 +63,7 @@ private struct FileTransferRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(2)
+                    .textSelection(.enabled) // the host's folder, to copy
             }
             Spacer(minLength: 0)
             if !item.isFinished {
@@ -118,6 +119,10 @@ private struct FileTransferRow: View {
             return name == item.name ? String(localized: "Downloaded · \(size)")
                 : String(localized: "Downloaded as “\(name)” · \(size)")
         case .saved(let name):
+            if let folder = item.hostDirectory {
+                return name == item.name ? String(localized: "Saved to \(folder) · \(size)")
+                    : String(localized: "Saved to \(folder) as “\(name)” · \(size)")
+            }
             return name == item.name ? String(localized: "Sent · \(size)")
                 : String(localized: "Sent as “\(name)” · \(size)")
         case .failed(.folder) where item.direction == .download:
@@ -170,7 +175,15 @@ extension FileTransfers.Batch {
     }
 
     private var uploadNotice: Text {
-        switch (saved.count, failed.count) {
+        if let folder = hostDirectory {
+            switch (saved.count, failed.count) {
+            case (1, 0): return Text("Sent “\(saved[0])” to \(folder) on the host")
+            // Two or more files: no singular forms needed.
+            case (let n, 0): return Text("Sent \(n) files to \(folder) on the host")
+            case (let sent, let failed): return Text("Sent \(sent) of \(sent + failed) files to \(folder) on the host")
+            }
+        }
+        return switch (saved.count, failed.count) {
         case (1, 0): Text("Sent “\(saved[0])” to the host")
         // Two or more files from here on: no singular forms needed.
         case (let n, 0): Text("Sent \(n) files to the host")
