@@ -34,6 +34,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - H.264, HEVC and AV1 decoded in hardware and presented with Metal without copying frames. AV1 is asked for first on devices that decode it in hardware (Apple M3, A17 Pro and later), and used when the host's GPU can encode it; otherwise HEVC.
 - Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** turns it off to spare the host the work.
+- PyroWave on a wired network: when the host is on the same wired network at 1 Gbit/s or more, Spectre asks for PyroWave first, an intra-only wavelet codec that looks close to lossless at a few hundred Mbit/s and decodes on the GPU in about a millisecond. Over Wi-Fi, a slower link or another network, the usual codecs are used. It needs a host with PyroWave turned on and a GPU quick enough to encode it: a small integrated GPU may not keep up at high resolutions (an Intel N100 manages about 25 fps at 2560×1496). **More › PyroWave on Wired Networks** turns it off, and says whether it is in use or why not.
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
@@ -70,7 +71,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-**Not done yet:** PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
+**Not done yet:** sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
@@ -83,6 +84,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - A Mac with Apple silicon on macOS 27, or an iPhone or iPad on iOS or iPadOS 27
 - A ghost host (ghostd and wraith); see [ghost](https://github.com/jsaiko/ghost) for setting one up
 - For file transfer, a wraith that offers it: until upstream takes it ([jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)), build the host from the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork's `feat/file-transfer` branch. Everything else works with upstream ghost.
+- For PyroWave, a wraith built with libpyrowave (ghost's `packaging/build-pyrowave.sh`, which pins the revision both ends must share) and `pyrowave = true` under `[encode.codecs]` in `/etc/ghost/wraith.toml`.
 
 ## Install
 
@@ -190,7 +192,7 @@ These options skip the login and play a generated 1080p60 test stream, with stat
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Also: `--codec h264|h265|av1` (AV1 plays a bundled stream, where it decodes in hardware), `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
+Also: `--codec h264|h265|av1|pyrowave` (AV1 plays a bundled stream, where it decodes in hardware; PyroWave's is encoded on the spot by its Metal port, at about 250 Mbit/s), `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
 For file transfer with the loopback host: `--send-file PATH` sends a file once the session starts, `--host-file PATH` has the test host's user copy one (both can be given more than once), `--download-copied` downloads every copy, and `--download-dir DIR` puts downloads in `DIR`.
 

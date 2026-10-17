@@ -34,6 +34,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 - H.264、HEVC、AV1 をハードウェアでデコードし、フレームをコピーせずに Metal で表示します。AV1 をハードウェアでデコードできるデバイス（Apple M3、A17 Pro 以降）では AV1 を優先して要求し、ホストの GPU が AV1 をエンコードできればそれを使います。できなければ HEVC です。
 - ロスレス補正：画面の止まった部分をホストがロスレスで送り直し、映像の上にピクセル単位で正確に重ねるので、文字や線がくっきり表示されます。既定でオンです。**その他 › ロスレス補正** でオフにすると、ホストの負荷を減らせます。
+- 有線ネットワークでの PyroWave：ホストが 1 Gbit/s 以上の同じ有線ネットワーク上にあるときは、PyroWave を優先して要求します。フレーム内符号化だけのウェーブレットコーデックで、数百 Mbit/s でほぼロスレスに見え、GPU で 1 ミリ秒ほどでデコードできます。Wi-Fi、遅いリンク、別のネットワーク経由では従来のコーデックを使います。ホスト側で PyroWave を有効にし、エンコードできるだけ速い GPU が必要です。小さな内蔵 GPU では高解像度に追いつかないことがあります（Intel N100 では 2560×1496 で約 25 fps）。**その他 › 有線ネットワークで PyroWave** でオフにでき、使用中かどうか、使っていない理由も表示されます。
 - リモートデスクトップのサイズはウインドウや画面に合わせて変わります。Retina のフル解像度で動かすこともできます。
 - Mac のフルスクリーンでは、ポインタが上端に来るまでツールバーとメニューバーを隠します。
 - リモートの音声。ジッタバッファ付きで、消音ボタンもあります。
@@ -70,7 +71,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 **言語：** 英語、簡体字中国語、繁体字中国語、日本語、スペイン語。
 
-**未実装：** PyroWave、マイクの音声をホストに送る機能（実装済みで、いまは無効）、フォルダの送信、iOS での認証局発行の証明書の検証。
+**未実装：** マイクの音声をホストに送る機能（実装済みで、いまは無効）、フォルダの送信、iOS での認証局発行の証明書の検証。
 
 ## スクリーンショット
 
@@ -83,6 +84,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 - Apple シリコン搭載で macOS 27 の Mac、または iOS / iPadOS 27 の iPhone・iPad
 - ghost ホスト（ghostd と wraith）。構築方法は [ghost](https://github.com/jsaiko/ghost) をご覧ください
 - ファイル転送には、それに対応した wraith が必要です。上流に取り込まれるまでは（[jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)）、[pokoblin/ghost](https://github.com/pokoblin/ghost) フォークの `feat/file-transfer` ブランチからホストをビルドしてください。そのほかの機能は上流の ghost で動きます。
+- PyroWave には、libpyrowave 付きでビルドした wraith（ghost の `packaging/build-pyrowave.sh`。両端で揃える必要のあるリビジョンを固定しています）と、`/etc/ghost/wraith.toml` の `[encode.codecs]` での `pyrowave = true` が必要です。
 
 ## インストール
 
@@ -190,7 +192,7 @@ swift test --package-path Packages/SpectreKit
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-そのほか：`--codec h264|h265|av1`（AV1 は同梱のテストストリームを再生します。ハードウェアデコードが必要です）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
+そのほか：`--codec h264|h265|av1|pyrowave`（AV1 は同梱のテストストリームを再生します。ハードウェアデコードが必要です。PyroWave のストリームはその場で Metal 版がエンコードし、約 250 Mbit/s です）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
 ループバックのホストでファイル転送を試すには：`--send-file PATH` はセッション開始後にファイルを送り、`--host-file PATH` はテスト用ホストのユーザにファイルをコピーさせます（どちらも複数回指定できます）。`--download-copied` はコピーされるたびにダウンロードし、`--download-dir DIR` はダウンロード先を `DIR` にします。
 

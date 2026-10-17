@@ -34,6 +34,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 
 - H.264、HEVC 和 AV1 硬件解码，交给 Metal 显示，全程不复制帧。在能硬件解码 AV1 的设备上（Apple M3、A17 Pro 及以后）优先请求 AV1，主机的显卡能编码 AV1 时就用它，否则用 HEVC。
 - 无损增强：屏幕上停止变化的区域，主机会再无损发送一次，叠在视频上逐像素精确显示，文字和线条因此非常清晰。默认开启；**更多 › 无损增强** 可以关掉，减轻主机的负担。
+- 有线网络上的 PyroWave：主机和本机在同一个 1 Gbit/s 及以上的有线网络里时，优先请求 PyroWave。它是只做帧内编码的小波编解码器，几百 Mbit/s 时看起来接近无损，在 GPU 上解码一帧约 1 毫秒。通过 Wi-Fi、较慢的链路或其他网络连接时，照旧使用常规编解码器。主机需要启用 PyroWave，GPU 也要够快：小型集成显卡在高分辨率下可能跟不上（Intel N100 在 2560×1496 下约 25 fps）。**更多 › 有线网络使用 PyroWave** 可以关掉，并显示当前是否在用、没用的原因。
 - 远程桌面的大小跟随窗口或屏幕，也可以按 Retina 的完整分辨率运行。
 - Mac 上全屏时隐藏工具栏和菜单栏，指针移到顶部边缘时才出现。
 - 远程桌面的声音，带抖动缓冲和静音按钮。
@@ -70,7 +71,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 
 **语言：** 英语、简体中文、繁体中文、日语和西班牙语。
 
-**尚未完成：** PyroWave，把本机麦克风发送到主机（已经写好，暂时停用），发送文件夹，以及 iOS 上校验证书颁发机构签发的证书。
+**尚未完成：** 把本机麦克风发送到主机（已经写好，暂时停用），发送文件夹，以及 iOS 上校验证书颁发机构签发的证书。
 
 ## 截图
 
@@ -83,6 +84,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 - 搭载 Apple 芯片、运行 macOS 27 的 Mac，或者运行 iOS / iPadOS 27 的 iPhone、iPad
 - 一台 ghost 主机（ghostd 和 wraith），搭建方法见 [ghost](https://github.com/jsaiko/ghost) 项目
 - 文件传输需要支持它的 wraith：在上游合并之前（[jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)），请用 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork 的 `feat/file-transfer` 分支构建主机。其他功能用上游 ghost 就可以。
+- PyroWave 需要用 libpyrowave 构建的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了两端必须一致的版本），并在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 里设置 `pyrowave = true`。
 
 ## 安装
 
@@ -190,7 +192,7 @@ swift test --package-path Packages/SpectreKit
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-其他参数：`--codec h264|h265|av1`（AV1 播放内置的测试流，需要硬件解码）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
+其他参数：`--codec h264|h265|av1|pyrowave`（AV1 播放内置的测试流，需要硬件解码；PyroWave 的测试流由它的 Metal 版现场编码，约 250 Mbit/s）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
 用回环主机测试文件传输：`--send-file PATH` 在会话开始后发送一个文件，`--host-file PATH` 让测试主机的用户复制一个文件（这两个参数都可以给多次），`--download-copied` 下载每一次复制的文件，`--download-dir DIR` 把下载存到 `DIR`。
 
