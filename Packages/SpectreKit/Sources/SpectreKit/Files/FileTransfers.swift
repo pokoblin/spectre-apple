@@ -38,6 +38,12 @@ extension GDPSession: FileSender {}
 /// handed back to the session only once written, so a slow disk holds the
 /// host back.
 ///
+/// With a ``clipboard`` to put them on, a list that is small enough
+/// (``HostFiles/fitsClipboard``) is fetched as soon as it comes, into a
+/// cache folder of its own, and the files go on the local clipboard once
+/// every one is down: pasting in the Finder pastes them. Those fetches
+/// are not among ``items``; ``clipboardFetch`` says how the latest went.
+///
 /// The session's file events reach it through the ``Link`` that
 /// ``attach(_:)`` returns, from the session's queue; everything the
 /// interface reads is on the main actor.
@@ -75,6 +81,8 @@ public final class FileTransfers {
         public internal(set) var state: State = .waiting
         /// A download, once stored.
         public internal(set) var localURL: URL?
+        /// Fetched for the clipboard (not shown, not part of a batch).
+        var isForClipboard = false
 
         public var isFinished: Bool {
             switch state {
@@ -111,7 +119,33 @@ public final class FileTransfers {
         public var files: [GDPSession.FileListEntry]
         /// Those that can be downloaded (not folders).
         public var downloadable: [GDPSession.FileListEntry] { files.filter { !$0.isDirectory } }
+        /// Whether they are fetched for the clipboard as soon as they are
+        /// listed: files only, ``FileTransfers/clipboardLimit`` at most in all.
+        public var fitsClipboard: Bool {
+            var total: UInt64 = 0
+            for file in files {
+                guard !file.isDirectory, file.size <= FileTransfers.clipboardLimit else { return false }
+                total += file.size
+            }
+            return !files.isEmpty && total <= FileTransfers.clipboardLimit
+        }
     }
+
+    /// How the latest list's fetch for the clipboard went.
+    public struct ClipboardFetch: Sendable, Equatable {
+        public enum State: Sendable, Equatable {
+            case fetching
+            /// Every file is down and on the clipboard.
+            case onClipboard
+            /// One couldn't be fetched, or the clipboard changed meanwhile.
+            case notOnClipboard
+        }
+        public var listID: UInt64
+        public var state: State
+    }
+
+    /// The most a list of copied files may come to, to be fetched for the clipboard.
+    public nonisolated static let clipboardLimit: UInt64 = 100_000_000
 
     /// A run of transfers that has just finished (nothing left going), for
     /// a notice; `serial` tells one from the next.
@@ -124,13 +158,21 @@ public final class FileTransfers {
         public var downloaded: [String] = []
     }
 
-    public private(set) var items: [Item] = []
+    /// What the user sent and downloaded, oldest first.
+    public var items: [Item] { allItems.filter { !$0.isForClipboard } }
+    private var allItems: [Item] = []
     /// The host's copied files, while it has some (nil: none, or no session).
     public private(set) var hostFiles: HostFiles?
     /// Where downloads go: the user's Downloads folder unless set.
     @ObservationIgnored public var downloadDirectory: URL = FileManager.default.urls(for: .downloadsDirectory,
                                                                                    in: .userDomainMask)[0]
     public private(set) var lastBatch: Batch?
+    /// Where the host's copied files go as soon as they are listed (see
+    /// ``HostFiles/fitsClipboard``); nil: nowhere, they wait for
+    /// ``downloadCopiedFiles()``.
+    @ObservationIgnored public weak var clipboard: CopiedFilesClipboard?
+    /// The latest list's fetch for the clipboard, if it had one.
+    public private(set) var clipboardFetch: ClipboardFetch?
     /// Whether there is a session to send through.
     public private(set) var isAvailable = false
 
@@ -155,12 +197,20 @@ public final class FileTransfers {
     /// What one item does: offer a file, or fetch one of the host's.
     private enum Job {
         case upload(FileSource)
-        case download(listID: UInt64, index: UInt32)
+        /// Into `directory`, or (nil) ``downloadDirectory``.
+        case download(listID: UInt64, index: UInt32, directory: URL?)
     }
     /// Items waiting to go, oldest first.
     @ObservationIgnored private var queue: [(id: Int, job: Job)] = []
     /// Every unfinished upload's source, to queue it again after a detach.
     @ObservationIgnored private var sources: [Int: FileSource] = [:]
+    /// The fetch for the clipboard going on: the list's, the clipboard's
+    /// mark when it started, its folder in the cache, its items.
+    @ObservationIgnored private var pendingFetch: (listID: UInt64, mark: Int, directory: URL, ids: [Int])?
+    /// This window's folder for files fetched for the clipboard: one of
+    /// its own, since each window's are put on the one clipboard.
+    @ObservationIgnored private let clipboardCache = FileTransfers.clipboardCacheRoot
+        .appending(path: UUID().uuidString, directoryHint: .isDirectory)
     /// Item ids being opened or offered (counted against the stream limit).
     @ObservationIgnored private var busy: Set<Int> = []
     /// The session's id for each offered item, and back.
@@ -204,7 +254,20 @@ public final class FileTransfers {
         }
     }
 
-    public init() {}
+    public init() {
+        _ = Self.cacheCleared
+    }
+
+    /// Where windows keep files fetched for the clipboard: in the app's
+    /// own caches (a sandboxed app's are its own anyway).
+    private nonisolated static let clipboardCacheRoot = FileManager.default.urls(for: .cachesDirectory,
+                                                                                 in: .userDomainMask)[0]
+        .appending(path: Bundle.main.bundleIdentifier ?? "SpectreKit", directoryHint: .isDirectory)
+        .appending(path: "Copied Files", directoryHint: .isDirectory)
+    /// What the app's last run fetched for the clipboard goes once, with the first window.
+    private nonisolated static let cacheCleared: Void = {
+        try? FileManager.default.removeItem(at: clipboardCacheRoot)
+    }()
 
     /// Sends through `sender` from now on: a session with `file` in effect.
     /// Its file events go to the link returned.
@@ -229,6 +292,8 @@ public final class FileTransfers {
         sender = nil
         budget = nil
         isAvailable = false
+        dropClipboardFetch()
+        clipboardFetch = nil
         let gone = pumps.withLock { pumps in
             defer { pumps = [:] }
             return Array(pumps.values)
@@ -251,7 +316,7 @@ public final class FileTransfers {
         queue.removeAll { if case .download = $0.job { true } else { false } }
         // Uploads still opening: again, first, next time.
         let queued = Set(queue.map(\.id))
-        let reopening = items.filter { $0.direction == .upload && $0.state == .waiting && !queued.contains($0.id) }
+        let reopening = allItems.filter { $0.direction == .upload && $0.state == .waiting && !queued.contains($0.id) }
         queue.insert(contentsOf: reopening.compactMap { item in sources[item.id].map { (item.id, .upload($0)) } },
                      at: 0)
         finishBatchIfDone()
@@ -262,7 +327,7 @@ public final class FileTransfers {
     public func send(_ sources: [FileSource]) {
         for source in sources {
             nextID += 1
-            items.append(Item(id: nextID, name: source.name, size: source.size))
+            allItems.append(Item(id: nextID, name: source.name, size: source.size))
             queue.append((nextID, .upload(source)))
             self.sources[nextID] = source
         }
@@ -278,7 +343,7 @@ public final class FileTransfers {
                 sources.append(try LocalFile(url: url))
             } catch {
                 nextID += 1
-                items.append(Item(id: nextID, name: url.lastPathComponent, size: 0,
+                allItems.append(Item(id: nextID, name: url.lastPathComponent, size: 0,
                                   state: .failed(error == .folder ? .folder : .unreadable)))
                 // Part of the batch the rest of these start, not one of its own.
                 batchFailed.append(url.lastPathComponent)
@@ -294,12 +359,12 @@ public final class FileTransfers {
         guard let hostFiles else { return }
         for (index, file) in hostFiles.files.enumerated() {
             nextID += 1
-            items.append(Item(id: nextID, direction: .download, name: file.name, size: file.size))
+            allItems.append(Item(id: nextID, direction: .download, name: file.name, size: file.size))
             if file.isDirectory {
                 update(nextID) { $0.state = .failed(.folder) }
                 batchFailed.append(file.name)
             } else {
-                queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index))))
+                queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index), directory: nil)))
             }
         }
         startNext()
@@ -307,7 +372,7 @@ public final class FileTransfers {
     }
 
     public func cancel(_ id: Int) {
-        guard let item = items.first(where: { $0.id == id }), !item.isFinished else { return }
+        guard let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
         queue.removeAll { $0.id == id }
         if let wire = wireIDs[id] {
             sender?.cancelFile(wire)
@@ -327,7 +392,7 @@ public final class FileTransfers {
 
     /// Drops finished items from the list.
     public func clearFinished() {
-        items.removeAll(where: \.isFinished)
+        allItems.removeAll { $0.isFinished && !$0.isForClipboard }
     }
 
     // MARK: - The session's events (its queue, through a Link)
@@ -363,6 +428,7 @@ public final class FileTransfers {
         Task { @MainActor in
             guard generation == self.generation else { return }
             self.hostFiles = files.isEmpty ? nil : HostFiles(listID: listID, files: files)
+            self.fetchForClipboard()
         }
     }
 
@@ -388,7 +454,9 @@ public final class FileTransfers {
         while let sender, busy.count < GDPSession.fileStreamsAtOnce, !queue.isEmpty {
             let (id, job) = queue.removeFirst()
             guard case .upload(let source) = job else {
-                if case .download(let listID, let index) = job { startDownload(id, listID: listID, index: index, sender) }
+                if case .download(let listID, let index, let directory) = job {
+                    startDownload(id, listID: listID, index: index, into: directory ?? downloadDirectory, sender)
+                }
                 continue
             }
             guard let wireName = fileNameForHost(source.name) else {
@@ -404,15 +472,15 @@ public final class FileTransfers {
         }
     }
 
-    private func startDownload(_ id: Int, listID: UInt64, index: UInt32, _ sender: FileSender) {
-        guard let item = items.first(where: { $0.id == id }) else { return }
+    private func startDownload(_ id: Int, listID: UInt64, index: UInt32, into directory: URL, _ sender: FileSender) {
+        guard let item = allItems.first(where: { $0.id == id }) else { return }
         guard let wire = sender.requestFile(listID: listID, index: index) else {
             fail(id, .notSent)
             return
         }
         busy.insert(id)
         let generation = generation
-        let sink = FileSink(wire: wire, name: fileNameForHost(item.name) ?? "Download", directory: downloadDirectory,
+        let sink = FileSink(wire: wire, name: fileNameForHost(item.name) ?? "Download", directory: directory,
                             sender: sender) { [weak self] written in
             Task { @MainActor in self?.wrote(wire, written, of: generation) }
         } failed: { [weak self] in
@@ -452,7 +520,7 @@ public final class FileTransfers {
             startNext()
         }
         // Cancelled while being written out: left as the user said.
-        guard let id = found, items.first(where: { $0.id == id })?.isFinished == false else { return }
+        guard let id = found, let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
         switch result {
         case .success(let url):
             update(id) {
@@ -460,7 +528,7 @@ public final class FileTransfers {
                 $0.state = .saved(name: url.lastPathComponent)
                 $0.localURL = url
             }
-            batchDownloaded.append(url.lastPathComponent)
+            if !item.isForClipboard { batchDownloaded.append(url.lastPathComponent) }
             finishBatchIfDone()
         case .failure:
             fail(id, .couldntSave)
@@ -558,9 +626,9 @@ public final class FileTransfers {
 
     private func fail(_ id: Int, _ failure: Failure) {
         sources[id] = nil
-        guard let item = items.first(where: { $0.id == id }), !item.isFinished else { return }
+        guard let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
         update(id) { $0.state = .failed(failure) }
-        batchFailed.append(item.name)
+        if !item.isForClipboard { batchFailed.append(item.name) }
         finishBatchIfDone()
     }
 
@@ -581,9 +649,81 @@ public final class FileTransfers {
     }
 
     private func update(_ id: Int, _ change: (inout Item) -> Void) {
-        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
-        change(&items[index])
+        guard let index = allItems.firstIndex(where: { $0.id == id }) else { return }
+        change(&allItems[index])
+        if allItems[index].isForClipboard, allItems[index].isFinished { clipboardFetchProgressed() }
     }
+
+    // MARK: - Fetching for the clipboard
+
+    /// A new list (or none): what was being fetched for the last one stops,
+    /// and this one is fetched if it fits and there is a clipboard to put it on.
+    private func fetchForClipboard() {
+        dropClipboardFetch()
+        clipboardFetch = nil
+        guard let hostFiles, hostFiles.fitsClipboard, sender != nil,
+              let mark = clipboard?.markForCopiedFiles() else { return }
+        let directory = clipboardCache.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        guard (try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)) != nil else {
+            return
+        }
+        var ids: [Int] = []
+        for (index, file) in hostFiles.files.enumerated() {
+            nextID += 1
+            allItems.append(Item(id: nextID, direction: .download, name: file.name, size: file.size,
+                                 isForClipboard: true))
+            queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index), directory: directory)))
+            ids.append(nextID)
+        }
+        pendingFetch = (hostFiles.listID, mark, directory, ids)
+        clipboardFetch = ClipboardFetch(listID: hostFiles.listID, state: .fetching)
+        startNext()
+    }
+
+    /// Stops the fetch for the clipboard going on, and forgets it.
+    private func dropClipboardFetch() {
+        guard let fetch = pendingFetch else { return }
+        pendingFetch = nil
+        for id in fetch.ids { cancel(id) }
+        allItems.removeAll { fetch.ids.contains($0.id) }
+        try? FileManager.default.removeItem(at: fetch.directory)
+    }
+
+    /// One of the fetch's files is done: once all are, they go on the
+    /// clipboard if every one is down, and the clipboard still holds what
+    /// it did when the fetch began.
+    private func clipboardFetchProgressed() {
+        guard let fetch = pendingFetch else { return }
+        let fetched = allItems.filter { fetch.ids.contains($0.id) }
+        guard fetched.allSatisfy(\.isFinished) else { return }
+        pendingFetch = nil
+        allItems.removeAll { fetch.ids.contains($0.id) }
+        let urls = fetched.compactMap(\.localURL)
+        if urls.count == fetch.ids.count, clipboard?.putCopiedFiles(urls, ifUnchangedSince: fetch.mark) == true {
+            // What an earlier fetch put on the clipboard is no longer there.
+            let earlier = (try? FileManager.default.contentsOfDirectory(at: clipboardCache,
+                                                                        includingPropertiesForKeys: nil)) ?? []
+            for folder in earlier where folder.lastPathComponent != fetch.directory.lastPathComponent {
+                try? FileManager.default.removeItem(at: folder)
+            }
+            clipboardFetch = ClipboardFetch(listID: fetch.listID, state: .onClipboard)
+        } else {
+            try? FileManager.default.removeItem(at: fetch.directory)
+            clipboardFetch = ClipboardFetch(listID: fetch.listID, state: .notOnClipboard)
+        }
+    }
+}
+
+/// Where ``FileTransfers`` puts the host's copied files once fetched:
+/// ``ClipboardSync``.
+@MainActor
+public protocol CopiedFilesClipboard: AnyObject {
+    /// Nil if copied files don't go on the clipboard now; otherwise a mark
+    /// of what it holds, for ``putCopiedFiles(_:ifUnchangedSince:)``.
+    func markForCopiedFiles() -> Int?
+    /// Puts the files on the clipboard, unless something else was copied
+    /// since `mark` (that is newer). Whether they went.
+    func putCopiedFiles(_ urls: [URL], ifUnchangedSince mark: Int) -> Bool
 }
 
 /// Reads one accepted file and feeds it to the session, as the budget

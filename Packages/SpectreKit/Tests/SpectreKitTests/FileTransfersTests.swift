@@ -47,7 +47,8 @@ private final class Harness {
     private(set) var link: FileTransfers.Link?
     private(set) var previousLink: FileTransfers.Link?
 
-    init(_ configure: (inout GDPTestHost.Configuration) -> Void = { _ in }) async throws {
+    init(clipboard: CopiedFilesClipboard? = nil,
+         _ configure: (inout GDPTestHost.Configuration) -> Void = { _ in }) async throws {
         directory = FileManager.default.temporaryDirectory.appending(path: "spectrekit-files-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var hc = GDPTestHost.Configuration()
@@ -56,6 +57,7 @@ private final class Harness {
         configure(&hc)
         host = try GDPTestHost(hc)
         session = GDPSession(handlers: GDPSession.Handlers())
+        transfers.clipboard = clipboard
         try await connect()
     }
 
@@ -339,8 +341,8 @@ struct UploadWindowTests {
 struct FileDownloadTests {
     /// A host "copying" `files` (written to a folder of their own), and a
     /// download folder; both removed by `done`.
-    private func harness(_ files: [(String, [UInt8])], folder: Bool = false,
-                         downloads: URL? = nil) async throws -> (Harness, URL, URL) {
+    private func harness(_ files: [(String, [UInt8])], folder: Bool = false, downloads: URL? = nil,
+                         clipboard: CopiedFilesClipboard? = nil) async throws -> (Harness, URL, URL) {
         let copied = FileManager.default.temporaryDirectory.appending(path: "spectrekit-copied-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: copied, withIntermediateDirectories: true)
         var urls: [URL] = []
@@ -356,7 +358,7 @@ struct FileDownloadTests {
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
             urls.append(url)
         }
-        let h = try await Harness { $0.hostFiles = urls }
+        let h = try await Harness(clipboard: clipboard) { $0.hostFiles = urls }
         let target = downloads ?? FileManager.default.temporaryDirectory.appending(path: "spectrekit-dl-\(UUID().uuidString)")
         try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
         h.transfers.downloadDirectory = target
@@ -448,5 +450,102 @@ struct FileDownloadTests {
         #expect(await h.until { h.allFinished })
         #expect(h.transfers.items.first?.state == .failed(.couldntSave))
         #expect(h.transfers.lastBatch?.failed == ["a.txt"])
+    }
+
+    // MARK: For the clipboard
+
+    @Test func aSmallCopyIsFetchedOntoTheClipboard() async throws {
+        let clipboard = FakeClipboard()
+        let (h, copied, target) = try await harness([("notes.txt", Array("copied ✓".utf8)), ("b.bin", bytes(300_000))],
+                                                    clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        let first = try #require(h.transfers.hostFiles)
+        #expect(first.fitsClipboard)
+        #expect(await h.until { h.transfers.clipboardFetch?.state == .onClipboard })
+        #expect(h.transfers.clipboardFetch?.listID == first.listID)
+        #expect(clipboard.files.map(\.lastPathComponent) == ["notes.txt", "b.bin"])
+        #expect(try Data(contentsOf: clipboard.files[0]) == Data("copied ✓".utf8))
+        #expect(try Data(contentsOf: clipboard.files[1]) == Data(bytes(300_000)))
+        let mtime = try FileManager.default.attributesOfItem(atPath: clipboard.files[0].path(percentEncoded: false))[
+            .modificationDate] as? Date
+        #expect(mtime?.timeIntervalSince1970 == 1_600_000_000)
+        // Not the user's transfers: nothing listed, no notice, nothing in Downloads.
+        #expect(h.transfers.items.isEmpty && h.transfers.lastBatch == nil && names(in: target).isEmpty)
+
+        // The next copy replaces it, and the last one's files go.
+        let held = clipboard.files
+        let c = copied.appending(path: "c.txt")
+        try Data([3]).write(to: c)
+        h.host.sendFileList([c])
+        #expect(await h.until {
+            h.transfers.clipboardFetch?.listID != first.listID && h.transfers.clipboardFetch?.state == .onClipboard
+        })
+        #expect(clipboard.files.map(\.lastPathComponent) == ["c.txt"])
+        #expect(!FileManager.default.fileExists(atPath: held[0].deletingLastPathComponent().path(percentEncoded: false)))
+        #expect(clipboard.puts == 2)
+    }
+
+    @Test func aFolderOrTooMuchIsOnlyOffered() async throws {
+        let clipboard = FakeClipboard()
+        let (h, copied, target) = try await harness([("a.txt", [1])], folder: true, clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.fitsClipboard == false)
+        #expect(h.transfers.clipboardFetch == nil)
+
+        // Over the limit: listed (a sparse file), never fetched.
+        let big = copied.appending(path: "big.iso")
+        FileManager.default.createFile(atPath: big.path(percentEncoded: false), contents: nil)
+        let handle = try FileHandle(forWritingTo: big)
+        try handle.truncate(atOffset: FileTransfers.clipboardLimit + 1)
+        try handle.close()
+        let listed = h.transfers.hostFiles?.listID
+        h.host.sendFileList([big])
+        #expect(await h.until { h.transfers.hostFiles?.listID != listed })
+        #expect(h.transfers.hostFiles?.fitsClipboard == false)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.transfers.clipboardFetch == nil && h.transfers.items.isEmpty && clipboard.puts == 0)
+    }
+
+    @Test func aCopyHereMeanwhileWins() async throws {
+        let clipboard = FakeClipboard()
+        clipboard.copiesAfterMark = true // the user copies something as the fetch begins
+        let (h, copied, target) = try await harness([("a.txt", [1, 2, 3])], clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(await h.until { h.transfers.clipboardFetch?.state == .notOnClipboard })
+        #expect(clipboard.files.isEmpty && h.transfers.items.isEmpty)
+    }
+
+    @Test func theFetchStopsWithTheSession() async throws {
+        let clipboard = FakeClipboard()
+        let (h, copied, target) = try await harness([("big.bin", bytes(6 << 20, seed: 4))], clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.clipboardFetch?.state == .fetching)
+        h.transfers.detach()
+        #expect(h.transfers.clipboardFetch == nil && h.transfers.items.isEmpty)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(clipboard.puts == 0)
+    }
+}
+
+/// A clipboard copied files go on; `copiesAfterMark`: something else is
+/// copied right after each mark is taken.
+@MainActor
+private final class FakeClipboard: CopiedFilesClipboard {
+    var changeCount = 0
+    var copiesAfterMark = false
+    private(set) var files: [URL] = []
+    private(set) var puts = 0
+
+    func markForCopiedFiles() -> Int? {
+        defer { if copiesAfterMark { changeCount += 1 } }
+        return changeCount
+    }
+
+    func putCopiedFiles(_ urls: [URL], ifUnchangedSince mark: Int) -> Bool {
+        guard mark == changeCount else { return false }
+        files = urls
+        changeCount += 1
+        puts += 1
+        return true
     }
 }

@@ -17,6 +17,12 @@ final class FakePasteboard: LocalPasteboard {
         return concealed ? nil : text
     }
     func writeText(_ text: String) { copy(text) }
+    var files: [URL] = []
+    func writeFiles(_ urls: [URL]) {
+        text = nil
+        files = urls
+        changeCount += 1
+    }
     /// A copy in some app.
     func copy(_ text: String?) {
         self.text = text
@@ -209,5 +215,27 @@ struct ClipboardSyncTests {
         pb.copy("late")
         sync.checkLocal()
         #expect(sent().isEmpty)
+    }
+
+    @Test func copiedFilesGoOnTheClipboardUnlessSomethingWasCopiedMeanwhile() {
+        let pb = FakePasteboard()
+        let (sync, sent) = make(pb)
+        #expect(sync.markForCopiedFiles() == nil) // not watching yet
+        sync.start()
+        let files = [URL(filePath: "/tmp/a.txt"), URL(filePath: "/tmp/b.txt")]
+        let mark = try! #require(sync.markForCopiedFiles())
+        #expect(sync.putCopiedFiles(files, ifUnchangedSince: mark))
+        #expect(pb.files == files)
+        #expect(sync.lastTransfer?.direction == .fromHost)
+        sync.checkLocal() // our own write is not a copy to send
+        #expect(sent().isEmpty)
+
+        let later = try! #require(sync.markForCopiedFiles())
+        pb.copy("copied here meanwhile")
+        #expect(!sync.putCopiedFiles([URL(filePath: "/tmp/c.txt")], ifUnchangedSince: later))
+        #expect(pb.text == "copied here meanwhile")
+
+        sync.isEnabled = false
+        #expect(sync.markForCopiedFiles() == nil)
     }
 }

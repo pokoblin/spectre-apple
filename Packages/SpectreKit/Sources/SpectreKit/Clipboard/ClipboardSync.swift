@@ -61,6 +61,8 @@ public protocol LocalPasteboard: AnyObject {
     /// (marked concealed or transient by a password manager).
     func readText() -> String?
     func writeText(_ text: String)
+    /// Replaces the contents with these files (the host's copied files, fetched).
+    func writeFiles(_ urls: [URL])
 }
 
 /// One session's clipboard sync (gdp-spec.md §7.9, capability `clipboard`).
@@ -75,7 +77,7 @@ public protocol LocalPasteboard: AnyObject {
 /// connecting must not overwrite the desktop's clipboard (§7.9).
 @MainActor
 @Observable
-public final class ClipboardSync {
+public final class ClipboardSync: CopiedFilesClipboard {
     public static let enabledKey = "clipboardSync"
     public static let sendsAutomaticallyKey = "clipboardSendsAutomatically"
 
@@ -172,6 +174,23 @@ public final class ClipboardSync {
         return true
     }
 
+    /// Copied files are put on the clipboard while it is shared.
+    public func markForCopiedFiles() -> Int? {
+        guard isWatching, isEnabled else { return nil }
+        return pasteboard.changeCount
+    }
+
+    /// The host's copied files, fetched: on the local clipboard, as text from
+    /// the host is, unless something was copied here since `mark` (§7.12).
+    public func putCopiedFiles(_ urls: [URL], ifUnchangedSince mark: Int) -> Bool {
+        guard isWatching, isEnabled, !urls.isEmpty, pasteboard.changeCount == mark else { return false }
+        pasteboard.writeFiles(urls)
+        // Our own write is not a local copy.
+        seenChangeCount = pasteboard.changeCount
+        noteTransfer(.fromHost)
+        return true
+    }
+
     private func noteTransfer(_ direction: Transfer.Direction) {
         lastTransfer = Transfer(direction: direction, serial: (lastTransfer?.serial ?? 0) + 1)
     }
@@ -253,6 +272,11 @@ public final class SystemPasteboard: LocalPasteboard {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
+
+    public func writeFiles(_ urls: [URL]) {
+        pasteboard.clearContents()
+        pasteboard.writeObjects(urls as [NSURL])
+    }
 }
 #else
 /// `UIPasteboard.general`. Reading text another app copied shows the
@@ -267,5 +291,6 @@ public final class SystemPasteboard: LocalPasteboard {
     public var hasText: Bool { pasteboard.hasStrings }
     public func readText() -> String? { pasteboard.string }
     public func writeText(_ text: String) { pasteboard.string = text }
+    public func writeFiles(_ urls: [URL]) { pasteboard.urls = urls }
 }
 #endif
