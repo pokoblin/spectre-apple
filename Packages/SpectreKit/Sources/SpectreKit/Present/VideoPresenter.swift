@@ -72,6 +72,18 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
     private var cursorTexture: CursorTexture?
     private var cursorPosition: CGPoint?
     private var zoom = PictureZoom.fit
+    /// Lossless refinement's overlay plane while the session has it
+    /// (gdp-spec.md §7.8): drawn over every frame, and over the last one
+    /// again when a layer-only frame changes it.
+    public var refinement: RefinementPlane? {
+        didSet {
+            guard refinement !== oldValue else { return }
+            overlayTexture = nil
+            cursorChanged()
+        }
+    }
+    private var overlayTexture: MTLTexture?
+
     /// The last frame drawn, kept (with its pixel buffer) to redraw the cursor over.
     private var lastTextures: VideoTextures?
     /// The cursor changed since the last drawable: present the last frame
@@ -158,6 +170,13 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         return CursorOverlay(texture: cursorTexture, position: cursorPosition)
     }
 
+    /// The overlay plane changed with no new picture (a layer-only frame):
+    /// the last frame again, with it. Any thread.
+    public nonisolated func refinementChanged() {
+        redrawWanted.store(true, ordering: .releasing)
+        frameAvailable()
+    }
+
     /// Ask for the last frame again with the new cursor. In
     /// ``Mode/displayLink`` the next refresh picks the request up; on
     /// arrival it is one coalesced draw, like a frame's.
@@ -235,8 +254,8 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         commandBuffer.label = label
         let videoSize = displaySize ?? CGSize(width: textures.luma.width, height: textures.luma.height)
         let viewport = VideoRenderer.viewport(video: videoSize, drawable: view.drawableSize, zoom: zoom)
-        renderer.encode(textures, color: color, displaySize: displaySize, viewport: viewport, cursor: cursorOverlay,
-                        pass: pass, into: commandBuffer)
+        renderer.encode(textures, color: color, displaySize: displaySize, viewport: viewport, overlay: updatedOverlay(commandBuffer),
+                        cursor: cursorOverlay, pass: pass, into: commandBuffer)
 
         // Stats need both the GPU times (completed) and the on-screen time (presented), in either order.
         inFlight.add(1, ordering: .acquiringAndReleasing)
@@ -265,6 +284,22 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         #endif
         commandBuffer.commit()
         return true
+    }
+}
+
+extension VideoPresenter {
+    /// The overlay texture with what changed in the plane copied in, ahead
+    /// of this draw in `commandBuffer`; nil without refinement.
+    private func updatedOverlay(_ commandBuffer: MTLCommandBuffer) -> MTLTexture? {
+        guard let refinement else { return nil }
+        if let upload = refinement.takeUpload(device: renderer.device) {
+            if overlayTexture?.width != upload.width || overlayTexture?.height != upload.height {
+                // A new size: the upload is the whole plane.
+                overlayTexture = renderer.makeOverlayTexture(width: upload.width, height: upload.height)
+            }
+            if let overlayTexture { renderer.encodeUpload(upload, into: overlayTexture, commandBuffer: commandBuffer) }
+        }
+        return overlayTexture
     }
 }
 

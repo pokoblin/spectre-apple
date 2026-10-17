@@ -177,6 +177,17 @@ public final class RemoteSession: @unchecked Sendable {
     /// user sends to the host. Nothing goes unless they do.
     public var offersFiles = true
 
+    /// Whether SessionHello offers `refine` (§7.8): a lossless layer over
+    /// the video for still regions, drawn from ``refinement``.
+    public var offersRefine = true
+
+    /// Lossless refinement's overlay plane, the output's size: every
+    /// frame's layer goes into it as the frame arrives.
+    public let refinement = RefinementPlane()
+    /// Called on the session queue when a layer-only frame changed
+    /// ``refinement``: the last picture wants drawing again.
+    public var onRefinementChanged: (@Sendable () -> Void)?
+
     public func connect(_ config: GDPSession.Configuration) throws(GDPSession.ConnectError) {
         // Offered for the whole connection (it is fixed then); the microphone
         // itself stays closed until the user turns it on (§10.1).
@@ -184,6 +195,9 @@ public final class RemoteSession: @unchecked Sendable {
         if offersMicrophone, !config.capabilities.contains("microphone") { config.capabilities.append("microphone") }
         if offersFiles, !config.capabilities.contains(GDPSession.Capability.file) {
             config.capabilities.append(GDPSession.Capability.file)
+        }
+        if offersRefine, !config.capabilities.contains(GDPSession.Capability.refine) {
+            config.capabilities.append(GDPSession.Capability.refine)
         }
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
@@ -206,6 +220,7 @@ public final class RemoteSession: @unchecked Sendable {
         h.fileSending = { [weak self] id, name, size, modified in self?.onFileSending?(id, name, size, modified) }
         h.fileData = { [weak self] id, bytes in self?.onFileData?(id, bytes) }
         let session = GDPSession(handlers: h)
+        if refinePaused.withLock({ $0 }) { session.setRefinePaused(true) }
         self.session = session
         stats.setTimingSink { [weak session] decode, present in
             session?.recordFrameTiming(decodeMicroseconds: decode, presentMicroseconds: present)
@@ -215,6 +230,15 @@ public final class RemoteSession: @unchecked Sendable {
     }
 
     public func close() { session?.close() }
+
+    /// Lossless refinement on or off for the host (§7.8, RefinePause): off
+    /// spares it reading back and hashing every frame. Kept across this
+    /// session's reconnections.
+    public func setRefinePaused(_ paused: Bool) {
+        refinePaused.withLock { $0 = paused }
+        session?.setRefinePaused(paused)
+    }
+    private let refinePaused = Mutex(false)
 
     /// Stops decoding video; frames keep being acknowledged and are dropped,
     /// so the host sees no loss and the connection stays healthy.
@@ -305,11 +329,23 @@ public final class RemoteSession: @unchecked Sendable {
 
     private func outputsChanged(_ outputs: [GDPSession.Output]) {
         guard let output = outputs.first else { return }
+        refinement.resize(width: Int(output.width), height: Int(output.height))
         onPictureChange?(Picture(size: CGSize(width: Int(output.width), height: Int(output.height)),
                                  color: ColorDescription(output: output, codec: codec)))
     }
 
     private func received(_ frame: GDPSession.VideoFrame) -> Bool {
+        // The layer first, whatever becomes of the picture: the host counts
+        // every frame not reported lost as applied (§9.6).
+        if let layer = frame.refine {
+            if !layer.isEmpty { refinement.apply(layer) }
+            if frame.data.isEmpty {
+                // Layer-only: nothing to decode; drawn again unless the
+                // video is suspended (no GPU work in the background).
+                if !layer.isEmpty, !videoGate.withLock({ $0.suspended }) { onRefinementChanged?() }
+                return true
+            }
+        }
         let drop = videoGate.withLock { gate in
             if gate.suspended { return true }
             if gate.awaitingKeyframe {

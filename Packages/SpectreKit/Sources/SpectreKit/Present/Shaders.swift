@@ -43,6 +43,17 @@ enum Shaders {
         return float4(saturate(rgb), 1);
     }
 
+    // Lossless refinement's overlay plane (gdp-spec.md §9.6): opaque where
+    // the host wrote tiles, transparent elsewhere, premultiplied (a cleared
+    // pixel is all zeros). Drawn over the picture with video_vertex at a
+    // uvScale of 1 (the plane is the picture's size), blended
+    // (one, one - source alpha). Its pixels are R'G'B' in the output's
+    // primaries and transfer, as the video's become: written as they are.
+    fragment float4 overlay_fragment(VideoVertexOut in [[stage_in]], texture2d<float> plane [[texture(0)]]) {
+        constexpr sampler s(filter::linear, address::clamp_to_edge);
+        return plane.sample(s, in.uv);
+    }
+
     // Keep in sync with CursorUniforms in CursorRenderer.swift.
     struct CursorUniforms {
         float4 rect;  // left, top, right, bottom in the video viewport's clip space

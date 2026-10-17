@@ -52,6 +52,7 @@ public final class VideoRenderer: @unchecked Sendable {
     public let device: MTLDevice
     public let commandQueue: MTLCommandQueue
     private let pipeline: MTLRenderPipelineState
+    private let overlayPipeline: MTLRenderPipelineState
     private let textureCache: CVMetalTextureCache
     let cursorRenderer: CursorRenderer
 
@@ -68,6 +69,19 @@ public final class VideoRenderer: @unchecked Sendable {
             desc.fragmentFunction = library.makeFunction(name: "video_fragment")
             desc.colorAttachments[0].pixelFormat = Self.colorPixelFormat
             pipeline = try device.makeRenderPipelineState(descriptor: desc)
+            let overlay = MTLRenderPipelineDescriptor()
+            overlay.label = "refinement overlay"
+            overlay.vertexFunction = library.makeFunction(name: "video_vertex")
+            overlay.fragmentFunction = library.makeFunction(name: "overlay_fragment")
+            let color = overlay.colorAttachments[0]!
+            color.pixelFormat = Self.colorPixelFormat
+            // Premultiplied source over: out = src + dst × (1 − src.a).
+            color.isBlendingEnabled = true
+            color.sourceRGBBlendFactor = .one
+            color.sourceAlphaBlendFactor = .one
+            color.destinationRGBBlendFactor = .oneMinusSourceAlpha
+            color.destinationAlphaBlendFactor = .oneMinusSourceAlpha
+            overlayPipeline = try device.makeRenderPipelineState(descriptor: overlay)
             cursorRenderer = try CursorRenderer(device: device, library: library)
         } catch {
             throw .shader(String(describing: error))
@@ -139,13 +153,42 @@ public final class VideoRenderer: @unchecked Sendable {
                            height: r.height.rounded(), znear: 0, zfar: 1)
     }
 
+    /// A texture for lossless refinement's overlay plane (``RefinementPlane``),
+    /// filled by ``encodeUpload(_:into:commandBuffer:)``.
+    public func makeOverlayTexture(width: Int, height: Int) -> MTLTexture? {
+        guard width > 0, height > 0 else { return nil }
+        let desc = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: width, height: height,
+                                                            mipmapped: false)
+        desc.usage = .shaderRead
+        desc.storageMode = .private
+        let texture = device.makeTexture(descriptor: desc)
+        texture?.label = "refinement overlay"
+        return texture
+    }
+
+    /// Copies what changed in the overlay plane into `texture`, ahead of
+    /// the passes that draw it in `commandBuffer`.
+    public func encodeUpload(_ upload: RefinementPlane.Upload, into texture: MTLTexture,
+                             commandBuffer: MTLCommandBuffer) {
+        guard let blit = commandBuffer.makeBlitCommandEncoder() else { return }
+        blit.label = "refinement upload"
+        for piece in upload.pieces {
+            blit.copy(from: upload.buffer, sourceOffset: piece.offset, sourceBytesPerRow: piece.bytesPerRow,
+                      sourceBytesPerImage: piece.bytesPerRow * piece.region.size.height, sourceSize: piece.region.size,
+                      to: texture, destinationSlice: 0, destinationLevel: 0, destinationOrigin: piece.region.origin)
+        }
+        blit.endEncoding()
+    }
+
     /// Encodes one frame into `pass` (cleared to black outside the viewport).
     /// `displaySize` is the picture's size (gdp-spec.md §7.2); a larger
-    /// coded picture's padding is cropped off. `cursor`, if any, is drawn
-    /// over the picture in the same pass (``encodeCursor(_:videoSize:viewport:targetSize:encoder:)``).
+    /// coded picture's padding is cropped off. `overlay`, lossless
+    /// refinement's plane (gdp-spec.md §9.6, the picture's size), is drawn
+    /// over it, and `cursor`, if any, over both, in the same pass
+    /// (``encodeCursor(_:videoSize:viewport:targetSize:encoder:)``).
     public func encode(_ textures: VideoTextures, color: ColorDescription, displaySize: CGSize? = nil,
-                       viewport: MTLViewport, cursor: CursorOverlay? = nil, pass: MTLRenderPassDescriptor,
-                       into commandBuffer: MTLCommandBuffer) {
+                       viewport: MTLViewport, overlay: MTLTexture? = nil, cursor: CursorOverlay? = nil,
+                       pass: MTLRenderPassDescriptor, into commandBuffer: MTLCommandBuffer) {
         pass.colorAttachments[0].loadAction = .clear
         pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
         pass.colorAttachments[0].storeAction = .store
@@ -165,6 +208,14 @@ public final class VideoRenderer: @unchecked Sendable {
         encoder.setFragmentTexture(textures.luma, index: 0)
         encoder.setFragmentTexture(textures.chroma, index: 1)
         encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        if let overlay {
+            // The same viewport as the picture: plane pixel (x, y) lands on picture pixel (x, y).
+            var whole = VideoUniforms(yuvToRGB: matrix_identity_float4x4, uvScale: SIMD2(1, 1), chromaOffset: .zero)
+            encoder.setRenderPipelineState(overlayPipeline)
+            encoder.setVertexBytes(&whole, length: MemoryLayout<VideoUniforms>.stride, index: 0)
+            encoder.setFragmentTexture(overlay, index: 0)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+        }
         if let cursor, let target = pass.colorAttachments[0].texture {
             encodeCursor(cursor, videoSize: display, viewport: viewport,
                          targetSize: CGSize(width: target.width, height: target.height), encoder: encoder)

@@ -13,6 +13,11 @@ import GDPKit
 ///
 /// Files the viewer sends (gdp-spec.md §7.12) land in ``fileDirectory``,
 /// as wraith's land in the download directory.
+///
+/// With lossless refinement (§7.8), every two seconds a checkerboard tile
+/// (``refineTile``) goes over the picture's top-left corner and is cleared
+/// a second later: the lossy codec would blur its 1-pixel squares, the
+/// overlay shows them exact.
 public final class LoopbackHost: @unchecked Sendable {
     public let host: GDPTestHost
     public let stream: TestStream
@@ -24,6 +29,7 @@ public final class LoopbackHost: @unchecked Sendable {
     private var index = 0 // queue only
     private let beep: [[UInt8]]
     private var beepIndex = 0 // queue only
+    private var refineTick = 0 // queue only
 
     /// `clipboard`: the host's clipboard text to start with (gdp-spec.md §7.9).
     /// `copiedFiles`: files the host's user has "copied", for the viewer to
@@ -40,7 +46,7 @@ public final class LoopbackHost: @unchecked Sendable {
         // gamepads (§8.5), files (§7.12), and keep a clipboard: what the
         // viewer copies comes back on the next attach.
         config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
-                               GDPSession.Capability.file]
+                               GDPSession.Capability.file, GDPSession.Capability.refine]
         config.clipboard = clipboard
         config.hostFiles = copiedFiles
         fileDirectory = FileManager.default.temporaryDirectory.appending(path: "Loopback Files", directoryHint: .isDirectory)
@@ -127,13 +133,36 @@ public final class LoopbackHost: @unchecked Sendable {
             // Asked for right after each SessionAccept (and after a loss):
             // also replace the test host's 2×2 cursor with one easier to see.
             index = 0
+            // A new connection's plane starts from a reset (§9.6); a loss gets one too, simply.
+            refineTick = 0
             let c = Self.crosshair
             host.sendCursorShape(width: c.side, height: c.side, hotspotX: c.side / 2, hotspotY: c.side / 2, argb: c.bgra)
         }
         let au = stream.accessUnits[index]
-        host.sendVideoFrame(au.bytes, keyframe: au.keyframe)
+        let period = 2 * stream.framesPerSecond
+        switch refineTick % period {
+        case 0:
+            let t = Self.refineTile
+            host.sendRefinedFrame(au.bytes, keyframe: au.keyframe, reset: refineTick == 0, tiles: [t.rect], bgra: t.bgra)
+        case period / 2:
+            host.sendRefinedFrame(au.bytes, keyframe: au.keyframe, clears: [Self.refineTile.rect])
+        default:
+            host.sendVideoFrame(au.bytes, keyframe: au.keyframe)
+        }
+        refineTick += 1
         index = (index + 1) % stream.accessUnits.count
     }
+
+    /// A 256×128 checkerboard of 1-pixel black and white squares at (32, 32),
+    /// opaque BGRA: what lossless refinement draws exactly (§9.5).
+    static let refineTile: (rect: GDPSession.RefineRect, bgra: [UInt8]) = {
+        let w = 256, h = 128
+        let bgra = (0..<w * h).flatMap { i -> [UInt8] in
+            let v: UInt8 = (i % w + i / w) % 2 == 0 ? 0xff : 0x00
+            return [v, v, v, 0xff]
+        }
+        return (GDPSession.RefineRect(x: 32, y: 32, width: UInt16(w), height: UInt16(h)), bgra)
+    }()
 
     /// A 25×25 crosshair, white with a dark outline: premultiplied BGRA (§7.4).
     static let crosshair: (side: UInt32, bgra: [UInt8]) = {
