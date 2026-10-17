@@ -144,7 +144,8 @@ public final class LoginFlow {
     private let refusedCertificate = Refused()
 
     public init(knownHosts: KnownHosts = .standard(), savedLogins: SavedLogins = KeychainSavedLogins(),
-                networkAccess: NetworkAccessCheck = LocalNetworkCheck(), codecs: [String] = ["h265", "h264"]) {
+                networkAccess: NetworkAccessCheck = LocalNetworkCheck(),
+                codecs: [String] = VideoCodec.offered.map(\.rawValue)) {
         self.knownHosts = knownHosts
         self.savedLogins = savedLogins
         self.networkAccess = networkAccess

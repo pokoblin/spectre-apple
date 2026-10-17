@@ -113,7 +113,9 @@ struct LoginFlowTests {
         #expect(ticket.configuration.host == "127.0.0.1" && ticket.configuration.port == host.port)
         #expect(ticket.configuration.certificate == host.certificate)
         #expect(!ticket.configuration.takeOver)
-        #expect(ticket.configuration.codecs == ["h265", "h264"])
+        // AV1 first where it decodes in hardware (§6.6), then HEVC and H.264.
+        #expect(ticket.configuration.codecs == VideoCodec.offered.map(\.rawValue))
+        #expect(ticket.configuration.codecs.suffix(2) == ["h265", "h264"])
         #expect(server.observed.openedType == "plasma")
         try? FileManager.default.removeItem(at: file)
     }

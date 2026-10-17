@@ -279,7 +279,7 @@ final class PlaybackModel {
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
                let fp = value("--fingerprint").flatMap({ CertificateFingerprint(hex: $0.lowercased()) }) {
                 var config = GDPSession.Configuration(host: String(parts[0]), port: port, token: token, certificate: fp,
-                                                      codecs: ["h265", "h264"])
+                                                      codecs: VideoCodec.offered.map(\.rawValue))
                 config.decoders = ["videotoolbox"]
                 remoteConfig = config
                 streamInfo = target
@@ -510,6 +510,15 @@ final class PlaybackModel {
 
     private func testStream(_ codec: VideoCodec) async -> TestStream? {
         if let cached = streams[codec] { return cached }
+        if codec == .av1 {
+            // VideoToolbox can't encode AV1: the bundled stream, where AV1 decodes at all.
+            guard codec.isHardwareDecodable, let stream = TestStream.av1() else {
+                phase = .failed("AV1 needs a hardware decoder (Apple M3, A17 Pro or later)")
+                return nil
+            }
+            streams[codec] = stream
+            return stream
+        }
         phase = .encoding(codec, 0)
         let progress: @Sendable (Double) -> Void = { [weak self] p in
             Task { @MainActor in
@@ -641,6 +650,7 @@ final class PlaybackModel {
                 attempt.resume(returning: state)
             }
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
+            let codecName = VideoCodec(rawValue: accept.codec)?.displayName ?? accept.codec
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
             hasAudio = remote.audio != nil
             hasMicrophone = Self.forwardsMicrophone && remote.microphoneFormat != nil
@@ -650,7 +660,7 @@ final class PlaybackModel {
             } else {
                 print("session: no audio: \(remote.audioUnavailable ?? "?")")
             }
-            if source == .remote { streamInfo = "\(title) — \(accept.codec) \(size), \(accept.encoder)" }
+            if source == .remote { streamInfo = "\(title) — \(codecName) \(size), \(accept.encoder)" }
             if accept.capabilities.contains(GDPSession.Capability.clipboard) {
                 clipboardInEffect = true
                 clipboardSync?.start()

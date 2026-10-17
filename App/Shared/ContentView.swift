@@ -311,7 +311,8 @@ struct SessionView: View {
             Text(verbatim: "Remote").tag(PlaybackModel.Source.remote)
         } label: { Text(verbatim: "Source") }
         Picker(selection: $model.codec) {
-            ForEach(VideoCodec.allCases) { Text($0.displayName).tag($0) }
+            // AV1 only where it decodes (in hardware): its stream comes bundled.
+            ForEach(VideoCodec.allCases.filter { $0 != .av1 || $0.isHardwareDecodable }) { Text($0.displayName).tag($0) }
         } label: { Text(verbatim: "Codec") }
         Picker(selection: $model.mode) {
             Text(verbatim: "On arrival").tag(VideoPresenter.Mode.onArrival)
