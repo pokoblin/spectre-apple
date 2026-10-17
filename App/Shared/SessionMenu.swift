@@ -36,6 +36,8 @@ struct SessionMenu: Commands {
                 .disabled(model?.clipboard == nil)
             Button("Send Files…") { session?.sendFiles() }
                 .disabled(model?.files.isAvailable != true)
+            Button("Download Copied Files") { model?.downloadCopiedFiles() }
+                .disabled(model?.copiedFiles?.downloadable.isEmpty ?? true)
             Menu("Send Keys") {
                 if let typer = model?.input?.typer {
                     ForEach(KeyCombo.menu) { group in

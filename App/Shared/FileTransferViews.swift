@@ -1,9 +1,12 @@
 import SpectreKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
-/// The list of files going to the host (gdp-spec.md §7.12): each one's
-/// progress or outcome, a button to cancel it, and the list's own actions.
-/// In a popover from the Mac's toolbar (docs/file-transfer.md).
+/// The list of files going to and coming from the host (gdp-spec.md §7.12):
+/// each one's progress or outcome, a button to cancel it, and the list's own
+/// actions. In a popover from the Mac's toolbar (docs/file-transfer.md).
 struct FileTransferList: View {
     let files: FileTransfers
     /// Opens the file picker, for more.
@@ -47,6 +50,7 @@ private struct FileTransferRow: View {
                 .font(.title3)
                 .foregroundStyle(tint)
                 .frame(width: 22)
+                .accessibilityLabel(item.direction == .download ? Text("Download") : Text("Upload"))
             VStack(alignment: .leading, spacing: 4) {
                 Text(verbatim: item.name)
                     .lineLimit(1)
@@ -68,14 +72,27 @@ private struct FileTransferRow: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Stop sending this file")
+                .help("Stop this transfer")
             }
+            #if os(macOS)
+            if let url = item.localURL {
+                Button {
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                } label: {
+                    Label("Show in Finder", systemImage: "magnifyingglass.circle.fill")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Show in Finder")
+            }
+            #endif
         }
     }
 
     private var symbol: String {
         switch item.state {
-        case .waiting, .offered, .sending: "arrow.up.doc"
+        case .waiting, .offered, .sending: item.direction == .download ? "arrow.down.doc" : "arrow.up.doc"
         case .saved: "checkmark.circle.fill"
         case .failed: "exclamationmark.triangle.fill"
         case .cancelled: "xmark.circle"
@@ -97,9 +114,14 @@ private struct FileTransferRow: View {
         case .offered: return String(localized: "Waiting for the host · \(size)")
         case .sending:
             return String(localized: "\(item.sent.formatted(.byteCount(style: .file))) of \(size)")
+        case .saved(let name) where item.direction == .download:
+            return name == item.name ? String(localized: "Downloaded · \(size)")
+                : String(localized: "Downloaded as “\(name)” · \(size)")
         case .saved(let name):
             return name == item.name ? String(localized: "Sent · \(size)")
                 : String(localized: "Sent as “\(name)” · \(size)")
+        case .failed(.folder) where item.direction == .download:
+            return String(localized: "Folders can't be downloaded yet.")
         case .failed(let failure): return failure.explanation
         case .cancelled: return String(localized: "Cancelled")
         }
@@ -136,6 +158,18 @@ extension FileTransfers.Failure {
 extension FileTransfers.Batch {
     /// A notice for the batch: what went, and what didn't.
     var notice: Text {
+        if !downloaded.isEmpty {
+            // Two or more files where there is a number: no singular forms needed.
+            switch (downloaded.count, failed.count) {
+            case (1, 0): return Text("Downloaded “\(downloaded[0])”")
+            case (let n, 0): return Text("Downloaded \(n) files")
+            case (let n, let failed): return Text("Downloaded \(n) of \(n + failed) files")
+            }
+        }
+        return uploadNotice
+    }
+
+    private var uploadNotice: Text {
         switch (saved.count, failed.count) {
         case (1, 0): Text("Sent “\(saved[0])” to the host")
         // Two or more files from here on: no singular forms needed.
@@ -146,7 +180,8 @@ extension FileTransfers.Batch {
         }
     }
 
-    var isFailure: Bool { saved.isEmpty }
+    var isFailure: Bool { saved.isEmpty && downloaded.isEmpty }
+    var symbol: String { isFailure ? "exclamationmark.triangle" : downloaded.isEmpty ? "arrow.up.doc" : "arrow.down.doc" }
 }
 
 /// Over the picture while files are dragged onto it: dropping sends them.
@@ -164,3 +199,41 @@ struct FileDropHint: View {
         .transition(.opacity)
     }
 }
+
+/// Files the host's user copied, offered for download (gdp-spec.md §7.12):
+/// over the picture, at the top, for a while after each copy.
+struct CopiedFilesBanner: View {
+    let files: FileTransfers.HostFiles
+    let download: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label {
+                if files.files.count == 1 {
+                    Text("“\(files.files[0].name)” was copied on the host")
+                } else {
+                    // Two or more: no singular form needed.
+                    Text("\(files.files.count) files were copied on the host")
+                }
+            } icon: {
+                Image(systemName: "doc.on.doc")
+            }
+            .lineLimit(1)
+            Button("Download", action: download)
+                .disabled(files.downloadable.isEmpty)
+                .help("Download them to the Downloads folder")
+            Button(action: dismiss) {
+                Label("Dismiss", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+        }
+        .font(.callout)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .glassEffect(.regular, in: .capsule)
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+}
+

@@ -13,6 +13,9 @@
 	<!-- Files the user picks with Send Files… to send to the host (dropped ones need nothing). -->
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
+	<!-- Files copied on the host, downloaded into the Downloads folder. -->
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
 	<!-- The prototype's loopback QUIC self-test listens on 127.0.0.1. -->
 	<key>com.apple.security.network.server</key>
 	<true/>

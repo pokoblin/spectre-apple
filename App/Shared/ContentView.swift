@@ -219,7 +219,9 @@ struct SessionView: View {
     /// floats its controls over the picture instead (App/iOS/SessionControls.swift).
     @ViewBuilder private var sessionButtons: some View {
         if model.files.isAvailable || !model.files.items.isEmpty {
-            FileControls(files: model.files) { choosingFiles = true }
+            FileControls(files: model.files, copied: model.copiedFiles, download: model.downloadCopiedFiles) {
+                choosingFiles = true
+            }
         }
         if let clipboard = model.clipboard {
             ClipboardControls(clipboard: clipboard)
@@ -339,6 +341,9 @@ struct SessionView: View {
 /// showing how far they have got.
 private struct FileControls: View {
     let files: FileTransfers
+    /// What the host's user copied, when it may be offered.
+    let copied: FileTransfers.HostFiles?
+    let download: () -> Void
     let choose: () -> Void
     @State private var showsList = false
 
@@ -348,6 +353,12 @@ private struct FileControls: View {
         }
         .disabled(!files.isAvailable)
         .help("Send files to the remote desktop's download folder (or drop them on the picture)")
+        if let copied, !copied.downloadable.isEmpty {
+            Button(action: download) {
+                Label("Download Copied Files", systemImage: "arrow.down.doc")
+            }
+            .help("Download the files copied on the remote desktop to the Downloads folder")
+        }
         if !files.items.isEmpty {
             Button { showsList.toggle() } label: {
                 Label {
@@ -362,7 +373,7 @@ private struct FileControls: View {
                     }
                 }
             }
-            .help("Files sent to the remote desktop")
+            .help("Files sent to and downloaded from the remote desktop")
             .popover(isPresented: $showsList, arrowEdge: .bottom) {
                 FileTransferList(files: files) {
                     showsList = false

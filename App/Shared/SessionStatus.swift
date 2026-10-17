@@ -144,6 +144,8 @@ struct TopNotices: View {
     #endif
     @State private var clipboard: ClipboardSync.Transfer.Direction?
     @State private var fileBatch: FileTransfers.Batch?
+    /// The list of copied files offered for download, while it is shown.
+    @State private var copiedOffer: UInt64?
     @State private var untypable: Int?
 
     var body: some View {
@@ -164,8 +166,7 @@ struct TopNotices: View {
                            text: clipboard == .fromHost ? Text("Copied from the host") : Text("Sent to the host's clipboard"))
                 }
                 if let fileBatch {
-                    Notice(symbol: fileBatch.isFailure ? "exclamationmark.triangle" : "arrow.up.doc",
-                           text: fileBatch.notice)
+                    Notice(symbol: fileBatch.symbol, text: fileBatch.notice)
                 }
                 if let untypable {
                     Notice(symbol: "character.cursor.ibeam",
@@ -173,6 +174,14 @@ struct TopNotices: View {
                 }
             }
             .allowsHitTesting(false)
+            if let files = model.copiedFiles, files.listID == copiedOffer {
+                CopiedFilesBanner(files: files) {
+                    model.downloadCopiedFiles()
+                    withAnimation(.easeInOut(duration: 0.2)) { copiedOffer = nil }
+                } dismiss: {
+                    withAnimation(.easeInOut(duration: 0.2)) { copiedOffer = nil }
+                }
+            }
         }
         .padding(.top, 12)
         .padding(.horizontal, 16)
@@ -186,6 +195,11 @@ struct TopNotices: View {
         .task(id: model.clipboard?.lastTransfer) {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))
+        }
+        .task(id: model.copiedFiles?.listID) {
+            // A new copy on the host: offered for a while.
+            guard let listID = model.copiedFiles?.listID else { return }
+            await show(listID, in: $copiedOffer, for: .seconds(10))
         }
         .task(id: model.files.lastBatch) {
             guard let batch = model.files.lastBatch else { return }

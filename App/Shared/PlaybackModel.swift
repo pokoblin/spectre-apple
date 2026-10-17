@@ -24,7 +24,9 @@ import SpectreKit
 /// `--send-file PATH` (any number of times) sends files once the first session
 /// takes them (gdp-spec.md §7.12), as if picked: for checking file transfer
 /// from the command line. The app is sandboxed, so the paths must be in its
-/// container.
+/// container. `--download-copied` downloads every list of files the host's
+/// user copies, as it comes; `--download-dir PATH` puts downloads there
+/// instead of the Downloads folder.
 @MainActor
 @Observable
 final class PlaybackModel {
@@ -205,6 +207,9 @@ final class PlaybackModel {
     @ObservationIgnored private var sendOnAccept: [URL] = []
     /// `--host-file` paths: what the loopback host's user has copied.
     @ObservationIgnored private var hostCopiedFiles: [URL] = []
+    /// `--download-copied`: downloads each list of copied files as it comes.
+    @ObservationIgnored private var downloadsCopiedFiles = false
+    @ObservationIgnored private var downloadedListID: UInt64?
     private var terminationObserver: NSObjectProtocol?
     /// Held while a stream plays: keeps App Nap from throttling the timers
     /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
@@ -245,6 +250,11 @@ final class PlaybackModel {
             .map { URL(filePath: arguments[$0 + 1]) }
         hostCopiedFiles = arguments.indices.dropLast().filter { arguments[$0] == "--host-file" }
             .map { URL(filePath: arguments[$0 + 1]) }
+        downloadsCopiedFiles = arguments.contains("--download-copied")
+        // The real folder, not the sandbox container's link to it: what
+        // Show in Finder reveals.
+        files.downloadDirectory = value("--download-dir").map { URL(filePath: $0) }
+            ?? files.downloadDirectory.resolvingSymlinksInPath()
         if let target = value("--connect") {
             let parts = target.split(separator: ":")
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
@@ -876,6 +886,24 @@ final class PlaybackModel {
         files.detach()
     }
 
+    /// The files the host's user copied, to offer for download (§7.12): not
+    /// while the user keeps the clipboard to themselves.
+    var copiedFiles: FileTransfers.HostFiles? {
+        #if os(iOS)
+        // Not yet: where they would go (a folder the Files app shows) comes
+        // with the iOS interface for files.
+        return nil
+        #else
+        if let clipboard, !clipboard.isEnabled { return nil }
+        return files.hostFiles
+        #endif
+    }
+
+    func downloadCopiedFiles() {
+        print("files: downloading \(files.hostFiles?.downloadable.count ?? 0) copied file(s)")
+        files.downloadCopiedFiles()
+    }
+
     /// Files the user picked or dropped, for the host's download directory.
     func sendFiles(_ urls: [URL]) {
         print("files: sending \(urls.count)")
@@ -923,6 +951,10 @@ final class PlaybackModel {
                 if !sessionText.isEmpty { print(sessionText.replacingOccurrences(of: "\n", with: " | ")) }
                 printHostInput()
                 printFileTransfers()
+                if downloadsCopiedFiles, let list = files.hostFiles, list.listID != downloadedListID {
+                    downloadedListID = list.listID
+                    downloadCopiedFiles()
+                }
             }
         }
     }
@@ -1001,6 +1033,7 @@ final class PlaybackModel {
         guard let batch = files.lastBatch, batch.serial != fileBatchPrinted else { return }
         fileBatchPrinted = batch.serial
         print("files: saved \(batch.saved.map(\.debugDescription).joined(separator: ", ")); "
+            + "downloaded \(batch.downloaded.map(\.debugDescription).joined(separator: ", ")); "
             + "failed \(batch.failed.map(\.debugDescription).joined(separator: ", "))")
         for item in files.items { print("files: \(item.name.debugDescription) \(item.state) \(item.sent)/\(item.size)") }
     }
