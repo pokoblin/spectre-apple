@@ -139,6 +139,12 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
    scripts/build-gdpcore.sh
    ```
 
+   接着构建 `PyroWave.xcframework`（PyroWave 编解码器的 Metal 版，来自 `third_party/pyrowave` 子模块），产物写到 `Packages/SpectreKit/Artifacts/`，几秒钟就好。
+
+   ```bash
+   scripts/build-pyrowave.sh
+   ```
+
 3. 生成 Xcode 工程，然后打开 `Spectre.xcodeproj`，运行 `Spectre` scheme：
 
    ```bash
@@ -214,6 +220,7 @@ xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopba
 | `Packages/SpectreKit/` | 会话、解码、Metal 显示、输入、剪贴板、文件传输、登录 |
 | `scripts/` | 构建依赖和 xcframework 的脚本 |
 | `third_party/ghost/` | ghost 子模块（pokoblin/ghost fork），只编译其中的 libgdp |
+| `third_party/pyrowave/` | PyroWave 子模块，只编译其中的 Metal 版（`metal/`） |
 
 ## 参与贡献
 
@@ -232,4 +239,4 @@ spectre-apple 的灵感来自 [Joseph Saiko](https://saiko.dev) 的 [ghost](http
 [MIT](LICENSE)。
 
 - 上游 ghost 中，`libgdp/` 和协议规范是 MIT，其余部分是 GPL-3.0-only。本项目只编译 `libgdp/`，没有复制或移植 GPL 部分的任何代码。
-- App 静态链接了 ngtcp2、OpenSSL、Protocol Buffers、Abseil 和 zstd（MIT、Apache-2.0、BSD-3-Clause），它们的许可声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- App 静态链接了 ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd 和 PyroWave（MIT、Apache-2.0、BSD-3-Clause），它们的许可声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

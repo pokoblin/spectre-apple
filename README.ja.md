@@ -139,6 +139,12 @@ vcpkg をほかの場所に置く場合は `VCPKG_ROOT` を設定してくださ
    scripts/build-gdpcore.sh
    ```
 
+   続いて `PyroWave.xcframework`（PyroWave コーデックの Metal 版、`third_party/pyrowave` サブモジュールから）を `Packages/SpectreKit/Artifacts/` にビルドします。数秒で終わります。
+
+   ```bash
+   scripts/build-pyrowave.sh
+   ```
+
 3. Xcode プロジェクトを生成し、`Spectre.xcodeproj` を開いて `Spectre` スキームを実行します：
 
    ```bash
@@ -214,6 +220,7 @@ xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopba
 | `Packages/SpectreKit/` | セッション、デコード、Metal での表示、入力、クリップボード、ファイル転送、ログイン |
 | `scripts/` | 依存ライブラリと xcframework をビルドするスクリプト |
 | `third_party/ghost/` | ghost（サブモジュール、pokoblin/ghost フォーク）。ビルドするのは libgdp だけ |
+| `third_party/pyrowave/` | PyroWave（サブモジュール）。ビルドするのは Metal 版（`metal/`）だけ |
 
 ## コントリビュート
 
@@ -232,4 +239,4 @@ spectre-apple は、[Joseph Saiko](https://saiko.dev) さんの [ghost](https://
 [MIT](LICENSE)。
 
 - 上流の ghost では、`libgdp/` と仕様が MIT、それ以外はすべて GPL-3.0-only です。本プロジェクトがビルドするのは `libgdp/` だけで、GPL の部分からコードをコピーしたり移植したりはしていません。
-- アプリは ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd（MIT、Apache-2.0、BSD-3-Clause）を静的にリンクしています。それらのライセンス表示は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。
+- アプリは ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd、PyroWave（MIT、Apache-2.0、BSD-3-Clause）を静的にリンクしています。それらのライセンス表示は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。

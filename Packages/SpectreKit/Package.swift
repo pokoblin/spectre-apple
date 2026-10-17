@@ -2,7 +2,9 @@
 import PackageDescription
 
 // SpectreKit: the client code every platform shares -- the session (over
-// GDPKit), VideoToolbox decode and Metal presentation.
+// GDPKit), VideoToolbox and PyroWave decode and Metal presentation. PyroWave
+// (the codec's native Metal port) is prebuilt into PyroWave.xcframework by
+// scripts/build-pyrowave.sh.
 let package = Package(
     name: "SpectreKit",
     defaultLocalization: "en",
@@ -19,8 +21,10 @@ let package = Package(
         // VideoToolbox can't encode here: 60 frames of ffmpeg's testsrc2 at
         // 1280×720, SVT-AV1 low delay (pred-struct=1, CBR 1 Mbit/s), one
         // keyframe, in the low-overhead bitstream format.
-        .target(name: "SpectreKit", dependencies: ["GDPKit"],
-                resources: [.process("Localizable.xcstrings"), .copy("TestSource/av1-test-720p.obu")]),
-        .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit"]),
+        .binaryTarget(name: "PyroWave", path: "Artifacts/PyroWave.xcframework"),
+        .target(name: "SpectreKit", dependencies: ["GDPKit", "PyroWave"],
+                resources: [.process("Localizable.xcstrings"), .copy("TestSource/av1-test-720p.obu")],
+                linkerSettings: [.linkedFramework("Metal"), .linkedFramework("IOSurface"), .linkedLibrary("c++")]),
+        .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit", "PyroWave"]),
     ]
 )

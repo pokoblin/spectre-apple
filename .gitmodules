@@ -2,3 +2,6 @@
 	path = third_party/ghost
 	url = https://github.com/pokoblin/ghost
 	branch = feat/file-transfer
+[submodule "third_party/pyrowave"]
+	path = third_party/pyrowave
+	url = https://github.com/Themaister/pyrowave

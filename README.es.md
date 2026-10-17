@@ -139,6 +139,12 @@ Si tienes vcpkg en otro sitio, define `VCPKG_ROOT`.
    scripts/build-gdpcore.sh
    ```
 
+   Después compila `PyroWave.xcframework` (el port a Metal del códec PyroWave, del submódulo `third_party/pyrowave`) en `Packages/SpectreKit/Artifacts/`; tarda unos segundos.
+
+   ```bash
+   scripts/build-pyrowave.sh
+   ```
+
 3. Genera el proyecto de Xcode, abre `Spectre.xcodeproj` y ejecuta el esquema `Spectre`:
 
    ```bash
@@ -212,8 +218,9 @@ El simulador decodifica por software, así que sus tiempos no se pueden comparar
 | `App/` | La app: puntos de entrada, la pantalla de inicio, la interfaz de la sesión, la transferencia de archivos, los controles de iPad y iPhone, el icono |
 | `Packages/GDPKit/` | El puente en C hacia libgdp y su capa en Swift |
 | `Packages/SpectreKit/` | La sesión, la decodificación, la presentación con Metal, la entrada, el portapapeles, la transferencia de archivos, el inicio de sesión |
-| `scripts/` | Compilan las dependencias y el xcframework |
+| `scripts/` | Compilan las dependencias y los xcframeworks |
 | `third_party/ghost/` | ghost como submódulo (el fork pokoblin/ghost); solo se compila libgdp |
+| `third_party/pyrowave/` | PyroWave como submódulo; solo se compila su port a Metal (`metal/`) |
 
 ## Cómo contribuir
 
@@ -232,4 +239,4 @@ spectre-apple está inspirado en [ghost](https://github.com/jsaiko/ghost), de [J
 [MIT](LICENSE).
 
 - En el proyecto ghost original, `libgdp/` y la especificación son MIT, y todo lo demás es GPL-3.0-only. Este proyecto solo compila `libgdp/`, y nada de su código está copiado ni adaptado de las partes GPL.
-- La app enlaza estáticamente ngtcp2, OpenSSL, Protocol Buffers, Abseil y zstd (MIT, Apache-2.0, BSD-3-Clause); sus avisos de licencia están en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- La app enlaza estáticamente ngtcp2, OpenSSL, Protocol Buffers, Abseil, zstd y PyroWave (MIT, Apache-2.0, BSD-3-Clause); sus avisos de licencia están en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -10,9 +10,10 @@ DerivedData/
 xcuserdata/
 *.xcresult
 
-# Native build output (scripts/build-gdpcore.sh)
+# Native build output (scripts/build-gdpcore.sh, scripts/build-pyrowave.sh)
 /build/
 Packages/GDPKit/Artifacts/
+Packages/SpectreKit/Artifacts/
 
 .DS_Store
 
