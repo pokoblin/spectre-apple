@@ -145,8 +145,9 @@ struct PipelineTests {
 /// GDPSession → RemoteSession → VideoDecoder → mailbox, and StatsReport back.
 @Suite("Loopback session", .serialized)
 struct LoopbackSessionTests {
-    /// AV1 where this machine decodes it, from the bundled stream (VideoToolbox can't encode it).
-    @Test(arguments: VideoCodec.allCases.filter { $0 != .av1 || $0.isHardwareDecodable })
+    /// AV1 where this machine decodes it, from the bundled stream (VideoToolbox
+    /// can't encode it); PyroWave where its Metal port runs.
+    @Test(arguments: VideoCodec.allCases.filter { [.h264, .h265].contains($0) || $0.isHardwareDecodable })
     func framesFlowAndStatsReachTheHost(codec: VideoCodec) async throws {
         let stream = codec == .av1
             ? try #require(TestStream.av1())
@@ -181,7 +182,7 @@ struct LoopbackSessionTests {
         #expect(ids.first == 0)
         #expect(zip(ids, ids.dropFirst()).allSatisfy { $1 == $0 &+ 1 }, "frames out of order or missing: \(ids)")
         #expect(pictures.withLock { $0.first }?.size == CGSize(width: 1280, height: 720))
-        #expect(pictures.withLock { $0.first }?.color == .blockCodecDefault)
+        #expect(pictures.withLock { $0.first }?.color == (codec == .pyrowave ? .pyrowaveDefault : .blockCodecDefault))
 
         // The host sees what the client measured (§7.5).
         #expect(await until { loopback.host.observed.lastHighestFrameID >= 30 && loopback.host.observed.lastPresentMicroseconds > 0 })

@@ -27,6 +27,8 @@ public enum VideoDecoderError: Error, CustomStringConvertible {
     case session(OSStatus)
     case blockBuffer(OSStatus)
     case decode(OSStatus)
+    /// PyroWave (``PyroWaveDecoder``) can't run here or failed.
+    case pyrowave(String)
 
     public var description: String {
         switch self {
@@ -36,12 +38,14 @@ public enum VideoDecoderError: Error, CustomStringConvertible {
         case let .session(s): "VTDecompressionSessionCreate failed (\(s))"
         case let .blockBuffer(s): "CMBlockBuffer failed (\(s))"
         case let .decode(s): "VTDecompressionSessionDecodeFrame failed (\(s))"
+        case let .pyrowave(s): "PyroWave: \(s)"
         }
     }
 }
 
 /// Decodes one stream's Annex B access units (gdp-spec.md §9.4) with
-/// VideoToolbox. Keyframes carry their parameter sets in-band; the session
+/// VideoToolbox, AV1 temporal units likewise, and PyroWave frames on the GPU
+/// (``PyroWaveDecoder``). Keyframes carry their parameter sets in-band; the session
 /// is (re)created whenever they change. Output pictures are NV12 in video
 /// range (`420v`), IOSurface-backed and Metal-compatible, so the presenter
 /// can wrap their planes as textures without copying.
@@ -59,6 +63,7 @@ public final class VideoDecoder {
     private var formatDescription: CMVideoFormatDescription?
     private var parameterSets: [[UInt8]] = []
     private var sequence: UInt64 = 0
+    private var pyroWave: PyroWaveDecoder?
 
     public init(codec: VideoCodec, onFrame: @escaping @Sendable (DecodedFrame) -> Void,
                 onError: @escaping @Sendable (_ status: OSStatus, _ frameID: UInt32) -> Void = { _, _ in }) {
@@ -79,6 +84,12 @@ public final class VideoDecoder {
     /// they need only live for the call.
     public func decode(_ accessUnit: UnsafeRawBufferPointer, pts: UInt32, frameID: UInt32 = 0) throws(VideoDecoderError) {
         let submitTime = CACurrentMediaTime()
+        if codec == .pyrowave {
+            if pyroWave == nil { pyroWave = try PyroWaveDecoder(onFrame: onFrame, onError: onError) }
+            try pyroWave?.decode(accessUnit, pts: pts, frameID: frameID, submitTime: submitTime)
+            isHardwareAccelerated = true
+            return
+        }
         if codec == .av1 {
             try decodeAV1(accessUnit, pts: pts, frameID: frameID, submitTime: submitTime)
             return
@@ -203,6 +214,7 @@ public final class VideoDecoder {
     /// sets) makes a new one. For a decoder the system may have invalidated
     /// meanwhile, as iOS does to hardware decoders of an app in the background.
     public func reset() {
+        pyroWave?.reset()
         if let session {
             VTDecompressionSessionWaitForAsynchronousFrames(session)
             VTDecompressionSessionInvalidate(session)
@@ -214,6 +226,7 @@ public final class VideoDecoder {
 
     /// Waits until every frame submitted so far has come out.
     public func flush() {
+        pyroWave?.flush()
         guard let session else { return }
         VTDecompressionSessionFinishDelayedFrames(session)
         VTDecompressionSessionWaitForAsynchronousFrames(session)
@@ -232,8 +245,8 @@ public final class VideoDecoder {
                     allocator: kCFAllocatorDefault, parameterSetCount: sets.count, parameterSetPointers: pointers,
                     parameterSetSizes: sizes, nalUnitHeaderLength: 4, extensions: nil,
                     formatDescriptionOut: &description)
-            case .av1:
-                kCMFormatDescriptionError_InvalidParameter // configureAV1's
+            case .av1, .pyrowave:
+                kCMFormatDescriptionError_InvalidParameter // configureAV1's, PyroWaveDecoder's
             }
         }
         guard status == noErr, let description else { throw .formatDescription(status) }

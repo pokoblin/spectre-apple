@@ -540,7 +540,7 @@ final class PlaybackModel {
     private func playDirect(_ stream: TestStream) {
         guard let presenter else { return }
         presenter.displaySize = CGSize(width: stream.width, height: stream.height)
-        presenter.color = .blockCodecDefault
+        presenter.color = stream.codec == .pyrowave ? .pyrowaveDefault : .blockCodecDefault
         let player = StreamPlayer(stream: stream, mailbox: mailbox, stats: stats) { [presenter] in
             presenter.frameAvailable()
         }

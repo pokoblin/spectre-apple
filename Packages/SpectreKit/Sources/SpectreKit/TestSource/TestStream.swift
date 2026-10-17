@@ -73,7 +73,7 @@ public struct TestStream: Sendable {
                 let type = (header >> 1) & 0x3f
                 isSlice = type < 32
                 firstSliceOfPicture = isSlice && r.count > 2 && bytes[r.lowerBound + 2] & 0x80 != 0
-            case .av1:
+            case .av1, .pyrowave:
                 // Not Annex B: an AV1 stream is split by its temporal delimiters instead.
                 isSlice = false
                 firstSliceOfPicture = false
@@ -147,13 +147,25 @@ public enum TestStreamEncoderError: Error, CustomStringConvertible {
 
 /// Encodes test pictures the way wraith's encoders are set up for a live
 /// desktop: no B-frames, low-latency rate control, one keyframe at the start
-/// (the host sends more only to repair loss, gdp-spec.md §9.3).
+/// (the host sends more only to repair loss, gdp-spec.md §9.3). PyroWave
+/// streams come from PyroWave's own encoder (``encodePyroWave``), at most
+/// ``pyroWaveFrameLimit`` frames.
 public enum TestStreamEncoder {
+    /// `bitrate` defaults to 30 Mbit/s, or 250 for PyroWave (about 2 bits
+    /// per pixel at 1080p60: its rate runs to hundreds of Mbit/s, gdp-spec.md §6.6).
     public static func encode(codec: VideoCodec, width: Int = 1920, height: Int = 1080, framesPerSecond: Int = 60,
-                              frameCount: Int = 600, bitrate: Int = 30_000_000,
+                              frameCount: Int = 600, bitrate: Int? = nil,
                               progress: (@Sendable (Double) -> Void)? = nil) throws -> TestStream {
+        if codec == .pyrowave {
+            return try encodePyroWave(width: width, height: height, framesPerSecond: framesPerSecond,
+                                      frameCount: min(frameCount, pyroWaveFrameLimit), bitrate: bitrate ?? 250_000_000,
+                                      progress: progress)
+        }
         // VideoToolbox encodes no AV1 on this hardware: AV1 test streams come prepared.
-        guard codec != .av1 else { throw TestStreamEncoderError.output("VideoToolbox can't encode AV1") }
+        guard codec != .av1, let codecType = codec.coreMediaType else {
+            throw TestStreamEncoderError.output("VideoToolbox can't encode AV1")
+        }
+        let bitrate = bitrate ?? 30_000_000
         let generator = try TestPatternGenerator(width: width, height: height)
         var session: VTCompressionSession?
         // Low-latency rate control where available; the simulator has no
@@ -162,7 +174,7 @@ public enum TestStreamEncoder {
         for spec in [[kVTVideoEncoderSpecification_EnableLowLatencyRateControl: true] as [CFString: Any], [:]] {
             status = VTCompressionSessionCreate(
                 allocator: kCFAllocatorDefault, width: Int32(width), height: Int32(height),
-                codecType: codec.coreMediaType, encoderSpecification: spec as CFDictionary,
+                codecType: codecType, encoderSpecification: spec as CFDictionary,
                 imageBufferAttributes: nil, compressedDataAllocator: nil, outputCallback: nil, refcon: nil,
                 compressionSessionOut: &session)
             if status == noErr { break }
@@ -243,7 +255,7 @@ public enum TestStreamEncoder {
             case .h265:
                 CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format, parameterSetIndex: 0, parameterSetPointerOut: nil,
                     parameterSetSizeOut: nil, parameterSetCountOut: &count, nalUnitHeaderLengthOut: &headerLength)
-            case .av1:
+            case .av1, .pyrowave:
                 break
             }
             for index in 0..<count {
@@ -258,7 +270,7 @@ public enum TestStreamEncoder {
                     CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format, parameterSetIndex: index,
                         parameterSetPointerOut: &pointer, parameterSetSizeOut: &size, parameterSetCountOut: nil,
                         nalUnitHeaderLengthOut: nil)
-                case .av1:
+                case .av1, .pyrowave:
                     break
                 }
                 guard let pointer else { continue }

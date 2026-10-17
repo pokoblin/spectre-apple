@@ -25,6 +25,11 @@ let package = Package(
         .target(name: "SpectreKit", dependencies: ["GDPKit", "PyroWave"],
                 resources: [.process("Localizable.xcstrings"), .copy("TestSource/av1-test-720p.obu")],
                 linkerSettings: [.linkedFramework("Metal"), .linkedFramework("IOSurface"), .linkedLibrary("c++")]),
-        .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit", "PyroWave"]),
+        // pyrowave-host-720p.bin: one 1280×720 frame from the host's encoder
+        // (PyroWave's Vulkan library at the pinned revision, on Linux), its
+        // payload's length (UInt32) and payload, then the host's own decode
+        // as Float32 block means: luma per 16×16, Cb and Cr per 8×8.
+        .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit", "PyroWave"],
+                    resources: [.copy("Fixtures/pyrowave-host-720p.bin")]),
     ]
 )

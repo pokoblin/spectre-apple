@@ -311,8 +311,8 @@ struct SessionView: View {
             Text(verbatim: "Remote").tag(PlaybackModel.Source.remote)
         } label: { Text(verbatim: "Source") }
         Picker(selection: $model.codec) {
-            // AV1 only where it decodes (in hardware): its stream comes bundled.
-            ForEach(VideoCodec.allCases.filter { $0 != .av1 || $0.isHardwareDecodable }) { Text($0.displayName).tag($0) }
+            // AV1 and PyroWave only where they decode (AV1 in hardware; its stream comes bundled).
+            ForEach(VideoCodec.allCases.filter { [.h264, .h265].contains($0) || $0.isHardwareDecodable }) { Text($0.displayName).tag($0) }
         } label: { Text(verbatim: "Codec") }
         Picker(selection: $model.mode) {
             Text(verbatim: "On arrival").tag(VideoPresenter.Mode.onArrival)
