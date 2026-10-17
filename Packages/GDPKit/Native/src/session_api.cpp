@@ -7,10 +7,15 @@
 #include "gdp/file_transfer.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <string>
 #include <vector>
+
+// gdpc_rect is handed out over gdp::RefineRect's own storage.
+static_assert(sizeof(gdpc_rect) == sizeof(gdp::RefineRect) && offsetof(gdpc_rect, height) == offsetof(gdp::RefineRect, height),
+	"gdpc_rect must match gdp::RefineRect");
 
 namespace {
 
@@ -115,6 +120,17 @@ struct gdpc_session {
 			c.pts = f.pts;
 			c.data = f.data;
 			c.len = f.len;
+			gdpc_refine_layer layer{};
+			if (f.refine) {
+				layer.reset = f.refine->reset;
+				layer.clears = reinterpret_cast<const gdpc_rect *>(f.refine->clears);
+				layer.clear_count = f.refine->clear_count;
+				layer.tiles = reinterpret_cast<const gdpc_rect *>(f.refine->tiles);
+				layer.tile_count = f.refine->tile_count;
+				layer.bgra = f.refine->bgra;
+				layer.bgra_len = f.refine->bgra_len;
+				c.refine = &layer;
+			}
 			return callbacks.video_frame(callbacks.ctx, &c);
 		};
 		cb.audio_packet = [this](uint16_t seq, uint32_t pts, const uint8_t *opus, size_t len) {
@@ -232,6 +248,10 @@ void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *
 
 void gdpc_session_send_clipboard_text(gdpc_session *session, const uint8_t *text, size_t len) {
 	session->client.send_clipboard_text(text, len);
+}
+
+void gdpc_session_set_refine_paused(gdpc_session *session, bool paused) {
+	session->client.set_refine_paused(paused);
 }
 
 uint64_t gdpc_session_offer_file(gdpc_session *session, const char *name, uint64_t size, int64_t modified_unix_ms) {
@@ -368,6 +388,36 @@ void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, 
 		std::vector<uint16_t>(drop_slices, drop_slices + drop_count), max_payload);
 }
 
+void gdpc_test_host_send_refined_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
+	const gdpc_refine_layer *layer) {
+	gdp::RefineLayer l;
+	if (layer) {
+		l.reset = layer->reset;
+		for (size_t i = 0; i < layer->clear_count; i++) {
+			const gdpc_rect &r = layer->clears[i];
+			l.clears.push_back({r.x, r.y, r.width, r.height});
+		}
+		// The wire's 3-byte form, as a host packs it.
+		const uint8_t *in = layer->bgra;
+		const uint8_t *end = layer->bgra + layer->bgra_len;
+		for (size_t i = 0; i < layer->tile_count; i++) {
+			const gdpc_rect &r = layer->tiles[i];
+			l.tiles.push_back({r.x, r.y, r.width, r.height});
+			for (uint16_t row = 0; row < r.height && in + size_t(r.width) * 4 <= end; row++) {
+				size_t at = l.tile_pixels.size();
+				l.tile_pixels.resize(at + size_t(r.width) * gdp::kRefineBytesPerPixel);
+				gdp::refine_pack_row(in, l.tile_pixels.data() + at, r.width);
+				in += size_t(r.width) * 4;
+			}
+		}
+	}
+	host->host.send_refined_frame(std::vector<uint8_t>(data, data + len), keyframe, std::move(l));
+}
+
+void gdpc_test_host_send_raw_video(gdpc_test_host *host, const uint8_t *payload, size_t len, bool keyframe) {
+	host->host.send_raw_video(std::vector<uint8_t>(payload, payload + len), keyframe);
+}
+
 void gdpc_test_host_send_audio(gdpc_test_host *host, const uint8_t *opus, size_t len) {
 	host->host.send_audio(std::vector<uint8_t>(opus, opus + len));
 }
@@ -485,6 +535,8 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->pointer_y = o.pointer_y;
 	out->cursor_positions_sent = o.cursor_positions_sent;
 	out->clipboard_messages = o.clipboard_messages;
+	out->refine_pauses = o.refine_pauses;
+	out->refine_paused = o.refine_paused;
 	copy_string(out->last_clipboard_mime, sizeof(out->last_clipboard_mime), o.last_clipboard_mime);
 	out->files_offered = o.files_offered;
 	out->files_saved = o.files_saved;

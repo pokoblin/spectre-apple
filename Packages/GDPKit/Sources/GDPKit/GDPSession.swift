@@ -197,13 +197,62 @@ public final class GDPSession: @unchecked Sendable {
         case connectionEnded
     }
 
-    /// A reassembled video frame; `data` is valid only during the handler.
+    /// A reassembled video frame; `data` and `refine` are valid only during the handler.
     public struct VideoFrame {
         public let streamID: UInt8
         public let frameID: UInt32
         public let keyframe: Bool
         public let pts: UInt32
+        /// The codec's bytes; empty for a refinement layer-only frame.
         public let data: UnsafeRawBufferPointer
+        /// Its lossless layer, with ``Capability/refine`` in effect.
+        public let refine: RefineLayer?
+
+        public init(streamID: UInt8, frameID: UInt32, keyframe: Bool, pts: UInt32, data: UnsafeRawBufferPointer,
+                    refine: RefineLayer? = nil) {
+            self.streamID = streamID
+            self.frameID = frameID
+            self.keyframe = keyframe
+            self.pts = pts
+            self.data = data
+            self.refine = refine
+        }
+    }
+
+    /// A rectangle in frame pixels (§9.5).
+    public struct RefineRect: Sendable, Equatable {
+        public var x: UInt16
+        public var y: UInt16
+        public var width: UInt16
+        public var height: UInt16
+
+        public init(x: UInt16, y: UInt16, width: UInt16, height: UInt16) {
+            self.x = x
+            self.y = y
+            self.width = width
+            self.height = height
+        }
+    }
+
+    /// A frame's lossless layer (§7.8, §9.5): what to do to the overlay
+    /// plane, in this order (§9.6) -- drop it all on `reset`, make each
+    /// clear transparent, then write each tile, opaque. `bgra` holds the
+    /// tiles' pixels in tile order, each row-major at `width * 4` bytes a
+    /// row; it is valid only during the handler.
+    public struct RefineLayer {
+        public let reset: Bool
+        public let clears: [RefineRect]
+        public let tiles: [RefineRect]
+        public let bgra: UnsafeRawBufferPointer
+
+        public init(reset: Bool, clears: [RefineRect], tiles: [RefineRect], bgra: UnsafeRawBufferPointer) {
+            self.reset = reset
+            self.clears = clears
+            self.tiles = tiles
+            self.bgra = bgra
+        }
+
+        public var isEmpty: Bool { !reset && clears.isEmpty && tiles.isEmpty }
     }
 
     public struct CursorShape: Sendable, Equatable {
@@ -300,6 +349,8 @@ public final class GDPSession: @unchecked Sendable {
         public static let clipboard = "clipboard"
         public static let gamepad = "gamepad"
         public static let file = "file"
+        /// Lossless refinement (§7.8): a layer over the video that makes still regions exact.
+        public static let refine = "refine"
     }
 
     /// How many file streams a host grants at once (§7.12): keep no more
@@ -325,6 +376,8 @@ public final class GDPSession: @unchecked Sendable {
     private let queueKey = DispatchSpecificKey<Void>()
     // Touched only on `queue`.
     private var handle: OpaquePointer?
+    /// What ``setRefinePaused(_:)`` last said: handed to the native session as it is made. Queue only.
+    private var refinePaused = false
     private var readSource: DispatchSourceRead?
     private var statsTimer: DispatchSourceTimer?
     private var ended = false
@@ -363,8 +416,18 @@ public final class GDPSession: @unchecked Sendable {
             }
             callbacks.video_frame = { ctx, f in
                 let f = f!.pointee
+                let layer = f.refine.map { l in
+                    let rects = { (p: UnsafePointer<gdpc_rect>?, n: Int) in
+                        UnsafeBufferPointer(start: p, count: n).map {
+                            RefineRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height)
+                        }
+                    }
+                    return RefineLayer(reset: l.pointee.reset, clears: rects(l.pointee.clears, l.pointee.clear_count),
+                                       tiles: rects(l.pointee.tiles, l.pointee.tile_count),
+                                       bgra: UnsafeRawBufferPointer(start: l.pointee.bgra, count: l.pointee.bgra_len))
+                }
                 let frame = VideoFrame(streamID: f.stream_id, frameID: f.frame_id, keyframe: f.keyframe, pts: f.pts,
-                                       data: UnsafeRawBufferPointer(start: f.data, count: f.len))
+                                       data: UnsafeRawBufferPointer(start: f.data, count: f.len), refine: layer)
                 return GDPSession.from(ctx).handlers.videoFrame?(frame) ?? false
             }
             callbacks.audio_packet = { ctx, seq, pts, data, len in
@@ -418,6 +481,7 @@ public final class GDPSession: @unchecked Sendable {
 
             _ = GDP.ignoreBrokenPipes
             let h = gdpc_session_create(&callbacks)!
+            if refinePaused { gdpc_session_set_refine_paused(h, true) }
             var errorBuffer = [CChar](repeating: 0, count: 256)
             let ok = withCStrings(config.codecs) { codecs in
                 withCStrings(config.capabilities) { caps in
@@ -531,6 +595,15 @@ public final class GDPSession: @unchecked Sendable {
 
     /// A local clipboard change (§7.9). Dropped before establishment, without
     /// ``Capability/clipboard`` in effect, and when empty or over ``maxClipboardBytes``.
+    /// Lossless refinement (§7.8): whether the host builds the layer. Kept
+    /// for this session's later connections; sent with ``Capability/refine`` in effect.
+    public func setRefinePaused(_ paused: Bool) {
+        queue.async { [self] in
+            refinePaused = paused
+            if let handle, !ended { gdpc_session_set_refine_paused(handle, paused) }
+        }
+    }
+
     public func sendClipboardText(_ text: String) {
         let data = Data(text.utf8)
         async { h in data.withUnsafeBytes { gdpc_session_send_clipboard_text(h, $0.baseAddress, $0.count) } }

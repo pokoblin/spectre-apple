@@ -8,6 +8,8 @@
 // is thread-safe: commands are queued to that thread.
 #pragma once
 
+#include "gdp/refine.hpp"
+
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -168,6 +170,8 @@ public:
 		bool input_before_accept = false;
 		// ClipboardData from the viewer, as received (not validated).
 		uint32_t clipboard_messages = 0;
+		uint32_t refine_pauses = 0;   // RefinePause messages (§7.8)
+		bool refine_paused = false;   // the latest one's
 		std::string last_clipboard_mime;
 		std::string last_clipboard;
 
@@ -210,6 +214,12 @@ public:
 	// are not sent (simulated loss). `max_payload` 0 = what the path allows.
 	void send_video_frame(std::vector<uint8_t> data, bool keyframe, std::vector<uint16_t> drop_slices = {},
 		size_t max_payload = 0);
+	// With `refine` in effect (§7.8): one frame and its lossless layer
+	// (layer.tile_pixels in the wire's BGR form). A base of no bytes is a
+	// layer-only frame.
+	void send_refined_frame(std::vector<uint8_t> data, bool keyframe, gdp::RefineLayer layer);
+	// Sends `payload` as a frame's whole payload, never wrapped (malformed containers, for tests).
+	void send_raw_video(std::vector<uint8_t> payload, bool keyframe);
 	void send_audio_packet(uint16_t seq, uint32_t pts, std::vector<uint8_t> opus);
 	// As a host does: seq counts from 0 at SessionAccept, pts is the session clock now (§10, §11).
 	void send_audio(std::vector<uint8_t> opus);

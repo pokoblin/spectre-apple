@@ -13,6 +13,7 @@
 #include "gdp/client_connection.hpp"
 #include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
+#include "gdp/refine.hpp"
 #include "gdp/video_reassembler.hpp"
 
 #include <cstdint>
@@ -76,13 +77,30 @@ struct AcceptInfo {
 	std::string host_name;
 };
 
+// With `refine` in effect (gdp-spec.md §7.8, §9.5), a frame's lossless
+// layer: what to do to the overlay plane, in order (§9.6). `bgra` holds
+// the tiles' pixels, concatenated in tile order, each row-major at
+// width * 4 bytes a row, opaque.
+struct RefineFrameLayer {
+	bool reset = false;
+	const gdp::RefineRect *clears = nullptr;
+	size_t clear_count = 0;
+	const gdp::RefineRect *tiles = nullptr;
+	size_t tile_count = 0;
+	const uint8_t *bgra = nullptr;
+	size_t bgra_len = 0;
+};
+
 struct VideoFrame {
 	uint8_t stream_id = 0;
 	uint32_t frame_id = 0;
 	bool keyframe = false;
 	uint32_t pts = 0;
+	// The codec's bytes; none for a layer-only frame (refine).
 	const uint8_t *data = nullptr;
 	size_t len = 0;
+	// Its lossless layer, with `refine` in effect; null otherwise.
+	const RefineFrameLayer *refine = nullptr;
 };
 
 // How a file transfer ended (gdp-spec.md §7.12).
@@ -216,6 +234,11 @@ public:
 	// A local clipboard change (§7.9). Dropped before establishment, without
 	// `clipboard` in effect, and when empty or over the size limit.
 	void send_clipboard_text(const uint8_t *text, size_t len);
+	// Lossless refinement (§7.8): whether the host builds the layer. Kept
+	// for later connections too (each starts unpaused on the host, so a
+	// pause is sent again at SessionAccept); sent only with `refine` in
+	// effect.
+	void set_refine_paused(bool paused);
 
 	// Input (§8.2, §8.3).
 	void send_key(uint32_t hid_usage, bool pressed);
@@ -298,6 +321,7 @@ private:
 	void expire_file_offers();
 	void handle_video_frame(gdp::VideoFrameReassembler::Frame &frame);
 	void deliver(const gdp::VideoFrameReassembler::Frame &frame);
+	void send_refine_pause();
 	void send_control(const gdp::session::ControlEnvelope &env);
 	void send_input(gdp::session::InputEnvelope &env);
 	// Closes for a protocol violation (or any local reason) with `code`.
@@ -325,6 +349,11 @@ private:
 	bool clipboard_ = false;                // `clipboard` among them
 	bool gamepad_ = false;                  // `gamepad` among them
 	bool file_ = false;                     // `file` among them
+	bool refine_ = false;                   // `refine` among them
+	bool refine_paused_ = false;            // what the user wants, across connections
+	// The latest frame's layer, reused frame to frame.
+	gdp::RefineLayer refine_layer_;
+	std::vector<uint8_t> refine_bgra_;
 	std::map<uint64_t, std::unique_ptr<FileTransfer>> files_;
 	uint64_t next_file_id_ = 1;
 

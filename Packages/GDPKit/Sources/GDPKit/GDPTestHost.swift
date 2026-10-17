@@ -102,6 +102,9 @@ public final class GDPTestHost: @unchecked Sendable {
         /// latest (its data: ``GDPTestHost/lastClipboard``).
         public var clipboardMessages: UInt32
         public var lastClipboardMime: String
+        /// RefinePause messages (§7.8), and the latest one's state.
+        public var refinePauses: UInt32
+        public var refinePaused: Bool
         /// The accepted viewer's connection ended: its close code and the transport's reason.
         public var viewerClosed: Bool
         public var viewerCloseCode: UInt64
@@ -277,6 +280,34 @@ public final class GDPTestHost: @unchecked Sendable {
     }
 
     /// Sends one coded frame as video datagrams with the next frame_id.
+    /// With ``GDPSession/Capability/refine`` in effect (§7.8): one frame and
+    /// its lossless layer, `bgra` as in ``GDPSession/RefineLayer``. No
+    /// `data` is a layer-only frame. ``sendVideoFrame(_:keyframe:dropSlices:maxPayload:)``
+    /// wraps its frames with an empty layer then.
+    public func sendRefinedFrame(_ data: [UInt8], keyframe: Bool, reset: Bool = false,
+                                 clears: [GDPSession.RefineRect] = [], tiles: [GDPSession.RefineRect] = [],
+                                 bgra: [UInt8] = []) {
+        let rect = { (r: GDPSession.RefineRect) in gdpc_rect(x: r.x, y: r.y, width: r.width, height: r.height) }
+        let clearRects = clears.map(rect), tileRects = tiles.map(rect)
+        data.withUnsafeBufferPointer { d in
+            clearRects.withUnsafeBufferPointer { c in
+                tileRects.withUnsafeBufferPointer { t in
+                    bgra.withUnsafeBufferPointer { px in
+                        var layer = gdpc_refine_layer(reset: reset, clears: c.baseAddress, clear_count: c.count,
+                                                      tiles: t.baseAddress, tile_count: t.count,
+                                                      bgra: px.baseAddress, bgra_len: px.count)
+                        gdpc_test_host_send_refined_frame(handle, d.baseAddress, d.count, keyframe, &layer)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Sends `payload` as one frame's whole payload, never wrapped (malformed containers).
+    public func sendRawVideo(_ payload: [UInt8], keyframe: Bool) {
+        payload.withUnsafeBufferPointer { gdpc_test_host_send_raw_video(handle, $0.baseAddress, $0.count, keyframe) }
+    }
+
     public func sendVideoFrame(_ data: some Collection<UInt8>, keyframe: Bool, dropSlices: [UInt16] = [],
                                maxPayload: Int = 0) {
         data.withContiguousBytes { buf in
@@ -425,6 +456,7 @@ public final class GDPTestHost: @unchecked Sendable {
             inputBeforeAccept: o.input_before_accept, inputEventCount: Int(o.input_event_count),
             pointer: (o.pointer_x, o.pointer_y), cursorPositionsSent: o.cursor_positions_sent,
             clipboardMessages: o.clipboard_messages, lastClipboardMime: s(o.last_clipboard_mime),
+            refinePauses: o.refine_pauses, refinePaused: o.refine_paused,
             viewerClosed: o.viewer_closed, viewerCloseCode: o.viewer_close_code,
             viewerCloseReason: s(o.viewer_close_reason),
             framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size,

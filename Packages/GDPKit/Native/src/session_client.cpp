@@ -302,11 +302,14 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	clipboard_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityClipboard) != capabilities_.end();
 	gamepad_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityGamepad) != capabilities_.end();
 	file_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFile) != capabilities_.end();
+	refine_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityRefine) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
 	for (auto &st : streams_) st.stats.start(session_epoch_us_);
 	if (cb_.accepted) cb_.accepted(info);
+	// §7.8: every connection starts unpaused.
+	if (accepted_ && refine_ && refine_paused_) send_refine_pause();
 
 	while (!early_frames_.empty() && accepted_) {
 		auto frame = std::move(early_frames_.front());
@@ -407,6 +410,34 @@ void SessionClient::deliver(const gdp::VideoFrameReassembler::Frame &frame) {
 	f.pts = frame.pts;
 	f.data = frame.data.data();
 	f.len = frame.data.size();
+	RefineFrameLayer layer;
+	if (refine_) {
+		// §9.5: every payload is a container; a malformed one is dropped
+		// and reported lost, so the host sends its clears and tiles again.
+		if (!gdp::refine_parse_frame(frame.data.data(), frame.data.size(), &f.data, &f.len, &refine_layer_)) {
+			mark_frame_discarded(frame.stream_id, frame.frame_id);
+			return;
+		}
+		// The wire's 3-byte pixels, opaque BGRA for the overlay plane.
+		refine_bgra_.resize(refine_layer_.tile_pixels.size() / gdp::kRefineBytesPerPixel * 4);
+		const uint8_t *in = refine_layer_.tile_pixels.data();
+		uint8_t *out = refine_bgra_.data();
+		for (const gdp::RefineRect &t : refine_layer_.tiles) {
+			for (uint16_t row = 0; row < t.height; row++) {
+				gdp::refine_unpack_row(in, out, t.width);
+				in += size_t(t.width) * gdp::kRefineBytesPerPixel;
+				out += size_t(t.width) * 4;
+			}
+		}
+		layer.reset = refine_layer_.reset;
+		layer.clears = refine_layer_.clears.data();
+		layer.clear_count = refine_layer_.clears.size();
+		layer.tiles = refine_layer_.tiles.data();
+		layer.tile_count = refine_layer_.tiles.size();
+		layer.bgra = refine_bgra_.data();
+		layer.bgra_len = refine_bgra_.size();
+		f.refine = &layer;
+	}
 	bool used = cb_.video_frame ? cb_.video_frame(f) : false;
 	if (used) {
 		frames_delivered_++;
@@ -482,6 +513,18 @@ void SessionClient::send_clipboard_text(const uint8_t *text, size_t len) {
 	auto *c = env.mutable_clipboard();
 	c->set_mime_type(gdp::kClipboardMimeText);
 	c->set_data(reinterpret_cast<const char *>(text), len);
+	send_control(env);
+}
+
+void SessionClient::set_refine_paused(bool paused) {
+	if (paused == refine_paused_) return;
+	refine_paused_ = paused;
+	if (accepted_ && refine_) send_refine_pause();
+}
+
+void SessionClient::send_refine_pause() {
+	gdp::session::ControlEnvelope env;
+	env.mutable_refine_pause()->set_paused(refine_paused_);
 	send_control(env);
 }
 

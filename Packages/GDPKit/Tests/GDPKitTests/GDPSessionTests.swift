@@ -10,6 +10,15 @@ final class Recorder: Sendable {
         let keyframe: Bool
         let pts: UInt32
         let data: [UInt8]
+        var layer: Layer?
+    }
+
+    /// A frame's lossless layer (§9.5), copied out of the handler.
+    struct Layer: Sendable, Equatable {
+        let reset: Bool
+        let clears: [GDPSession.RefineRect]
+        let tiles: [GDPSession.RefineRect]
+        let bgra: [UInt8]
     }
 
     struct State: Sendable {
@@ -43,7 +52,8 @@ final class Recorder: Sendable {
         h.closed = { e in self.state.withLock { $0.ending = e } }
         h.displaysChanged = { o in self.state.withLock { $0.displays.append(o) } }
         h.videoFrame = { f in
-            let frame = Frame(id: f.frameID, keyframe: f.keyframe, pts: f.pts, data: Array(f.data))
+            let layer = f.refine.map { Layer(reset: $0.reset, clears: $0.clears, tiles: $0.tiles, bgra: Array($0.bgra)) }
+            let frame = Frame(id: f.frameID, keyframe: f.keyframe, pts: f.pts, data: Array(f.data), layer: layer)
             self.state.withLock { $0.frames.append(frame) }
             return acceptFrames
         }

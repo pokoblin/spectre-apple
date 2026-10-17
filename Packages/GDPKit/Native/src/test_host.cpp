@@ -48,6 +48,7 @@ struct TestHost::Impl {
 		bool microphone = false; // negotiated (§10.1)
 		bool clipboard = false; // `clipboard` in effect
 		bool file = false;      // `file` in effect
+		bool refine = false;    // `refine` in effect: every payload a container (§9.5)
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
 		uint64_t close_code = 0;
@@ -268,6 +269,7 @@ struct TestHost::Impl {
 			if (c == "microphone") p.microphone = true;
 			if (c == gdp::kCapabilityClipboard) p.clipboard = true;
 			if (c == gdp::kCapabilityFile) p.file = true;
+			if (c == gdp::kCapabilityRefine) p.refine = true;
 		}
 		if (p.microphone) {
 			auto *m = accept->mutable_microphone();
@@ -417,6 +419,12 @@ struct TestHost::Impl {
 				obs.logout_requested = true;
 			}
 			close_peer(p, code(gdp::ErrorCode::kSessionEnded)); // §7.10
+			break;
+		}
+		case E::kRefinePause: {
+			std::lock_guard lock(mu);
+			obs.refine_pauses++;
+			obs.refine_paused = env.refine_pause().paused();
 			break;
 		}
 		case E::kDiagnosticsReport: {
@@ -789,9 +797,17 @@ struct TestHost::Impl {
 		send(*viewer, env);
 	}
 
+	// With `refine` in effect a payload is wrapped as §9.5 does (an empty
+	// layer unless one is given), unless `raw` says to send it as is.
 	void send_video(const std::vector<uint8_t> &data, bool keyframe, const std::vector<uint16_t> &drop,
-		size_t max_payload) {
+		size_t max_payload, const gdp::RefineLayer *layer = nullptr, bool raw = false) {
 		if (!viewer) return;
+		if (viewer->refine && !raw) {
+			std::vector<uint8_t> wrapped;
+			gdp::RefineLayer none;
+			if (!gdp::refine_pack_frame(data.data(), data.size(), layer ? *layer : none, 3, &wrapped)) return;
+			return send_video(wrapped, keyframe, drop, max_payload, nullptr, true);
+		}
 		gdp::VideoDatagramHeader hdr;
 		hdr.stream_id = 0;
 		hdr.frame_id = next_frame_id++;
@@ -835,6 +851,18 @@ void TestHost::send_video_frame(std::vector<uint8_t> data, bool keyframe, std::v
 	size_t max_payload) {
 	impl_->post([m = impl_.get(), data = std::move(data), keyframe, drop = std::move(drop_slices), max_payload] {
 		m->send_video(data, keyframe, drop, max_payload);
+	});
+}
+
+void TestHost::send_refined_frame(std::vector<uint8_t> data, bool keyframe, gdp::RefineLayer layer) {
+	impl_->post([m = impl_.get(), data = std::move(data), keyframe, layer = std::move(layer)] {
+		m->send_video(data, keyframe, {}, 0, &layer);
+	});
+}
+
+void TestHost::send_raw_video(std::vector<uint8_t> payload, bool keyframe) {
+	impl_->post([m = impl_.get(), payload = std::move(payload), keyframe] {
+		m->send_video(payload, keyframe, {}, 0, nullptr, true);
 	});
 }
 

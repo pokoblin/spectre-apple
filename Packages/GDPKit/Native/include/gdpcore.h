@@ -130,13 +130,38 @@ typedef bool (*gdpc_datagram_fn)(void *ctx, const uint8_t *datagram, size_t len)
 bool gdpc_slice_video_frame(const gdpc_video_header *header, const uint8_t *data, size_t len, size_t max_payload,
     gdpc_datagram_fn send, void *ctx);
 
+// A rectangle in frame pixels (gdp-spec.md §9.5).
+typedef struct {
+    uint16_t x;
+    uint16_t y;
+    uint16_t width;
+    uint16_t height;
+} gdpc_rect;
+
+// With "refine" in effect, a frame's lossless layer (gdp-spec.md §7.8,
+// §9.5): what to do to the overlay plane, in this order (§9.6). `bgra`
+// holds the tiles' pixels concatenated in tile order, each row-major at
+// width * 4 bytes a row, opaque.
+typedef struct {
+    bool reset;
+    const gdpc_rect *clears;
+    size_t clear_count;
+    const gdpc_rect *tiles;
+    size_t tile_count;
+    const uint8_t *bgra;
+    size_t bgra_len;
+} gdpc_refine_layer;
+
 typedef struct {
     uint8_t stream_id;
     uint32_t frame_id;
     bool keyframe;
     uint32_t pts;
+    // The codec's bytes; none (len 0) for a refinement layer-only frame.
     const uint8_t *data;
     size_t len;
+    // Its lossless layer with "refine" in effect; NULL otherwise.
+    const gdpc_refine_layer *refine;
 } gdpc_video_frame;
 
 typedef struct gdpc_video_reassembler gdpc_video_reassembler;
@@ -380,6 +405,9 @@ void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *
 // A local clipboard change, UTF-8 (§7.9). Dropped before establishment,
 // without `clipboard` in effect, and when empty or over 1 047 552 bytes.
 void gdpc_session_send_clipboard_text(gdpc_session *session, const uint8_t *text, size_t len);
+// Lossless refinement (§7.8): whether the host builds the layer. Remembered
+// for later connections of the session; sent with "refine" in effect.
+void gdpc_session_set_refine_paused(gdpc_session *session, bool paused);
 
 void gdpc_session_send_key(gdpc_session *session, uint32_t hid_usage, bool pressed);
 void gdpc_session_send_pointer_motion(gdpc_session *session, double dx, double dy, bool absolute);
@@ -577,6 +605,8 @@ typedef struct {
     double pointer_x, pointer_y;     // with simulate_pointer
     uint32_t cursor_positions_sent;
     uint32_t clipboard_messages;     // ClipboardData from the viewer; see gdpc_test_host_last_clipboard
+    uint32_t refine_pauses;          // RefinePause messages (§7.8)
+    bool refine_paused;              // the latest one's
     char last_clipboard_mime[64];
 
     uint32_t frames_sent;
@@ -611,6 +641,14 @@ void gdpc_test_host_cert_sha256(const gdpc_test_host *host, char out[GDPC_SHA256
 // Slices listed in `drop_slices` are not sent. `max_payload` 0: what the path allows.
 void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
     const uint16_t *drop_slices, size_t drop_count, size_t max_payload);
+// With "refine" in effect (§7.8; otherwise the layer is left out): one
+// frame and its lossless layer, `bgra` as in gdpc_refine_layer. A frame of
+// no bytes is a layer-only frame. gdpc_test_host_send_video_frame wraps
+// its frames with an empty layer then.
+void gdpc_test_host_send_refined_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
+    const gdpc_refine_layer *layer);
+// Sends `payload` as one frame's whole payload, never wrapped (tests of malformed containers).
+void gdpc_test_host_send_raw_video(gdpc_test_host *host, const uint8_t *payload, size_t len, bool keyframe);
 void gdpc_test_host_send_audio_packet(gdpc_test_host *host, uint16_t seq, uint32_t pts, const uint8_t *opus,
     size_t len);
 // seq from 0 at SessionAccept and pts from the session clock, as a host does (§10).
