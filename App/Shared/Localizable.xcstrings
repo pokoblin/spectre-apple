@@ -2498,6 +2498,34 @@
         }
       }
     },
+    "In use" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En uso"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用中"
+          }
+        }
+      }
+    },
     "Input" : {
       "localizations" : {
         "es" : {
@@ -3282,6 +3310,174 @@
         }
       }
     },
+    "Not in use: connected over Wi-Fi" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: conectado por Wi-Fi"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：Wi-Fi で接続しています"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：通过 Wi-Fi 连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：透過 Wi-Fi 連線"
+          }
+        }
+      }
+    },
+    "Not in use: connected over cellular" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: conectado por red móvil"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：モバイル通信で接続しています"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：通过蜂窝网络连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：透過行動網路連線"
+          }
+        }
+      }
+    },
+    "Not in use: connected through a VPN or another network" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: conectado mediante una VPN u otra red"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：VPN などのネットワーク経由で接続しています"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：通过 VPN 或其他网络连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：透過 VPN 或其他網路連線"
+          }
+        }
+      }
+    },
+    "Not in use: the host doesn't offer it" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: el host no lo ofrece"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：ホストが対応していません"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：主机没有启用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：主機沒有啟用"
+          }
+        }
+      }
+    },
+    "Not in use: the host is on another network" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: el host está en otra red"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：ホストが別のネットワークにあります"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：主机在另一个网络中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：主機在另一個網路中"
+          }
+        }
+      }
+    },
+    "Not in use: the network link is slower than 1 Gbit/s" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin usar: la conexión de red es más lenta que 1 Gbit/s"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：ネットワークのリンク速度が 1 Gbit/s 未満です"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：网络链路低于 1 Gbit/s"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用：網路連結低於 1 Gbit/s"
+          }
+        }
+      }
+    },
     "Nothing has been sent to the server yet. If you trust it, Spectre remembers this fingerprint and warns you if it ever changes." : {
       "localizations" : {
         "es" : {
@@ -3730,6 +3926,34 @@
         }
       }
     },
+    "PyroWave on Wired Networks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PyroWave en redes por cable"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有線ネットワークで PyroWave"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有线网络使用 PyroWave"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有線網路使用 PyroWave"
+          }
+        }
+      }
+    },
     "Recent" : {
       "localizations" : {
         "es" : {
@@ -3954,30 +4178,30 @@
         }
       }
     },
-    "Resolution, lossless refinement, gamepads, statistics, and logging out" : {
+    "Resolution, lossless refinement, PyroWave, gamepads, statistics, and logging out" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Resolución, refinamiento sin pérdidas, mandos, estadísticas y cierre de sesión"
+            "value" : "Resolución, refinamiento sin pérdidas, PyroWave, mandos, estadísticas y cierre de sesión"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "解像度、ロスレス補正、ゲームコントローラ、統計情報、ログアウト"
+            "value" : "解像度、ロスレス補正、PyroWave、ゲームコントローラ、統計情報、ログアウト"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分辨率、无损增强、手柄、统计信息和注销"
+            "value" : "分辨率、无损增强、PyroWave、手柄、统计信息和注销"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "解析度、無損增強、遊戲控制器、統計資料和登出"
+            "value" : "解析度、無損增強、PyroWave、遊戲控制器、統計資料和登出"
           }
         }
       }
@@ -5102,6 +5326,34 @@
         }
       }
     },
+    "Sharper video over a wired network of 1 Gbit/s or more, at hundreds of Mbit/s" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vídeo más nítido por una red por cable de 1 Gbit/s o más, a cientos de Mbit/s"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 Gbit/s 以上の有線ネットワークでより鮮明な映像に（数百 Mbit/s を使用）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 1 Gbit/s 及以上的有线网络上画面更清晰，占用数百 Mbit/s"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 1 Gbit/s 以上的有線網路上畫面更清晰，佔用數百 Mbit/s"
+          }
+        }
+      }
+    },
     "Shift-Tab" : {
       "localizations" : {
         "es" : {
@@ -5630,6 +5882,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停止變化"
+          }
+        }
+      }
+    },
+    "Switching from PyroWave." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejando de usar PyroWave."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PyroWave の使用をやめています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在停用 PyroWave。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在停用 PyroWave。"
+          }
+        }
+      }
+    },
+    "Switching to PyroWave." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiando a PyroWave."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "PyroWave に切り替えています。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在切换到 PyroWave。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在切換到 PyroWave。"
           }
         }
       }

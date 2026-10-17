@@ -275,6 +275,16 @@ struct SessionView: View {
                     }
                 }
             }
+            if model.isRemoteSession, PlaybackModel.canDecodePyroWave {
+                Section("Sharper video over a wired network of 1 Gbit/s or more, at hundreds of Mbit/s") {
+                    Toggle(isOn: Binding(get: { model.isPyroWaveOn }, set: { model.isPyroWaveOn = $0 })) {
+                        Label("PyroWave on Wired Networks", systemImage: "cable.connector")
+                    }
+                    if let status = model.pyroWaveStatus {
+                        Text(status)
+                    }
+                }
+            }
             if let gamepads = model.gamepads {
                 GamepadControls(gamepads: gamepads)
             }
@@ -291,7 +301,7 @@ struct SessionView: View {
             Label("More", systemImage: "ellipsis")
         }
         .menuIndicator(.hidden)
-        .help("Resolution, lossless refinement, gamepads, statistics, and logging out")
+        .help("Resolution, lossless refinement, PyroWave, gamepads, statistics, and logging out")
     }
 
     /// The window's subtitle while the picture plays: the round trip and

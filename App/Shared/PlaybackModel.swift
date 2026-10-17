@@ -113,6 +113,24 @@ final class PlaybackModel {
     private static let refinementKey = "losslessRefinement"
     /// Whether the session has lossless refinement (the host took `refine`).
     private(set) var hasRefinement = false
+    /// PyroWave (gdp-spec.md §6.6): offered first, on its own, when the
+    /// host is reached over a wired link of 1 Gbit/s or more on the same
+    /// network, or is this machine; otherwise the usual codecs. On unless
+    /// turned off, remembered. The codec is fixed per connection, so a
+    /// change that would switch it reconnects.
+    var isPyroWaveOn = UserDefaults.standard.object(forKey: PlaybackModel.pyroWaveKey) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(isPyroWaveOn, forKey: Self.pyroWaveKey)
+            if isPyroWaveOn != oldValue { switchCodecIfNeeded() }
+        }
+    }
+    private static let pyroWaveKey = "pyroWaveOnWiredLAN"
+    /// Whether this device decodes PyroWave, so the switch is worth showing.
+    static let canDecodePyroWave = VideoCodec.pyrowave.isHardwareDecodable
+    /// The codec the session's video is in, once established.
+    private(set) var sessionCodec: VideoCodec?
+    /// The route to the host as judged for PyroWave when the session connected.
+    private var pyroWaveRoute: NetworkRoute?
     /// Points (the default) or, for a sharper picture, pixels; remembered.
     var resolutionUnits = UserDefaults.standard.string(forKey: PlaybackModel.resolutionUnitsKey)
         .flatMap(ResolutionFollower.Units.init) ?? .points {
@@ -458,6 +476,7 @@ final class PlaybackModel {
 
     /// Lets go of the session (not the test sources): what a reconnect replaces.
     private func endSession() {
+        sessionCodec = nil
         endRefinement()
         input?.end()
         input = nil
@@ -555,6 +574,7 @@ final class PlaybackModel {
         guard let presenter else { return }
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
         remote.offersMicrophone = Self.forwardsMicrophone
+        remote.offersPyroWave = isPyroWaveOn
         remote.isAudioMuted = isAudioMuted || isQuietForDictation
         remote.setRefinePaused(!isRefinementOn)
         // A layer-only frame: the last picture again, with the plane changed.
@@ -652,6 +672,13 @@ final class PlaybackModel {
             let size = accept.outputs.first.map { "\($0.width)×\($0.height)" } ?? "?"
             let codecName = VideoCodec(rawValue: accept.codec)?.displayName ?? accept.codec
             print("session: accepted \(accept.codec) \(size), encoder \(accept.encoder), host \(accept.hostName)")
+            sessionCodec = VideoCodec(rawValue: accept.codec)
+            pyroWaveRoute = remote.pyroWaveRoute
+            if let route = pyroWaveRoute {
+                print("session: route \(route.interface), \(route.kind), "
+                    + "\(route.linkSpeed.map { "\($0 / 1_000_000) Mbit/s" } ?? "no speed"), "
+                    + "\(route.isOnLink ? "on link" : "routed"): PyroWave \(route.carriesPyroWave ? "offered" : "not offered")")
+            }
             hasAudio = remote.audio != nil
             hasMicrophone = Self.forwardsMicrophone && remote.microphoneFormat != nil
             if !hasMicrophone { print("session: no microphone: \(remote.microphoneUnavailable ?? "?")") }
@@ -753,6 +780,40 @@ final class PlaybackModel {
     private func startReconnecting(reason: String) {
         reconnectTask?.cancel()
         reconnectTask = Task { [weak self] in await self?.reconnect(reason: reason) }
+    }
+
+    /// After the PyroWave switch changed: reconnects when that changes the
+    /// codec, turned off while PyroWave plays, or on over a route that
+    /// carries it, when this connection didn't offer it (one that did, and
+    /// the host chose otherwise, would get the same answer).
+    private func switchCodecIfNeeded() {
+        guard source == .remote, phase == .playing, let codec = sessionCodec, let config = lastConfig else { return }
+        let switches = isPyroWaveOn
+            ? codec != .pyrowave && Self.canDecodePyroWave && pyroWaveRoute == nil
+                && NetworkRoute.to(host: config.host, port: config.port)?.carriesPyroWave == true
+            : codec == .pyrowave
+        guard switches else { return }
+        print("session: reconnecting to \(isPyroWaveOn ? "use" : "stop using") PyroWave")
+        startReconnecting(reason: isPyroWaveOn ? String(localized: "Switching to PyroWave.")
+                                               : String(localized: "Switching from PyroWave."))
+    }
+
+    /// What PyroWave does in this session, for the switch's menu: in use,
+    /// or why not. Nil outside a session, or when there's nothing to say
+    /// (switched off, or the host is this machine).
+    var pyroWaveStatus: String? {
+        guard Self.canDecodePyroWave, isRemoteSession, phase == .playing, let codec = sessionCodec else { return nil }
+        if codec == .pyrowave { return String(localized: "In use") }
+        guard isPyroWaveOn, let route = pyroWaveRoute else { return nil }
+        if route.carriesPyroWave { return String(localized: "Not in use: the host doesn't offer it") }
+        switch route.kind {
+        case .wifi: return String(localized: "Not in use: connected over Wi-Fi")
+        case .cellular: return String(localized: "Not in use: connected over cellular")
+        case .other: return String(localized: "Not in use: connected through a VPN or another network")
+        case .wired where !route.isOnLink: return String(localized: "Not in use: the host is on another network")
+        case .wired: return String(localized: "Not in use: the network link is slower than 1 Gbit/s")
+        case .local: return nil
+        }
     }
 
     /// The user gave up waiting.

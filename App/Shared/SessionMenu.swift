@@ -37,6 +37,11 @@ struct SessionMenu: Commands {
             Toggle("Lossless Refinement", isOn: Binding(get: { model?.isRefinementOn ?? false },
                                                         set: { model?.isRefinementOn = $0 }))
                 .disabled(model?.hasRefinement != true)
+            if PlaybackModel.canDecodePyroWave {
+                Toggle("PyroWave on Wired Networks", isOn: Binding(get: { model?.isPyroWaveOn ?? false },
+                                                                   set: { model?.isPyroWaveOn = $0 }))
+                    .disabled(model?.isRemoteSession != true)
+            }
             Button("Send Files…") { session?.sendFiles() }
                 .disabled(model?.files.isAvailable != true)
             Button("Download Copied Files") { model?.downloadCopiedFiles() }

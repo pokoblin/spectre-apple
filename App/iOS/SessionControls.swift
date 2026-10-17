@@ -205,6 +205,16 @@ struct SessionMoreMenu: View {
                     }
                 }
             }
+            if model.isRemoteSession, PlaybackModel.canDecodePyroWave {
+                Section("Sharper video over a wired network of 1 Gbit/s or more, at hundreds of Mbit/s") {
+                    Toggle(isOn: $model.isPyroWaveOn) {
+                        Label("PyroWave on Wired Networks", systemImage: "cable.connector")
+                    }
+                    if let status = model.pyroWaveStatus {
+                        Text(status)
+                    }
+                }
+            }
             if model.isRemoteSession {
                 Section("Sharper on Retina screens, at up to four times the work for the host") {
                     Toggle(isOn: Binding(get: { model.resolutionUnits == .pixels },
