@@ -79,6 +79,10 @@ public final class VideoDecoder {
     /// they need only live for the call.
     public func decode(_ accessUnit: UnsafeRawBufferPointer, pts: UInt32, frameID: UInt32 = 0) throws(VideoDecoderError) {
         let submitTime = CACurrentMediaTime()
+        if codec == .av1 {
+            try decodeAV1(accessUnit, pts: pts, frameID: frameID, submitTime: submitTime)
+            return
+        }
         let units = AnnexB.nalUnits(in: accessUnit)
         guard !units.isEmpty else { throw .malformedAccessUnit }
 
@@ -99,29 +103,70 @@ public final class VideoDecoder {
         if newParameterSets.allSatisfy({ !$0.isEmpty }), newParameterSets != parameterSets {
             try configure(parameterSets: newParameterSets)
         }
-        guard let session, let formatDescription else { throw .waitingForKeyframe }
+        guard formatDescription != nil else { throw .waitingForKeyframe }
         guard pictureBytes > 0 else { return }
 
         // One contiguous, length-prefixed (4-byte big-endian) sample.
+        try submit(length: pictureBytes, pts: pts, frameID: frameID, submitTime: submitTime) { block throws(VideoDecoderError) in
+            var offset = 0
+            for r in pictureUnits {
+                var length = UInt32(r.count).bigEndian
+                var status = withUnsafeBytes(of: &length) {
+                    CMBlockBufferReplaceDataBytes(with: $0.baseAddress!, blockBuffer: block, offsetIntoDestination: offset,
+                                                  dataLength: 4)
+                }
+                guard status == noErr else { throw .blockBuffer(status) }
+                status = CMBlockBufferReplaceDataBytes(with: accessUnit.baseAddress! + r.lowerBound, blockBuffer: block,
+                                                       offsetIntoDestination: offset + 4, dataLength: r.count)
+                guard status == noErr else { throw .blockBuffer(status) }
+                offset += 4 + r.count
+            }
+        }
+    }
+
+    /// One temporal unit (gdp-spec.md §9.4): its OBUs, less the temporal
+    /// delimiter (which an ISOBMFF sample, what VideoToolbox decodes, leaves
+    /// out), as one sample. A sequence header that differs from the last
+    /// (re)configures the decoder.
+    private func decodeAV1(_ unit: UnsafeRawBufferPointer, pts: UInt32, frameID: UInt32,
+                           submitTime: CFTimeInterval) throws(VideoDecoderError) {
+        let obus: [AV1.OBU]
+        do {
+            obus = try AV1.obus(in: unit)
+        } catch {
+            throw .malformedAccessUnit
+        }
+        if let header = obus.first(where: { $0.type == AV1.OBUType.sequenceHeader.rawValue }) {
+            let bytes = Array(unit[header.bytes])
+            if [bytes] != parameterSets { try configureAV1(sequenceHeaderOBU: bytes, payload: Array(unit[header.payload])) }
+        }
+        guard formatDescription != nil else { throw .waitingForKeyframe }
+        let kept = obus.filter { $0.type != AV1.OBUType.temporalDelimiter.rawValue }
+        let length = kept.reduce(0) { $0 + $1.bytes.count }
+        guard length > 0 else { return }
+        try submit(length: length, pts: pts, frameID: frameID, submitTime: submitTime) { block throws(VideoDecoderError) in
+            var offset = 0
+            for obu in kept {
+                let status = CMBlockBufferReplaceDataBytes(with: unit.baseAddress! + obu.bytes.lowerBound, blockBuffer: block,
+                                                           offsetIntoDestination: offset, dataLength: obu.bytes.count)
+                guard status == noErr else { throw .blockBuffer(status) }
+                offset += obu.bytes.count
+            }
+        }
+    }
+
+    /// Decodes one sample of `length` bytes that `fill` writes into its block buffer.
+    private func submit(length: Int, pts: UInt32, frameID: UInt32, submitTime: CFTimeInterval,
+                        fill: (CMBlockBuffer) throws(VideoDecoderError) -> Void) throws(VideoDecoderError) {
+        guard let session, let formatDescription else { throw .waitingForKeyframe }
+        let pictureBytes = length
         var block: CMBlockBuffer?
         var status = CMBlockBufferCreateWithMemoryBlock(
             allocator: kCFAllocatorDefault, memoryBlock: nil, blockLength: pictureBytes,
             blockAllocator: kCFAllocatorDefault, customBlockSource: nil, offsetToData: 0,
             dataLength: pictureBytes, flags: kCMBlockBufferAssureMemoryNowFlag, blockBufferOut: &block)
         guard status == noErr, let block else { throw .blockBuffer(status) }
-        var offset = 0
-        for r in pictureUnits {
-            var length = UInt32(r.count).bigEndian
-            status = withUnsafeBytes(of: &length) {
-                CMBlockBufferReplaceDataBytes(with: $0.baseAddress!, blockBuffer: block, offsetIntoDestination: offset,
-                                              dataLength: 4)
-            }
-            guard status == noErr else { throw .blockBuffer(status) }
-            status = CMBlockBufferReplaceDataBytes(with: accessUnit.baseAddress! + r.lowerBound, blockBuffer: block,
-                                                   offsetIntoDestination: offset + 4, dataLength: r.count)
-            guard status == noErr else { throw .blockBuffer(status) }
-            offset += 4 + r.count
-        }
+        try fill(block)
 
         var sample: CMSampleBuffer?
         var timing = CMSampleTimingInfo(duration: .invalid,
@@ -187,11 +232,41 @@ public final class VideoDecoder {
                     allocator: kCFAllocatorDefault, parameterSetCount: sets.count, parameterSetPointers: pointers,
                     parameterSetSizes: sizes, nalUnitHeaderLength: 4, extensions: nil,
                     formatDescriptionOut: &description)
+            case .av1:
+                kCMFormatDescriptionError_InvalidParameter // configureAV1's
             }
         }
         guard status == noErr, let description else { throw .formatDescription(status) }
         parameterSets = sets
+        try install(description)
+    }
 
+    /// The decoder for an AV1 sequence header: its codec configuration
+    /// record ("av1C") rides in the format description's sample description
+    /// atoms, as an ISOBMFF track's does.
+    private func configureAV1(sequenceHeaderOBU: [UInt8], payload: [UInt8]) throws(VideoDecoderError) {
+        let header: AV1.SequenceHeader
+        do {
+            header = try AV1.SequenceHeader(payload: payload)
+        } catch {
+            throw .malformedAccessUnit
+        }
+        let atoms: [CFString: Any] = [
+            kCMFormatDescriptionExtension_SampleDescriptionExtensionAtoms:
+                ["av1C": Data(header.codecConfiguration(sequenceHeaderOBU: sequenceHeaderOBU))] as CFDictionary,
+        ]
+        var description: CMVideoFormatDescription?
+        let status = CMVideoFormatDescriptionCreate(
+            allocator: kCFAllocatorDefault, codecType: kCMVideoCodecType_AV1, width: Int32(header.maxFrameWidth),
+            height: Int32(header.maxFrameHeight), extensions: atoms as CFDictionary, formatDescriptionOut: &description)
+        guard status == noErr, let description else { throw .formatDescription(status) }
+        parameterSets = [sequenceHeaderOBU]
+        try install(description)
+    }
+
+    /// Decodes with `description` from now on: in the current session if it
+    /// takes it, else in a new one.
+    private func install(_ description: CMVideoFormatDescription) throws(VideoDecoderError) {
         if let session, VTDecompressionSessionCanAcceptFormatDescription(session, formatDescription: description) {
             formatDescription = description
             return

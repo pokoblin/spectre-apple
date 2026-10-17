@@ -73,7 +73,8 @@ struct PipelineTests {
     /// multiples of the codecs' 16-pixel blocks, whose padding the decoder crops.
     static let sizes = [(1920, 1080), (824, 460), (856, 460)]
 
-    @Test(arguments: VideoCodec.allCases, sizes)
+    // The codecs VideoToolbox encodes here (AV1's own tests use the bundled stream).
+    @Test(arguments: [VideoCodec.h264, .h265], sizes)
     func decodedBarsRenderTheirColours(codec: VideoCodec, size: (Int, Int)) throws {
         let (width, height) = size
         let stream = try TestStreamEncoder.encode(codec: codec, width: width, height: height, frameCount: 10,
@@ -144,10 +145,12 @@ struct PipelineTests {
 /// GDPSession → RemoteSession → VideoDecoder → mailbox, and StatsReport back.
 @Suite("Loopback session", .serialized)
 struct LoopbackSessionTests {
-    @Test(arguments: VideoCodec.allCases)
+    /// AV1 where this machine decodes it, from the bundled stream (VideoToolbox can't encode it).
+    @Test(arguments: VideoCodec.allCases.filter { $0 != .av1 || $0.isHardwareDecodable })
     func framesFlowAndStatsReachTheHost(codec: VideoCodec) async throws {
-        let stream = try TestStreamEncoder.encode(codec: codec, width: 1280, height: 720, frameCount: 60,
-                                                  bitrate: 10_000_000)
+        let stream = codec == .av1
+            ? try #require(TestStream.av1())
+            : try TestStreamEncoder.encode(codec: codec, width: 1280, height: 720, frameCount: 60, bitrate: 10_000_000)
         let loopback = try LoopbackHost(stream: stream, audio: false)
         let mailbox = FrameMailbox()
         let stats = PlaybackStats(mailbox: mailbox)

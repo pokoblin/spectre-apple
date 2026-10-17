@@ -1,10 +1,13 @@
 import CoreMedia
+import VideoToolbox
 
 /// The block-based codecs a session can negotiate (gdp-spec.md §6.6), by
 /// their wire tokens (libgdp's gdp/video_codec.hpp).
 public enum VideoCodec: String, Sendable, CaseIterable, Identifiable {
     case h264
     case h265
+    /// AV1's low-overhead bitstream format, not Annex B (``AV1``).
+    case av1
 
     public var id: String { rawValue }
 
@@ -12,13 +15,27 @@ public enum VideoCodec: String, Sendable, CaseIterable, Identifiable {
         switch self {
         case .h264: kCMVideoCodecType_H264
         case .h265: kCMVideoCodecType_HEVC
+        case .av1: kCMVideoCodecType_AV1
         }
+    }
+
+    /// Whether this device decodes the codec in hardware. AV1 is offered
+    /// only then (Apple M3 and A17 Pro onward): decoding it in software
+    /// would cost more than it saves.
+    public var isHardwareDecodable: Bool { VTIsHardwareDecodeSupported(coreMediaType) }
+
+    /// What SessionHello offers, most preferred first (gdp-spec.md §6.6):
+    /// AV1 where it decodes in hardware (the better picture for the bits,
+    /// where the host can encode it), then HEVC, then H.264, the floor.
+    public static var offered: [VideoCodec] {
+        (VideoCodec.av1.isHardwareDecodable ? [.av1] : []) + [.h265, .h264]
     }
 
     public var displayName: String {
         switch self {
         case .h264: "H.264"
         case .h265: "HEVC"
+        case .av1: "AV1"
         }
     }
 
@@ -49,10 +66,18 @@ public enum VideoCodec: String, Sendable, CaseIterable, Identifiable {
             case 16...21: .keyframeSlice // BLA, IDR, CRA
             default: .other
             }
+        case .av1:
+            .other // not NAL units
         }
     }
 
-    var parameterSetCount: Int { self == .h264 ? 2 : 3 }
+    var parameterSetCount: Int {
+        switch self {
+        case .h264: 2
+        case .h265: 3
+        case .av1: 1 // the sequence header
+        }
+    }
 }
 
 /// Annex B byte streams (ITU-T H.264/H.265 Annex B): what a GDP video frame

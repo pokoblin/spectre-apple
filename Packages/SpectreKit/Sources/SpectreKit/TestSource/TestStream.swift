@@ -73,6 +73,10 @@ public struct TestStream: Sendable {
                 let type = (header >> 1) & 0x3f
                 isSlice = type < 32
                 firstSliceOfPicture = isSlice && r.count > 2 && bytes[r.lowerBound + 2] & 0x80 != 0
+            case .av1:
+                // Not Annex B: an AV1 stream is split by its temporal delimiters instead.
+                isSlice = false
+                firstSliceOfPicture = false
             }
             if !isSlice {
                 if sawSlice, pendingStart == nil { pendingStart = startCodeOffset(r) }
@@ -92,6 +96,38 @@ public struct TestStream: Sendable {
         }
         flush(upTo: bytes.count)
         self.init(codec: codec, width: width, height: height, framesPerSecond: framesPerSecond, accessUnits: aus)
+    }
+}
+
+extension TestStream {
+    /// The bundled AV1 test stream (1280×720, 60 frames at 60 fps, the first
+    /// a keyframe with the sequence header), one temporal unit per access
+    /// unit as gdp-spec.md §9.4 carries them. Nil if the resource is missing.
+    public static func av1() -> TestStream? {
+        guard let url = Bundle.module.url(forResource: "av1-test-720p", withExtension: "obu"),
+              let data = try? Data(contentsOf: url),
+              let obus = try? AV1.obus(in: [UInt8](data)) else { return nil }
+        let bytes = [UInt8](data)
+        var units: [AccessUnit] = []
+        var start: Int?
+        var keyframe = false
+        func flush(upTo end: Int) {
+            if let start, end > start { units.append(AccessUnit(bytes: Array(bytes[start..<end]), keyframe: keyframe)) }
+        }
+        for obu in obus {
+            switch obu.type {
+            case AV1.OBUType.temporalDelimiter.rawValue:
+                flush(upTo: obu.bytes.lowerBound)
+                start = obu.bytes.lowerBound
+                keyframe = false
+            case AV1.OBUType.sequenceHeader.rawValue:
+                keyframe = true // what a keyframe's temporal unit carries (§9.4)
+            default:
+                break
+            }
+        }
+        flush(upTo: bytes.count)
+        return TestStream(codec: .av1, width: 1280, height: 720, framesPerSecond: 60, accessUnits: units)
     }
 }
 
@@ -116,6 +152,8 @@ public enum TestStreamEncoder {
     public static func encode(codec: VideoCodec, width: Int = 1920, height: Int = 1080, framesPerSecond: Int = 60,
                               frameCount: Int = 600, bitrate: Int = 30_000_000,
                               progress: (@Sendable (Double) -> Void)? = nil) throws -> TestStream {
+        // VideoToolbox encodes no AV1 on this hardware: AV1 test streams come prepared.
+        guard codec != .av1 else { throw TestStreamEncoderError.output("VideoToolbox can't encode AV1") }
         let generator = try TestPatternGenerator(width: width, height: height)
         var session: VTCompressionSession?
         // Low-latency rate control where available; the simulator has no
@@ -205,6 +243,8 @@ public enum TestStreamEncoder {
             case .h265:
                 CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format, parameterSetIndex: 0, parameterSetPointerOut: nil,
                     parameterSetSizeOut: nil, parameterSetCountOut: &count, nalUnitHeaderLengthOut: &headerLength)
+            case .av1:
+                break
             }
             for index in 0..<count {
                 var pointer: UnsafePointer<UInt8>?
@@ -218,6 +258,8 @@ public enum TestStreamEncoder {
                     CMVideoFormatDescriptionGetHEVCParameterSetAtIndex(format, parameterSetIndex: index,
                         parameterSetPointerOut: &pointer, parameterSetSizeOut: &size, parameterSetCountOut: nil,
                         nalUnitHeaderLengthOut: nil)
+                case .av1:
+                    break
                 }
                 guard let pointer else { continue }
                 out += AnnexB.startCode

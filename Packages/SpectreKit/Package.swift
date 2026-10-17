@@ -15,7 +15,12 @@ let package = Package(
     ],
     targets: [
         // Localizable.xcstrings: the words SpectreKit shows (docs/localization.md).
-        .target(name: "SpectreKit", dependencies: ["GDPKit"], resources: [.process("Localizable.xcstrings")]),
+        // av1-test-720p.obu: the AV1 test stream (TestStream.av1), which
+        // VideoToolbox can't encode here: 60 frames of ffmpeg's testsrc2 at
+        // 1280×720, SVT-AV1 low delay (pred-struct=1, CBR 1 Mbit/s), one
+        // keyframe, in the low-overhead bitstream format.
+        .target(name: "SpectreKit", dependencies: ["GDPKit"],
+                resources: [.process("Localizable.xcstrings"), .copy("TestSource/av1-test-720p.obu")]),
         .testTarget(name: "SpectreKitTests", dependencies: ["SpectreKit"]),
     ]
 )
