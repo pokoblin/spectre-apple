@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/app-icon.png" width="128" alt="Spectre 圖示">
+<img src="assets/app-icon.png" width="128" alt="Spectre 圖示">
 
 # spectre-apple
 
@@ -14,91 +14,94 @@
 
 </div>
 
-![Mac 上的 Spectre，連線到 Ubuntu 主機上的 GNOME 桌面](docs/images/macos-session.webp)
+![Mac 上的 Spectre，連線到 Ubuntu 主機上的 GNOME 桌面](assets/macos-session.webp)
 
-ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協定傳送 Linux 桌面，用戶端負責顯示畫面並將輸入傳回。spectre-apple 將這個用戶端帶到 Apple 裝置上：一個以 Swift、SwiftUI、Metal 和 VideoToolbox 撰寫的原生 App，底層使用 ghost 自己的協定函式庫 libgdp。
+ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協定傳送 Linux 桌面，用戶端負責顯示畫面並將輸入傳回。spectre-apple 就是 Apple 裝置上的這個用戶端，以 Swift 搭配 SwiftUI、Metal 和 VideoToolbox 撰寫，底層使用 ghost 的協定函式庫 libgdp。
 
-spectre-apple 是受 ghost 啟發的獨立第三方用戶端，並非 ghost 官方專案。詳見[致謝](#致謝)。
+它是獨立的第三方用戶端，並非 ghost 專案的一部分（詳見[致謝](#致謝)）。
 
 ## 功能
 
-**登入**
+**連線**
 
-- 以使用者名稱和密碼登入 ghost 伺服器；伺服器後續的提問（例如一次性驗證碼）會依序詢問。接著選擇裝置和桌面工作階段，或接管一個正在執行的工作階段。
-- 首次信任（TOFU）：第一次連線時確認伺服器的憑證指紋，之後會記住。**信任的伺服器…**（Mac 上在 App 選單裡，iPad 和 iPhone 上在首頁側邊欄的選單裡）會列出記住的指紋，也可以刪除。
-- 新增伺服器時就可以填寫密碼，點 **連線** 直接登入。開啟 **在鑰匙圈中記住** 就只儲存在本機的鑰匙圈中；不開啟的話保留到 Spectre 結束。
-- 連線中斷時（切換 Wi-Fi、Mac 進入睡眠、iOS 暫停 App）會自動重新連線。
+- 以使用者名稱和密碼登入，回答伺服器後續的提問（例如一次性驗證碼），接著選擇裝置和桌面工作階段，或接管一個正在執行的工作階段。
+- 首次信任（TOFU）：確認一次伺服器的憑證指紋，之後就會記住；**信任的伺服器…** 會列出記住的指紋，也可以刪除。
+- 將密碼和伺服器一起儲存，點一下 **連線** 就能登入，也可以存進鑰匙圈。
+- 連線中斷時（切換 Wi-Fi、進入睡眠、iOS 暫停 App）會自動重新連線。
 
 **畫面與聲音**
 
-- H.264 和 HEVC 由 VideoToolbox 硬體解碼，交給 Metal 顯示，全程不複製影格；掉格和延遲統計會回報給主機。
-- 遠端桌面的大小會跟隨視窗（iPad 和 iPhone 上是螢幕）。工作階段「更多」選單裡的**解析度**可以關閉這個功能，或改為以 Retina 的完整解析度請求。
-- 遠端桌面的聲音，具備能掩蓋封包遺失的抖動緩衝，並可靜音。
+- H.264 和 HEVC 由硬體解碼，交給 Metal 顯示，全程不複製影格。
+- 遠端桌面的大小會跟隨視窗或螢幕，也可以以 Retina 的完整解析度執行。
+- Mac 上全螢幕時會隱藏工具列和選單列，指標移到頂端邊緣時才出現。
+- 遠端桌面的聲音，具備抖動緩衝和靜音按鈕。
 
 **輸入**
 
 - 按鍵依實體位置傳送，因此打出哪個字元由遠端的鍵盤配置決定。
-- 滑鼠支援所有按鍵和平滑捲動，另有傳送相對位移的擷取模式，適合遊戲和 3D 檢視。遠端游標在本機繪製。
-- iPad 上：支援實體鍵盤、觸控式軌跡板和滑鼠；手指可使用「直接觸控」或「觸控式軌跡板」兩種模式。
-- iPhone 和 iPad 上：以螢幕鍵盤在遠端桌面上打字，鍵盤上方是同一套按鍵列。
+- 滑鼠支援所有按鍵和平滑捲動，另有傳送相對位移的擷取模式，適合遊戲和 3D；遠端游標在本機繪製。
+- iPad 上：支援實體鍵盤、觸控式軌跡板和滑鼠，觸控則可使用「直接觸控」或「觸控式軌跡板」兩種模式。
+- iPhone 和 iPad 上：螢幕鍵盤，加上一條按鍵列，提供方向鍵、Esc、Tab、按下後保持的修飾鍵，以及 Super+Tab 這類系統組合鍵。
 
 **Mac 上**
 
-- 主機列表首頁是一個獨立的視窗，每台主機顯示上次的畫面；每個工作階段各開一個視窗，可以同時連線好幾台。關閉工作階段視窗就是中斷連線。
-- 視窗工具列放著剪貼簿、擷取滑鼠和靜音，解析度、遊戲控制器、統計資料和登出收在「更多」選單裡；副標題即時顯示往返延遲和影格速率。
-- 連線中、重新連線中和連線失敗時，畫面上會顯示一張玻璃卡片，可以重試。
-- 選單列有 **Session** 選單：擷取滑鼠、把剪貼簿傳送到主機，以及傳送 Super+Tab 這類被 macOS 自己攔下的組合鍵。沒有新增快速鍵，所有按鍵都會傳給遠端桌面。
+- 主機列表首頁視窗，每台主機顯示上次的畫面；每個工作階段各開一個視窗，可以同時連線好幾台。
+- 工具列放著剪貼簿、擷取滑鼠和靜音，副標題顯示往返延遲和影格速率。
+- **Session** 選單：擷取滑鼠、剪貼簿，以及被 macOS 自己攔下的組合鍵。沒有新增快速鍵，所有按鍵都會傳給遠端桌面。
 
 **iPad 和 iPhone 上**
 
-- 遠端畫面鋪滿整個螢幕，控制項以 Liquid Glass 浮在上面，平時收成底部兩角的圓鈕：左邊是工作階段工具列（更多、貼上到主機、鍵盤），右邊是按鍵列：方向鍵，Esc、Ctrl+C、Tab、退格、Return，按下後保持到下一個鍵的 Ctrl、Alt、Super、Shift，以及 Super+Tab 這類 iPadOS 自己攔下的組合鍵。
-- 提示詞面板：用 iPad 的輸入法、聽寫或貼上寫好一段文字，一次送到主機的游標處，經主機剪貼簿加 Ctrl+Shift+V（也可以選 Ctrl+V 或逐字輸入）。
-- 語音輸入：按住麥克風鍵說話（或者輕點一下、說完再點一下）；說的話在本機依你的語言轉成文字，像提示詞面板一樣送到主機的游標處。
-- 雙指捏合縮放畫面，或用工作階段選單裡的**填滿螢幕**；放大後指標靠近邊緣時畫面會跟著移動。
-- 區域提醒：在遠端桌面上框出一塊區域（例如終端機的輸出），它停止變化（建置跑完了）或開始變化時提醒你：頂部橫幅，Spectre 的視窗不是目前視窗時還會傳送通知。
-- 首頁列出你的主機和各自上次的畫面；iPad 選單列有**工作階段**選單，沒有任何會搶走遠端桌面按鍵的快速鍵。
-
-**共享**
-
-- 雙向同步文字剪貼簿，預設關閉，需要時再開啟。
-- 最多四個遊戲控制器，以標準控制器的形式轉送。
+- 遠端畫面鋪滿整個螢幕，控制項以 Liquid Glass 浮在上面，平時收成兩角的圓鈕。
+- 提示詞面板：用系統的輸入法、聽寫或貼上寫好一段文字，一次送到主機的游標處。
+- 語音輸入：按住麥克風鍵說話，說的話在本機轉成文字，輸入到主機上。
+- 雙指捏合縮放畫面，或用**填滿螢幕**；放大後畫面會跟著指標移動。
+- 區域提醒：盯著畫面上的一塊區域（例如終端機），它停止變化或開始變化時提醒你。
 
 **其他**
 
-- 中斷連線（遠端工作階段繼續執行）或登出（結束遠端工作階段）。
-- 介面支援英文、簡體中文、繁體中文、日文和西班牙文，跟隨系統語言。
+- 雙向同步文字剪貼簿（預設關閉，需要時再開啟），最多支援四個遊戲控制器。
+- 中斷連線（工作階段繼續執行）或登出（結束工作階段）。
+- 支援英文、簡體中文、繁體中文、日文和西班牙文。
 
-### 開發藍圖
-
-尚未完成：
-
-- 無損增強層（refine），以及 AV1 和 PyroWave 編碼
-- 將本機麥克風傳送到遠端桌面：已經寫好並測過，暫時停用
-- 在 iOS 上驗證憑證授權單位簽發的憑證（目前和其他憑證一樣以首次信任處理）
+**尚未完成：** 無損增強層、AV1 和 PyroWave、將你的麥克風傳送到主機（已經寫好，暫時停用），以及在 iOS 上驗證憑證授權單位簽發的憑證。
 
 ## 螢幕截圖
 
 | Mac 上的首頁視窗 | iPad 上的工作階段 |
 |---|---|
-| ![Mac 上的首頁視窗：側邊欄是主機，右邊是所選主機的上次畫面和連線按鈕](docs/images/macos-home.webp) | ![iPad 上的 GNOME 桌面，大小跟隨 iPad 螢幕，右下角的按鍵列已展開](docs/images/ipad-session.webp) |
+| ![Mac 上的首頁視窗：側邊欄是主機，右邊是所選主機的上次畫面和連線按鈕](assets/macos-home.webp) | ![iPad 上的 GNOME 桌面，大小跟隨 iPad 螢幕，右下角的按鍵列已展開](assets/ipad-session.webp) |
 
 ## 執行需求
 
-- 搭載 Apple 晶片、執行 macOS 27 的 Mac，或執行 iOS / iPadOS 27 的 iPhone、iPad（僅支援 arm64）
-- 一台可連線的 ghost 主機（ghostd 和 wraith），架設方式請見 [ghost](https://github.com/jsaiko/ghost) 專案
+- 搭載 Apple 晶片、執行 macOS 27 的 Mac，或執行 iOS / iPadOS 27 的 iPhone、iPad
+- 一台 ghost 主機（ghostd 和 wraith），架設方式請見 [ghost](https://github.com/jsaiko/ghost)
 
-## 快速上手
+## 安裝
 
-Mac 版可以在 [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) 下載：下載 `.dmg`，打開後把 Spectre 拖到「應用程式」檔案夾即可。App 使用 Developer ID 簽署，並經過 Apple 公證。
+Mac 版請從 [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) 下載經過公證的 `.dmg`，把 Spectre 拖到「應用程式」檔案夾即可。iPhone 和 iPad 版請從原始碼建置。
 
-iPhone 和 iPad 版，或是想參與開發，請依照下面的步驟從原始碼建置。
+## 使用方式
 
-### 工具
+用 **+** 新增伺服器：位址（`host` 或 `host:port`，連接埠預設 4442）、你的使用者名稱，也可以填寫密碼。然後點 **連線**，選擇一個桌面。第一次連線時，請確認伺服器的憑證指紋。
 
-- Xcode 27，以及 iOS 27 模擬器執行環境
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- `cmake`（3.25 或更新版本）和 `ninja`：`brew install cmake ninja`
-- [vcpkg](https://github.com/microsoft/vcpkg)，最好固定在上游 CI 使用的提交：
+Mac 上每個工作階段各開一個視窗；關閉它就會中斷連線，主機上的桌面繼續執行。iPad 和 iPhone 上工作階段蓋在首頁上面。
+
+**Mac 上的鍵盤。** Cmd 以 Super 鍵傳送，因此在遠端桌面上拷貝貼上仍是 Ctrl+C 和 Ctrl+V。只有下列快速鍵留在本機：
+
+| 快速鍵 | 作用 |
+|---|---|
+| Ctrl+Cmd+G | 擷取或釋放滑鼠 |
+| Ctrl+Cmd+F | 全螢幕 |
+| Cmd+Q | 結束 |
+
+**iPad 和 iPhone 上的觸控。** 以 **更多 › 輸入方式** 切換：
+
+- **觸控式軌跡板**（預設）：單指移動游標，點一下即按一下。
+- **觸控**：指標跟著手指移動。點一下是按一下，長按是右鍵，單指拖移是拖曳，雙指拖移是捲動，雙指或三指點一下是右鍵或中鍵。
+
+## 從原始碼建置
+
+需要 Xcode 27 和 iOS 27 模擬器執行環境、[XcodeGen](https://github.com/yonaskolb/XcodeGen)、`cmake` 3.25 以上和 `ninja`（`brew install cmake ninja`），以及 [vcpkg](https://github.com/microsoft/vcpkg)，最好固定在上游 CI 使用的提交：
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
@@ -112,23 +115,19 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 ~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ```
 
-如果 vcpkg 不在 `~/src/vcpkg`，請設定 `VCPKG_ROOT`。
+如果 vcpkg 放在其他位置，請設定 `VCPKG_ROOT`。
 
-### 建置
-
-1. 複製儲存庫，連同 ghost 子模組一起（已有的複本中執行 `git submodule sync && git submodule update --init`）。子模組目前指向 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork，它在協定中加入了檔案傳輸，等上游合併後再切回去：
+1. 複製儲存庫，連同 ghost 子模組一起；子模組目前指向 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork（上游加上檔案傳輸）。已有的複本中請執行 `git submodule sync && git submodule update --init`。
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
    ```
 
-2. 建置 `GDPCore.xcframework`，內含 libgdp、它的相依套件和一層很薄的 C 橋接。產物寫入 `Packages/GDPKit/Artifacts/`，不提交到儲存庫。第一次建置需要幾分鐘，之後會重複使用 vcpkg 的二進位快取。記錄檔在 `build/logs/`。
+2. 建置 `GDPCore.xcframework`（libgdp、它的相依套件和一層 C 橋接），產物寫入 `Packages/GDPKit/Artifacts/`。第一次建置需要幾分鐘；寫上 `macos`、`ios` 或 `ios-simulator` 就只建置這些 slice。
 
    ```bash
    scripts/build-gdpcore.sh
    ```
-
-   預設建置 `macos`、`ios` 和 `ios-simulator` 三個 slice；只需要其中幾個時寫上名稱，例如 `scripts/build-gdpcore.sh macos`。
 
 3. 產生 Xcode 專案，接著打開 `Spectre.xcodeproj`，執行 `Spectre` scheme：
 
@@ -136,48 +135,17 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
    xcodegen generate
    ```
 
-   也可以在命令列建置 Mac App：
+   也可以在命令列建置 Mac App，再將它複製到「應用程式」檔案夾：
 
    ```bash
    xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
    ```
-
-4. 想長期使用 Mac App 的話，將它複製到「應用程式」檔案夾：
 
    ```bash
    ditto build/DerivedData/Build/Products/Release/Spectre.app /Applications/Spectre.app
    ```
 
 要在 iPhone 或 iPad 上執行，請在 Xcode 中為 target 選擇你的開發團隊。
-
-## 使用方式
-
-Spectre 開啟後是主機列表首頁。用 **+** 新增伺服器：位址（`host` 或 `host:port`，連接埠預設 4442）、你在上面的使用者名稱，也可以填寫密碼，開啟 **在鑰匙圈中記住** 就存進鑰匙圈。然後點 **連線**，選擇一個桌面；沒填密碼的話會先詢問密碼。第一次連線時會請你確認伺服器的憑證指紋。伺服器若還需要其他資訊（例如一次性驗證碼），會另外詢問；密碼留空的話，所有提問都會這樣逐一詢問。
-
-Mac 上首頁是一個獨立的視窗，每個工作階段另開一個視窗；關閉它就會中斷連線，主機上的桌面工作階段繼續執行。iPad 和 iPhone 上工作階段蓋在首頁上面。
-
-### 鍵盤和滑鼠
-
-Cmd 以 Super 鍵（Windows 鍵）傳送，因此在遠端桌面上拷貝貼上仍是 Ctrl+C 和 Ctrl+V。只有下列快速鍵留在本機：
-
-| 快速鍵 | 作用 |
-|---|---|
-| Ctrl+Cmd+G | 擷取或釋放滑鼠（也可使用工具列的「擷取滑鼠」按鈕） |
-| Ctrl+Cmd+F | 全螢幕 |
-| Cmd+Q | 結束 |
-
-### iPad 和 iPhone 上的觸控
-
-以工作階段工具列的 **更多 › 輸入方式** 切換兩種模式：
-
-- **觸控**：指標跟著手指移動。點一下是按一下，長按是右鍵，單指拖移是拖曳，雙指拖移是捲動，雙指或三指點一下是右鍵或中鍵。
-- **觸控式軌跡板**（預設）：螢幕當作觸控式軌跡板使用。單指移動游標，點一下即按一下。
-
-### 聲音
-
-主機傳送聲音時就會播放（wraith 能擷取到工作階段的音訊時會傳送）。工具列的 **靜音**（iPad 和 iPhone 上在「更多」選單裡）只在本機靜音，設定會被記住。
-
-將本機麥克風傳送到遠端桌面的功能暫時停用。iPad 和 iPhone 上的麥克風改為用於語音輸入：按住按鍵列上的麥克風鍵說話，說的話在本機轉成文字，輸入到主機的游標處。
 
 ## 開發
 
@@ -191,37 +159,24 @@ swift test --package-path Packages/GDPKit
 swift test --package-path Packages/SpectreKit
 ```
 
-兩個套件都內建行程內的測試主機和測試 lobby，端對端測試走的是本機迴路上真實的 QUIC 連線。SpectreKit 的測試還會解碼 H.264 和 HEVC 彩條並以 Metal 算繪。在 iPad 模擬器上執行：
-
-```bash
-(cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
-```
-
-```bash
-(cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
-```
+兩個套件都內建行程內的測試主機和測試 lobby，因此端對端測試走的是本機迴路上真實的 QUIC 連線。要在 iPad 模擬器上測試，請在各個套件中執行 `xcodebuild test`，加上 `-destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0'`。
 
 ### 不連伺服器執行
 
-加上下列任一參數啟動時，Spectre 會略過登入直接播放。它先以 VideoToolbox 編碼一段 10 秒的 1080p60 測試串流（約 3 秒），然後循環播放。左上角顯示解碼、顯示和工作階段的統計，每秒更新一次，同時輸出到 stdout；工具列可切換來源、編碼和顯示節奏。來源有三種：
+下列參數會略過登入，播放一段產生出來的 1080p60 測試串流，統計資料顯示在畫面上，同時輸出到 stdout：
 
-- **Loopback**（預設）：App 內的測試主機透過真實的 GDP 工作階段（127.0.0.1 上的 QUIC）傳送測試串流。它每秒還會嗶一聲，用來測試聲音。
-- **Direct**：測試串流直接送進解碼器，不經過網路。
-- **Remote**：以靜態 token 啟動的 wraith（規格 §6.11）：
-
-```bash
-build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
-```
-
-效能測試模式：暖機 2 秒後量測 N 秒，輸出統計後結束。
+- `--source loopback`（預設）：App 內的測試主機，透過 127.0.0.1 上真實的 GDP 工作階段傳送
+- `--source direct`：直接送進解碼器，不經過網路
+- `--connect HOST:PORT --token TOKEN --fingerprint SHA256`：以靜態 token 啟動的 wraith
+- `--bench N`：量測 N 秒，輸出結果後結束
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-其他參數：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N，0 表示不限>`、`--screen <螢幕編號>`、`--rate <display link Hz>`、`--min-present-ms <ms>`、`--host-clipboard <文字>`（loopback 主機剪貼簿的初始內容）。
+其他參數：`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
-### iOS 和 iPadOS 模擬器
+在 iOS 模擬器中：
 
 ```bash
 xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -configuration Release -derivedDataPath build/DerivedData build
@@ -235,62 +190,34 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopback
 ```
 
-iOS 上 App 從 UIKit 的 app delegate 啟動，這樣根視圖控制器才能鎖定指標（見 [docs/input.md](docs/input.md)）。如果安裝過這項改動之前的版本，請先解除安裝一次（`xcrun simctl uninstall booted org.ghost.spectre.apple`），否則系統會還原舊視窗，畫面會一直是黑的。
-
-模擬器中 VideoToolbox 是軟體解碼，也沒有 `presentedTime`，因此在模擬器中量到的耗時無法和實機或 Mac 比較。
+模擬器是軟體解碼，因此在模擬器中量到的耗時無法和實機比較。
 
 ### 目錄結構
 
 | 路徑 | 內容 |
 |---|---|
-| `project.yml` | XcodeGen 專案：一個同時支援 macOS 和 iOS 的 App target |
-| `App/` | App 本身：各平台進入點、首頁和登入面板、工作階段介面、iPad 和 iPhone 的浮動控制項、圖示 |
-| `Packages/GDPKit/` | 通往 libgdp 的 C 橋接（`Native/`）及其 Swift 封裝：工作階段、lobby、測試主機 |
-| `Packages/SpectreKit/` | 共用程式碼：工作階段、VideoToolbox 解碼、Metal 顯示、輸入、登入流程 |
-| `scripts/` | 建置相依套件和 xcframework 的腳本 |
-| `docs/` | 設計文件和量測紀錄（簡體中文） |
-| `experiments/` | 一次性的實驗（例如 Swift/C++ 互通性的驗證），不屬於 App |
-| `third_party/ghost/` | ghost（git 子模組）：pokoblin/ghost fork 的 `feat/file-transfer` 分支（上游加上檔案傳輸），只編譯其中的 libgdp |
-
-### 設計文件
-
-[`docs/`](docs/) 下的文件記錄了各部分如何運作、量測了什麼、過程中遇過哪些問題。這些文件以簡體中文撰寫。
-
-- [prototype-findings.md](docs/prototype-findings.md)：原型階段的三個技術風險及其結論（從 Swift 呼叫 libgdp、零拷貝顯示、為 iOS 交叉編譯）
-- [session-client.md](docs/session-client.md)：工作階段層，對照規格 §6–§11 逐條檢查
-- [login.md](docs/login.md)：lobby 登入和憑證信任
-- [saved-logins.md](docs/saved-logins.md)：鑰匙圈中儲存的密碼，一鍵登入
-- [reconnect.md](docs/reconnect.md)：斷線重連、重播登入、iOS 背景執行
-- [keep-alive.md](docs/keep-alive.md)：QUIC 保活，以及斷線要多久才會發現
-- [resolution.md](docs/resolution.md)：遠端桌面的解析度跟隨視窗
-- [input.md](docs/input.md)：鍵盤、滑鼠、游標和觸控
-- [keyboard.md](docs/keyboard.md)：iOS 螢幕鍵盤、字元到按鍵的轉換、按鍵列
-- [ipad-layout.md](docs/ipad-layout.md)：iPad 和 iPhone 的介面：浮動控制項、按鍵列、提示詞面板、畫面縮放、首頁、區域提醒
-- [macos-layout.md](docs/macos-layout.md)：Mac 的介面：首頁視窗、每個工作階段一個視窗、工具列、Session 選單
-- [audio.md](docs/audio.md)：聲音、抖動緩衝、Opus 解碼、麥克風
-- [voice-input.md](docs/voice-input.md)：語音輸入、Speech 的裝置端模型、麥克風鍵
-- [clipboard.md](docs/clipboard.md)：Mac 和 iPad 上的剪貼簿、回聲抑制、貼上提示
-- [gamepad.md](docs/gamepad.md)：遊戲控制器、按鍵對應、Home 鍵
-- [localization.md](docs/localization.md)：介面語言、術語表、如何新增一條字串
-- [app-icon.md](docs/app-icon.md)：App 圖示的設計和修改方式
+| `project.yml` | XcodeGen 專案：一個多平台 App target |
+| `App/` | App 本身：進入點、首頁、工作階段介面、iPad 和 iPhone 的控制項、圖示 |
+| `Packages/GDPKit/` | 通往 libgdp 的 C 橋接及其 Swift 封裝 |
+| `Packages/SpectreKit/` | 工作階段、解碼、Metal 顯示、輸入、登入 |
+| `scripts/` | 建置相依套件和 xcframework |
+| `third_party/ghost/` | ghost 子模組（pokoblin/ghost fork），只編譯其中的 libgdp |
 
 ## 參與貢獻
 
-歡迎提交 issue 和 pull request；較大的改動請先開 issue 討論。有幾點需要了解：
+歡迎提交 issue 和 pull request；較大的改動請先開 issue 討論。
 
-- 用戶端程式碼依照 GDP 規格（`third_party/ghost/docs/spec/gdp-spec.md`）和公開標準撰寫。上游 ghost 大部分的程式碼採用 GPL-3.0，請不要複製或移植其中的程式碼，包括上游自己的 spectre 用戶端；只有 `libgdp/` 和協定規格採用 MIT。
-- 提交改動前請跑過兩個套件的測試；行為有變化時，同步更新 `docs/` 下對應的文件。
-- 新的介面文字需要在 String Catalog 中補齊所有語言的翻譯，見 [docs/localization.md](docs/localization.md)。
+- 用戶端程式碼依照 GDP 規格（`third_party/ghost/docs/spec/gdp-spec.md`）和公開標準撰寫。上游 ghost 大部分的程式碼採用 GPL-3.0，請不要複製或移植其中的程式碼，包括它的 spectre 用戶端；只有 `libgdp/` 和協定規格採用 MIT。
+- 提交改動前請跑過兩個套件的測試。
+- 新的介面文字需要補齊所有語言的翻譯；`scripts/sync-strings.sh` 會更新 String Catalog。
 
 ## 致謝
 
-spectre-apple 的靈感來自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)。ghost 是一套完整的遠端桌面系統，包含 GDP 協定、主機端 wraith 和 Linux 用戶端 spectre。本專案使用 ghost 的協定函式庫 libgdp，依照 ghost 公開的協定規格和設計文件撰寫，名稱也沿用上游用戶端的 Spectre。感謝原作者將 ghost 開源，並以 MIT 授權開放 libgdp 和協定規格，這個專案才得以實現。
-
-spectre-apple 是獨立的第三方用戶端，並非 ghost 官方專案。
+spectre-apple 的靈感來自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)：GDP 協定、主機端 wraith 和 Linux 用戶端 spectre。本專案使用 ghost 的 libgdp，依照它公開的協定規格和設計文件撰寫，名稱也沿用上游用戶端的 Spectre。非常感謝原作者將 ghost 開源，並以 MIT 授權開放 libgdp 和協定規格；沒有它們就沒有這個專案。
 
 ## 授權
 
 [MIT](LICENSE)。
 
-- 上游 ghost 中，`libgdp/` 和協定規格採用 MIT 授權，其餘部分（包括上游自己的 spectre 用戶端）採用 GPL-3.0-only。本專案只編譯 `libgdp/`，用戶端程式碼依照規格和公開標準自行撰寫，沒有複製或移植 GPL 部分的程式碼。
-- 編譯出的 App 靜態連結了 ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd，它們都採用寬鬆授權（MIT、Apache-2.0、BSD-3-Clause）。散布二進位檔時需附上它們的授權聲明，見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+- 上游 ghost 中，`libgdp/` 和協定規格採用 MIT 授權，其餘部分採用 GPL-3.0-only。本專案只編譯 `libgdp/`，沒有任何程式碼複製或移植自 GPL 部分。
+- App 靜態連結了 ngtcp2、OpenSSL、Protocol Buffers、Abseil 和 zstd（MIT、Apache-2.0、BSD-3-Clause），它們的授權聲明見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/app-icon.png" width="128" alt="Spectre のアイコン">
+<img src="assets/app-icon.png" width="128" alt="Spectre のアイコン">
 
 # spectre-apple
 
@@ -14,91 +14,94 @@
 
 </div>
 
-![Mac 上の Spectre。Ubuntu ホストの GNOME デスクトップに接続しています](docs/images/macos-session.webp)
+![Mac 上の Spectre。Ubuntu ホストの GNOME デスクトップに接続しています](assets/macos-session.webp)
 
-ghost はオープンソースのリモートデスクトップシステムです。ホスト（wraith）が GDP プロトコルで Linux のデスクトップを配信し、クライアントがそれを表示して入力を送り返します。spectre-apple はこのクライアントを Apple デバイスにネイティブアプリとして提供します。Swift、SwiftUI、Metal、VideoToolbox で書かれており、ghost 自身のプロトコルライブラリ libgdp の上に構築されています。
+ghost はオープンソースのリモートデスクトップシステムです。ホスト（wraith）が GDP プロトコルで Linux のデスクトップを配信し、クライアントがそれを表示して入力を送り返します。spectre-apple はその Apple デバイス向けのクライアントで、ghost のプロトコルライブラリ libgdp の上に、Swift と SwiftUI、Metal、VideoToolbox で書かれています。
 
-spectre-apple は ghost に触発された独立したサードパーティ製クライアントであり、ghost プロジェクトの一部ではありません。詳しくは[謝辞](#謝辞)をご覧ください。
+ghost プロジェクトの一部ではない、独立したサードパーティ製のクライアントです（[謝辞](#謝辞)をご覧ください）。
 
 ## 機能
 
-**サインイン**
+**接続**
 
-- ユーザ名とパスワードで ghost サーバーにサインインします。ワンタイムコードなど、サーバーからの追加の質問は順に表示されます。その後、デバイスとデスクトップのセッションを選ぶか、実行中のセッションを引き継ぎます。
-- 初回信頼（TOFU）：最初の接続時にサーバーの証明書のフィンガープリントを確認し、以後はそれを記憶します。**信頼済みのサーバー…**（Mac ではアプリケーションメニュー、iPad と iPhone ではホーム画面のサイドバーのメニュー）で、記憶したフィンガープリントを一覧・削除できます。
-- サーバーを追加するときにパスワードも入力しておけば、**接続** ですぐにサインインできます。**キーチェーンに保存** をオンにするとこのデバイスのキーチェーンだけに保存され、オフなら Spectre を終了するまで保持されます。
-- 接続が切れても（Wi-Fi の切り替え、Mac のスリープ、iOS によるアプリの一時停止など）自動的に再接続します。
+- ユーザ名とパスワードでサインインし、ワンタイムコードなどの追加の質問に答えたら、デバイスとデスクトップのセッションを選ぶか、実行中のセッションを引き継ぎます。
+- 初回信頼（TOFU）：サーバーの証明書のフィンガープリントを一度確認すれば記憶されます。**信頼済みのサーバー…** で一覧・削除できます。
+- パスワードをサーバーと一緒に保存しておけば、ワンタップで **接続** できます。キーチェーンに保存することもできます。
+- 接続が切れても（Wi-Fi の切り替え、スリープ、iOS によるアプリの一時停止など）自動的に再接続します。
 
 **映像と音声**
 
-- H.264 と HEVC を VideoToolbox でハードウェアデコードし、フレームをコピーせずに Metal で表示します。フレームの損失と遅延の統計はホストに報告されます。
-- リモートデスクトップのサイズはウインドウ（iPad と iPhone では画面）に合わせて変わります。セッションの「その他」メニューの**解像度**でこれをオフにしたり、Retina のフル解像度を要求したりできます。
-- リモートデスクトップの音声。パケット損失を補うジッタバッファ付きで、消音もできます。
+- H.264 と HEVC をハードウェアでデコードし、フレームをコピーせずに Metal で表示します。
+- リモートデスクトップのサイズはウインドウや画面に合わせて変わります。Retina のフル解像度で動かすこともできます。
+- Mac のフルスクリーンでは、ポインタが上端に来るまでツールバーとメニューバーを隠します。
+- リモートの音声。ジッタバッファ付きで、消音ボタンもあります。
 
 **入力**
 
 - キーは物理的な位置で送られるため、入力される文字はリモート側のキーボード配列で決まります。
-- マウスはすべてのボタンとスムーズスクロールに対応し、ゲームや 3D ビュー向けに相対移動を送るキャプチャモードもあります。リモートのカーソルはローカルで描画します。
-- iPad：ハードウェアキーボード、トラックパッド、マウスに対応し、指での操作は「ダイレクトタッチ」と「トラックパッド」の 2 つのモードから選べます。
-- iPhone と iPad：オンスクリーンキーボードでリモートデスクトップに入力でき、キーボードの上に同じキーバーが付きます。
+- マウスはすべてのボタンとスムーズスクロールに対応し、ゲームや 3D 向けに相対移動を送るキャプチャモードもあります。リモートのカーソルはローカルで描画します。
+- iPad：ハードウェアキーボード、トラックパッド、マウスに加え、ダイレクトタッチとトラックパッドの 2 つのモードでの指の操作。
+- iPhone と iPad：オンスクリーンキーボードと、矢印キー、Esc、Tab、押されたままになる修飾キー、Super+Tab のようなシステムの組み合わせを送れるキーバー。
 
 **Mac**
 
-- ホストを並べたホームウインドウ（各ホストに前回の画面）があり、セッションはそれぞれ専用のウインドウで開くので、複数のホストに同時に接続できます。セッションのウインドウを閉じると切断します。
-- ウインドウのツールバーにはクリップボード、マウスのキャプチャ、消音があり、解像度、ゲームコントローラ、統計情報、ログアウトは「その他」メニューにまとまっています。サブタイトルには往復の遅延とフレームレートがリアルタイムで表示されます。
-- 接続中、再接続中、接続に失敗したときは、画面の上にガラスのカードが表示され、再試行できます。
-- メニューバーに **Session** メニュー：マウスのキャプチャ、クリップボードをホストへ送る、Super+Tab のように macOS が先に取ってしまう組み合わせを送る。ショートカットは増やしていないので、キーはすべてリモートデスクトップに届きます。
+- ホストを並べたホームウインドウ（各ホストに前回の画面）と、セッションごとのウインドウがあり、複数のセッションを同時に動かせます。
+- クリップボード、マウスのキャプチャ、消音のツールバー。サブタイトルには往復の遅延とフレームレートが表示されます。
+- マウスのキャプチャ、クリップボード、macOS が先に取ってしまうキーの組み合わせを送る **Session** メニュー。ショートカットは増やしていないので、キーはすべてリモートデスクトップに届きます。
 
 **iPad と iPhone**
 
-- リモートデスクトップが画面いっぱいに表示され、操作ボタンは Liquid Glass で画面の上に浮かび、ふだんは下の両隅の丸いボタンにまとまります。左はセッションのツールバー（その他、ホストにペースト、キーボード）、右はキーバーで、矢印キー、Esc、Ctrl+C、Tab、バックスペース、リターン、次のキーまで押されたままになる Ctrl・Alt・Super・Shift、Super+Tab のように iPadOS が先に取ってしまう組み合わせがあります。
-- プロンプトパネル：iPad の入力方式、音声入力、ペーストで書いた文章を、ホストのクリップボードと Ctrl+Shift+V（Ctrl+V や 1 文字ずつの入力も選べます）でホストのカーソル位置にまとめて送ります。
-- 音声入力：マイクキーを押しながら話します（タップして話し、もう一度タップしても可）。話した内容はデバイス上であなたの言語の文字になり、プロンプトパネルと同じようにホストのカーソル位置に送られます。
-- ピンチで画面を拡大でき、セッションメニューの **画面いっぱいに表示** もあります。拡大中はポインタが端に近づくと画面がついていきます。
-- 範囲の通知：リモートデスクトップの一部（ターミナルの出力など）を囲んでおくと、変化が止まったとき（ビルドが終わった）や変化し始めたときに上部のバナーで知らせます。Spectre のウインドウがアクティブでないときは通知も届きます。
-- ホーム画面には登録したホストと前回の画面が並びます。iPad のメニューバーには **セッション** メニューがあり、リモートデスクトップのキーを横取りするショートカットはひとつもありません。
-
-**共有**
-
-- テキストのクリップボードを双方向に同期します。初期設定ではオフです。
-- 最大 4 台のゲームコントローラを、標準のゲームパッドとして転送します。
+- リモートデスクトップが画面いっぱいに表示され、操作ボタンは Liquid Glass で画面の上に浮かび、両隅の 2 つのボタンにまとまります。
+- プロンプトパネル：システムの入力方式、音声入力、ペーストで文章を書き、ホストのカーソル位置にまとめて送ります。
+- 音声入力：マイクキーを押しながら話すと、デバイス上で文字になり、ホストで入力されます。
+- ピンチで拡大でき、**画面いっぱいに表示** もあります。拡大した画面はポインタについていきます。
+- 範囲の通知：ターミナルなど画面の一部を見張り、変化が止まったときや変化し始めたときに知らせます。
 
 **そのほか**
 
-- 切断（リモートのセッションは実行を続けます）とログアウト（セッションを終了します）。
-- インターフェイスは英語、簡体字中国語、繁体字中国語、日本語、スペイン語に対応し、システムの言語に従います。
+- テキストのクリップボードの双方向同期（オンにするまでオフ）と、最大 4 台のゲームコントローラ。
+- 切断（セッションは実行を続けます）とログアウト（セッションを終了します）。
+- 英語、簡体字中国語、繁体字中国語、日本語、スペイン語。
 
-### ロードマップ
-
-未実装：
-
-- 可逆の高画質化レイヤー（refine）、AV1 と PyroWave コーデック
-- マイクの音声をリモートデスクトップに送る機能：実装・テスト済みで、いまは無効
-- iOS での認証局発行の証明書の検証（現在はほかの証明書と同じく初回信頼で扱います）
+**未実装：** 可逆の高画質化レイヤー、AV1 と PyroWave、マイクの音声をホストに送る機能（実装済みで、いまは無効）、iOS での認証局発行の証明書の検証。
 
 ## スクリーンショット
 
 | Mac のホームウインドウ | iPad でのセッション |
 |---|---|
-| ![Mac のホームウインドウ。サイドバーにホスト、右に選んだホストの前回の画面と接続ボタン](docs/images/macos-home.webp) | ![iPad の画面に合わせたサイズの GNOME デスクトップ。右下のキーバーを開いたところ](docs/images/ipad-session.webp) |
+| ![Mac のホームウインドウ。サイドバーにホスト、右に選んだホストの前回の画面と接続ボタン](assets/macos-home.webp) | ![iPad の画面に合わせたサイズの GNOME デスクトップ。右下のキーバーを開いたところ](assets/ipad-session.webp) |
 
 ## 動作環境
 
-- Apple シリコン搭載で macOS 27 の Mac、または iOS / iPadOS 27 の iPhone・iPad（arm64 のみ）
-- 接続先の ghost ホスト（ghostd と wraith）。構築方法は [ghost](https://github.com/jsaiko/ghost) プロジェクトをご覧ください
+- Apple シリコン搭載で macOS 27 の Mac、または iOS / iPadOS 27 の iPhone・iPad
+- ghost ホスト（ghostd と wraith）。構築方法は [ghost](https://github.com/jsaiko/ghost) をご覧ください
 
-## はじめに
+## インストール
 
-Mac 版は [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) にあります。`.dmg` をダウンロードして開き、Spectre を「アプリケーション」フォルダにドラッグしてください。Developer ID で署名され、Apple の公証を受けています。
+Mac 版は公証済みの `.dmg` を [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) からダウンロードし、Spectre を「アプリケーション」フォルダにドラッグしてください。iPhone と iPad ではソースからビルドします。
 
-iPhone と iPad で使う場合や、開発に参加する場合は、以下の手順でソースからビルドします。
+## 使い方
 
-### 必要なツール
+**+** でサーバーを追加します。アドレス（`host` または `host:port`。ポートの既定値は 4442）とユーザ名、必要ならパスワードを入力します。**接続** してデスクトップを選びます。最初の接続時には、サーバーの証明書のフィンガープリントを確認してください。
 
-- Xcode 27（iOS 27 シミュレータのランタイムを含む）
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- `cmake`（3.25 以降）と `ninja`：`brew install cmake ninja`
-- [vcpkg](https://github.com/microsoft/vcpkg)。上流の CI が使っているコミットに固定するのがおすすめです：
+Mac ではセッションがそれぞれ専用のウインドウで開きます。閉じると切断し、ホストのデスクトップは動いたままです。iPad と iPhone ではセッションがホーム画面の上に重なります。
+
+**Mac でのキーボード。** Cmd は Super として送られるため、リモートデスクトップでのコピー＆ペーストは Ctrl+C と Ctrl+V のままです。Mac 側に残るショートカットは次のものだけです：
+
+| ショートカット | 動作 |
+|---|---|
+| Ctrl+Cmd+G | マウスのキャプチャと解除 |
+| Ctrl+Cmd+F | フルスクリーン |
+| Cmd+Q | 終了 |
+
+**iPad と iPhone でのタッチ操作。** **その他 › 入力方式** で次のモードを切り替えます：
+
+- **トラックパッド**（デフォルト）：1 本指でカーソルを動かし、タップでクリックします。
+- **タッチ**：触れた位置にポインタが移動します。タップでクリック、長押しで右クリック、1 本指でドラッグ、2 本指でスクロール、2 本指または 3 本指のタップで右クリックまたは中クリックです。
+
+## ソースからのビルド
+
+Xcode 27（iOS 27 シミュレータのランタイムを含む）、[XcodeGen](https://github.com/yonaskolb/XcodeGen)、`cmake` 3.25 以降と `ninja`（`brew install cmake ninja`）、[vcpkg](https://github.com/microsoft/vcpkg) が必要です。vcpkg は上流の CI が使っているコミットに固定するのがおすすめです：
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
@@ -112,23 +115,19 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 ~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ```
 
-vcpkg を `~/src/vcpkg` 以外に置く場合は `VCPKG_ROOT` を設定してください。
+vcpkg をほかの場所に置く場合は `VCPKG_ROOT` を設定してください。
 
-### ビルド
-
-1. ghost サブモジュールごとリポジトリをクローンします（既存のクローンでは `git submodule sync && git submodule update --init` を実行します）。サブモジュールは当面、プロトコルにファイル転送を加えた [pokoblin/ghost](https://github.com/pokoblin/ghost) フォークを指しています（上流に取り込まれるまで）：
+1. ghost サブモジュールごとクローンします。サブモジュールは当面、[pokoblin/ghost](https://github.com/pokoblin/ghost) フォーク（上流＋ファイル転送）を指しています。既存のクローンでは `git submodule sync && git submodule update --init` を実行します。
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
    ```
 
-2. `GDPCore.xcframework` をビルドします。libgdp とその依存ライブラリ、薄い C ブリッジをまとめたもので、`Packages/GDPKit/Artifacts/` に出力され、リポジトリにはコミットしません。初回のビルドには数分かかりますが、以降は vcpkg のバイナリキャッシュが使われます。ログは `build/logs/` に出力されます。
+2. `GDPCore.xcframework`（libgdp とその依存ライブラリ、C ブリッジ）を `Packages/GDPKit/Artifacts/` にビルドします。初回は数分かかります。一部のスライスだけをビルドするには `macos`、`ios`、`ios-simulator` を指定します。
 
    ```bash
    scripts/build-gdpcore.sh
    ```
-
-   既定では `macos`、`ios`、`ios-simulator` の 3 つのスライスをビルドします。一部だけをビルドするには名前を指定します（例：`scripts/build-gdpcore.sh macos`）。
 
 3. Xcode プロジェクトを生成し、`Spectre.xcodeproj` を開いて `Spectre` スキームを実行します：
 
@@ -136,48 +135,17 @@ vcpkg を `~/src/vcpkg` 以外に置く場合は `VCPKG_ROOT` を設定してく
    xcodegen generate
    ```
 
-   Mac アプリはコマンドラインでもビルドできます：
+   または、コマンドラインで Mac アプリをビルドして「アプリケーション」フォルダにコピーします：
 
    ```bash
    xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
    ```
-
-4. Mac アプリを常用する場合は「アプリケーション」フォルダにコピーします：
 
    ```bash
    ditto build/DerivedData/Build/Products/Release/Spectre.app /Applications/Spectre.app
    ```
 
 iPhone や iPad で実行するには、Xcode でターゲットの開発チームを選んでください。
-
-## 使い方
-
-Spectre を起動するとホストを並べたホーム画面が開きます。**+** でサーバーを追加します。アドレス（`host` または `host:port`。ポートの既定値は 4442）とそこでのユーザ名、必要ならパスワードも入力し、**キーチェーンに保存** をオンにするとキーチェーンに保存されます。**接続** をクリックかタップしてデスクトップを選びます。パスワードを入力していなければ、先に尋ねられます。最初の接続時には、サーバーの証明書のフィンガープリントの確認を求められます。ワンタイムコードなど、サーバーがほかの情報を求める場合はそれぞれ個別に尋ねられます。パスワードを空欄にすると、すべての質問がこの方法で尋ねられます。
-
-Mac ではホーム画面が独立したウインドウで、セッションはそれぞれ別のウインドウで開きます。閉じると切断し、ホストのデスクトップセッションは動いたままです。iPad と iPhone ではセッションがホーム画面の上に重なります。
-
-### キーボードとマウス
-
-Cmd は Super キー（Windows キー）として送られるため、リモートデスクトップでのコピー＆ペーストは Ctrl+C と Ctrl+V のままです。Mac 側に残るショートカットは次の 3 つだけです：
-
-| ショートカット | 動作 |
-|---|---|
-| Ctrl+Cmd+G | マウスのキャプチャと解除（ツールバーの「マウスをキャプチャ」ボタンでも可） |
-| Ctrl+Cmd+F | フルスクリーン |
-| Cmd+Q | 終了 |
-
-### iPad と iPhone でのタッチ操作
-
-セッションツールバーの **その他 › 入力方式** で 2 つのモードを切り替えます：
-
-- **タッチ**：触れた位置にポインタが移動します。タップでクリック、長押しで右クリック、1 本指のドラッグでドラッグ、2 本指のドラッグでスクロール、2 本指または 3 本指のタップで右クリックまたは中クリックです。
-- **トラックパッド**（デフォルト）：画面をトラックパッドとして使います。1 本指でカーソルを動かし、タップでクリックします。
-
-### 音声
-
-ホストが音声を送ってくると再生されます（wraith はセッションの音声を取得できる場合に送ります）。ツールバーの **消音**（iPad と iPhone では「その他」メニュー）はこのデバイスだけを消音し、設定は記憶されます。
-
-マイクの音声をリモートデスクトップに送る機能は、いまは無効にしています。iPad と iPhone ではマイクは音声入力に使います。キーバーのマイクキーを押しながら話すと、話した内容がデバイス上で文字になり、ホストのカーソル位置に入力されます。
 
 ## 開発
 
@@ -191,37 +159,24 @@ swift test --package-path Packages/GDPKit
 swift test --package-path Packages/SpectreKit
 ```
 
-どちらのパッケージにもプロセス内のテストホストとテスト用 lobby があり、エンドツーエンドのテストはループバック上の実際の QUIC 接続で行います。SpectreKit のテストでは、H.264 と HEVC のカラーバーをデコードして Metal で描画することも確認します。iPad シミュレータで実行するには：
-
-```bash
-(cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
-```
-
-```bash
-(cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
-```
+どちらのパッケージにもプロセス内のテストホストと lobby があり、エンドツーエンドのテストはループバック上の実際の QUIC で行います。iPad シミュレータで実行するには、各パッケージで `-destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0'` を付けて `xcodebuild test` を実行します。
 
 ### サーバーなしで動かす
 
-次のいずれかのオプションを付けて起動すると、Spectre はログインを飛ばしてすぐに再生を始めます。まず VideoToolbox で 10 秒間の 1080p60 テストストリームをエンコードし（約 3 秒）、それをループ再生します。デコード、表示、セッションの統計は左上に表示され、毎秒 stdout にも出力されます。ツールバーでソース、コーデック、表示のペースを切り替えられます。ソースは 3 種類です：
+次のオプションを付けると、ログインを飛ばして生成した 1080p60 のテストストリームを再生し、統計を画面と stdout に出力します：
 
-- **Loopback**（既定）：アプリ内のテストホストが、実際の GDP セッション（127.0.0.1 上の QUIC）でストリームを送ります。音声のテストのため、毎秒ビープ音も鳴らします。
-- **Direct**：ストリームをネットワークを通さず直接デコーダに渡します。
-- **Remote**：静的トークンで起動した wraith（仕様 §6.11）：
-
-```bash
-build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
-```
-
-ベンチマークモードは、2 秒のウォームアップの後 N 秒間計測し、統計を出力して終了します：
+- `--source loopback`（既定）：アプリ内のテストホストが、127.0.0.1 上の実際の GDP セッションで送ります
+- `--source direct`：ネットワークを通さず直接デコーダに渡します
+- `--connect HOST:PORT --token TOKEN --fingerprint SHA256`：静的トークンで起動した wraith
+- `--bench N`：N 秒間計測し、結果を出力して終了します
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-そのほかのオプション：`--source loopback|direct`、`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight <N、0 で無制限>`、`--screen <画面の番号>`、`--rate <display link の Hz>`、`--min-present-ms <ms>`、`--host-clipboard <テキスト>`（loopback ホストのクリップボードの初期内容）。
+そのほか：`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
-### iOS と iPadOS のシミュレータ
+iOS シミュレータでは：
 
 ```bash
 xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -configuration Release -derivedDataPath build/DerivedData build
@@ -235,62 +190,34 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopback
 ```
 
-iOS では、ルートビューコントローラがポインタをロックできるように、アプリは UIKit の app delegate から起動します（[docs/input.md](docs/input.md) を参照）。この変更より前のビルドをインストールしたことがある場合は、一度アンインストールしてください（`xcrun simctl uninstall booted org.ghost.spectre.apple`）。そうしないとシステムが古いウインドウを復元し、画面が黒いままになります。
-
-シミュレータでは VideoToolbox がソフトウェアでデコードし、`presentedTime` もないため、そこで計測した時間は実機や Mac とは比較できません。
+シミュレータはソフトウェアでデコードするため、そこで計測した時間は実機とは比較できません。
 
 ### ディレクトリ構成
 
 | パス | 内容 |
 |---|---|
-| `project.yml` | XcodeGen のプロジェクト。macOS と iOS 共通のアプリターゲットが 1 つ |
-| `App/` | アプリ本体：プラットフォームごとのエントリポイント、ホーム画面とサインインのシート、セッションの UI、iPad と iPhone の浮かぶ操作ボタン、アイコン |
-| `Packages/GDPKit/` | libgdp への C ブリッジ（`Native/`）と、その Swift ラッパー：セッション、lobby、テストホスト |
-| `Packages/SpectreKit/` | 共通コード：セッション、VideoToolbox でのデコード、Metal での表示、入力、ログインの流れ |
+| `project.yml` | XcodeGen のプロジェクト。マルチプラットフォームのアプリターゲットが 1 つ |
+| `App/` | アプリ本体：エントリポイント、ホーム画面、セッションの UI、iPad と iPhone の操作ボタン、アイコン |
+| `Packages/GDPKit/` | libgdp への C ブリッジと、その Swift ラッパー |
+| `Packages/SpectreKit/` | セッション、デコード、Metal での表示、入力、ログイン |
 | `scripts/` | 依存ライブラリと xcframework をビルドするスクリプト |
-| `docs/` | 設計メモと計測記録（簡体字中国語） |
-| `experiments/` | 一度きりの実験（Swift/C++ 相互運用の検証など）。アプリには含まれません |
-| `third_party/ghost/` | ghost（git サブモジュール）。pokoblin/ghost フォークの `feat/file-transfer` ブランチ（上流＋ファイル転送）で、ビルドするのは libgdp だけ |
-
-### 設計メモ
-
-[`docs/`](docs/) 以下のメモには、各部分の仕組み、計測の結果、途中で遭遇した問題を記録しています。メモは簡体字中国語で書かれています。
-
-- [prototype-findings.md](docs/prototype-findings.md)：プロトタイプでの 3 つの技術的リスクと、それぞれの結論（Swift からの libgdp の呼び出し、ゼロコピーの表示、iOS 向けのクロスコンパイル）
-- [session-client.md](docs/session-client.md)：セッション層。仕様の §6〜§11 と照合
-- [login.md](docs/login.md)：lobby へのログインと証明書の信頼
-- [saved-logins.md](docs/saved-logins.md)：キーチェーンに保存したパスワード、ワンタップでのサインイン
-- [reconnect.md](docs/reconnect.md)：切れたセッションの再接続、ログインの再実行、iOS のバックグラウンド
-- [keep-alive.md](docs/keep-alive.md)：QUIC のキープアライブと、切断の検出にかかる時間
-- [resolution.md](docs/resolution.md)：リモートデスクトップの解像度をウインドウに合わせる
-- [input.md](docs/input.md)：キーボード、マウス、カーソル、タッチ
-- [keyboard.md](docs/keyboard.md)：iOS のオンスクリーンキーボード、文字からキーへの変換、キーバー
-- [ipad-layout.md](docs/ipad-layout.md)：iPad と iPhone のインターフェイス：浮かぶ操作ボタン、キーバー、プロンプトパネル、拡大、ホーム画面、領域の通知
-- [macos-layout.md](docs/macos-layout.md)：Mac のインターフェイス：ホームウインドウ、セッションごとのウインドウ、ツールバー、Session メニュー
-- [audio.md](docs/audio.md)：音声、ジッタバッファ、Opus のデコード、マイク
-- [voice-input.md](docs/voice-input.md)：音声入力、Speech のデバイス上のモデル、マイクキー
-- [clipboard.md](docs/clipboard.md)：Mac と iPad のクリップボード、エコーの抑制、ペーストの確認
-- [gamepad.md](docs/gamepad.md)：ゲームコントローラ、ボタンの割り当て、Home ボタン
-- [localization.md](docs/localization.md)：インターフェイスの言語、用語集、文字列の追加方法
-- [app-icon.md](docs/app-icon.md)：アプリアイコンのデザインと変更方法
+| `third_party/ghost/` | ghost（サブモジュール、pokoblin/ghost フォーク）。ビルドするのは libgdp だけ |
 
 ## コントリビュート
 
-Issue やプルリクエストを歓迎します。大きな変更の場合は、先に Issue を立ててください。いくつか注意点があります：
+Issue やプルリクエストを歓迎します。大きな変更の場合は、先に Issue を立ててください。
 
-- クライアントのコードは、GDP の仕様（`third_party/ghost/docs/spec/gdp-spec.md`）と公開されている標準規格をもとに書いています。上流の ghost の大部分は GPL-3.0 なので、そこからコードをコピーしたり移植したりしないでください（上流の spectre クライアントも含みます）。MIT なのは `libgdp/` と仕様だけです。
-- 変更を送る前に両方のパッケージのテストを実行し、動作が変わる場合は `docs/` 以下の該当するメモも更新してください。
-- 新しい UI の文言には、String Catalog ですべての言語の翻訳が必要です。[docs/localization.md](docs/localization.md) をご覧ください。
+- クライアントのコードは、GDP の仕様（`third_party/ghost/docs/spec/gdp-spec.md`）と公開されている標準規格をもとに書いてください。上流の ghost の大部分は GPL-3.0 なので、そこからコードをコピーしたり移植したりしないでください（上流の spectre クライアントも含みます）。MIT なのは `libgdp/` と仕様だけです。
+- 変更を送る前に両方のパッケージのテストを実行してください。
+- 新しい UI の文言には、すべての言語の翻訳が必要です。`scripts/sync-strings.sh` で String Catalog を更新します。
 
 ## 謝辞
 
-spectre-apple は、[Joseph Saiko](https://saiko.dev) さんの [ghost](https://github.com/jsaiko/ghost) に触発されたプロジェクトです。ghost は、GDP プロトコル、ホストの wraith、Linux 向けクライアントの spectre からなる、完結したリモートデスクトップシステムです。本プロジェクトは ghost のプロトコルライブラリ libgdp を使い、ghost が公開しているプロトコル仕様と設計ドキュメントをもとに書かれており、Spectre という名前も上流のクライアントから借りています。ghost をオープンソースで公開し、libgdp とプロトコル仕様を MIT ライセンスで提供してくださった作者に深く感謝します。それがなければ、このプロジェクトは存在しませんでした。
-
-spectre-apple は独立したサードパーティ製のクライアントであり、ghost プロジェクトの一部ではありません。
+spectre-apple は、[Joseph Saiko](https://saiko.dev) さんの [ghost](https://github.com/jsaiko/ghost)（GDP プロトコル、ホストの wraith、Linux 向けクライアントの spectre）に触発されたプロジェクトです。ghost の libgdp を使い、ghost が公開している仕様と設計ドキュメントに従い、Spectre という名前も上流のクライアントから借りています。ghost をオープンソースで公開し、libgdp と仕様を MIT ライセンスで提供してくださった作者に深く感謝します。それがなければ、このプロジェクトは存在しませんでした。
 
 ## ライセンス
 
 [MIT](LICENSE)。
 
-- 上流の ghost では、`libgdp/` とプロトコル仕様が MIT、それ以外（上流自身の spectre クライアントを含む）は GPL-3.0-only です。本プロジェクトがビルドするのは `libgdp/` だけで、クライアントのコードは仕様と公開されている標準規格をもとに独自に書いており、GPL の部分からコードをコピーしたり移植したりはしていません。
-- アプリは ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd を静的にリンクしています。いずれも寛容なライセンス（MIT、Apache-2.0、BSD-3-Clause）です。バイナリを配布する場合は、それらのライセンス表示を同梱する必要があります。[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) をご覧ください。
+- 上流の ghost では、`libgdp/` と仕様が MIT、それ以外はすべて GPL-3.0-only です。本プロジェクトがビルドするのは `libgdp/` だけで、GPL の部分からコードをコピーしたり移植したりはしていません。
+- アプリは ngtcp2、OpenSSL、Protocol Buffers、Abseil、zstd（MIT、Apache-2.0、BSD-3-Clause）を静的にリンクしています。それらのライセンス表示は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。

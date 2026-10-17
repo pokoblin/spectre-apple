@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/app-icon.png" width="128" alt="El icono de Spectre">
+<img src="assets/app-icon.png" width="128" alt="El icono de Spectre">
 
 # spectre-apple
 
@@ -14,91 +14,94 @@
 
 </div>
 
-![Spectre en el Mac, conectado a un escritorio GNOME en un host Ubuntu](docs/images/macos-session.webp)
+![Spectre en el Mac, conectado a un escritorio GNOME en un host Ubuntu](assets/macos-session.webp)
 
-ghost es un sistema de escritorio remoto de código abierto: un host (wraith) transmite un escritorio Linux mediante el protocolo GDP, y un cliente lo muestra y devuelve la entrada. spectre-apple lleva ese cliente a los dispositivos de Apple como una app nativa, escrita en Swift con SwiftUI, Metal y VideoToolbox, sobre la propia biblioteca de protocolo de ghost, libgdp.
+ghost es un sistema de escritorio remoto de código abierto: un host (wraith) transmite un escritorio Linux mediante el protocolo GDP, y un cliente lo muestra y devuelve la entrada. spectre-apple es ese cliente para los dispositivos de Apple, escrito en Swift con SwiftUI, Metal y VideoToolbox sobre la biblioteca de protocolo de ghost, libgdp.
 
-spectre-apple es un cliente independiente, de terceros, inspirado en ghost; no forma parte del proyecto ghost. Consulta los [agradecimientos](#agradecimientos).
+Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (consulta los [agradecimientos](#agradecimientos)).
 
 ## Funciones
 
-**Inicio de sesión**
+**Conexión**
 
-- Inicia sesión en un servidor ghost con tu nombre de usuario y contraseña; las demás preguntas, como un código de un solo uso, se hacen por turno. Después eliges un dispositivo y una sesión de escritorio, o tomas el control de una que ya está en marcha.
-- Confianza en el primer uso: en la primera conexión confirmas la huella del certificado del servidor, y se recuerda. **Servidores de confianza…** (en el menú de la app en el Mac; en iPad y iPhone, en el menú de la barra lateral de la pantalla de inicio) muestra las huellas recordadas y te permite olvidarlas.
-- Escribe la contraseña al añadir el servidor y Conectar inicia sesión directamente. Activa **Recordar en el llavero** para guardarla solo en este dispositivo; si no, se guarda hasta que salgas de Spectre.
-- Una conexión perdida (al cambiar de Wi-Fi, al dormirse el Mac o al suspender iOS la app) se vuelve a conectar sola.
+- Inicia sesión con tu nombre de usuario y contraseña, responde a las demás preguntas, como un código de un solo uso, y elige un dispositivo y una sesión de escritorio, o toma el control de una que ya está en marcha.
+- Confianza en el primer uso: confirmas una vez la huella del certificado del servidor y se recuerda; **Servidores de confianza…** las muestra y te permite olvidarlas.
+- Guarda la contraseña con el servidor para Conectar con un toque, si quieres en el llavero.
+- Las conexiones perdidas (al cambiar de Wi-Fi, al dormirse el equipo o al suspender iOS la app) se vuelven a conectar solas.
 
 **Imagen y sonido**
 
-- H.264 y HEVC, decodificados por hardware con VideoToolbox y mostrados con Metal sin copiar fotogramas; las pérdidas de fotogramas y la latencia se comunican al host.
-- El escritorio remoto se ajusta al tamaño de la ventana, o de la pantalla en iPad y iPhone. **Resolución**, en el menú Más de la sesión, lo desactiva o pide la resolución Retina completa.
-- El sonido del escritorio remoto, con un búfer de fluctuación que disimula los paquetes perdidos, y un botón para silenciarlo.
+- H.264 y HEVC, decodificados por hardware y mostrados con Metal sin copiar fotogramas.
+- El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa.
+- En el Mac, la pantalla completa oculta la barra de herramientas y la barra de menús hasta que el puntero llega al borde superior.
+- El sonido del escritorio remoto, con un búfer de fluctuación y un botón para silenciarlo.
 
 **Entrada**
 
 - Las teclas se envían por su posición física, así que la distribución de teclado remota decide qué escriben.
-- Ratón con todos los botones y desplazamiento suave, y un modo capturado con movimiento relativo para juegos y vistas 3D. El cursor remoto se dibuja localmente.
+- Ratón con todos los botones, desplazamiento suave y un modo capturado con movimiento relativo para juegos y 3D; el cursor remoto se dibuja localmente.
 - En iPad: teclados, trackpads y ratones físicos, y los dedos en modo de toque directo o de trackpad.
-- En iPhone y iPad: el teclado en pantalla escribe en el escritorio remoto, con la barra de teclas encima.
+- En iPhone y iPad: el teclado en pantalla, con una barra de teclas para las flechas, Esc, Tab, modificadores que quedan pulsados y combinaciones del sistema como Super+Tab.
 
 **En el Mac**
 
-- Una ventana de inicio con tus hosts y la última imagen de cada uno; cada sesión se abre en su propia ventana, así que puedes tener varias a la vez. Cerrar la ventana de una sesión la desconecta.
-- La barra de herramientas de la ventana tiene a mano el portapapeles, la captura del ratón y el silencio, y la resolución, los mandos, las estadísticas y el cierre de sesión en un menú Más; el subtítulo muestra el tiempo de ida y vuelta y los fotogramas por segundo.
-- Al conectar, al reconectar y si la conexión falla, una tarjeta de cristal aparece sobre la imagen, con Reintentar.
-- Un menú **Session** en la barra de menús: capturar el ratón, enviar el portapapeles al host y enviar las combinaciones que macOS se reserva, como Super+Tab. Sin atajos nuevos: todas las teclas van al escritorio remoto.
+- Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
+- Una barra de herramientas para el portapapeles, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en su subtítulo.
+- Un menú **Session** para la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se reserva. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
 
 **En iPad y iPhone**
 
-- El escritorio remoto ocupa toda la pantalla. Los controles flotan encima en Liquid Glass y se recogen en dos botones redondos en las esquinas inferiores: a la izquierda, la barra de la sesión (Más, pegar en el host, el teclado); a la derecha, una barra de teclas con flechas, Esc, Ctrl+C, Tab, Retroceso e Intro, Ctrl, Alt, Super y Mayús que quedan pulsadas hasta la siguiente tecla, y las combinaciones que iPadOS se reserva, como Super+Tab.
-- Un panel de texto: escribe con los métodos de entrada del iPad, el dictado o pegando, y envíalo todo de una vez al cursor del host, mediante su portapapeles y Ctrl+Mayús+V (o Ctrl+V, o tecleado).
-- Entrada por voz: mantén pulsada la tecla del micrófono y habla (o tócala, habla y vuelve a tocarla); lo que digas se transcribe en el dispositivo, en tu idioma, y se envía al cursor del host como el texto del panel.
-- Pellizca para ampliar la imagen, o usa **Llenar la pantalla** en el menú Sesión; ampliada, la imagen sigue al puntero cerca de los bordes.
-- Avisos de región: enmarca una parte del escritorio remoto, como la salida de un terminal, y Spectre te avisa cuando deja de cambiar (terminó una compilación) o empieza a cambiar, con un banner, o una notificación si su ventana no es la activa.
-- Una pantalla de inicio con tus hosts y la última imagen de cada uno, y un menú **Sesión** en la barra de menús del iPad, sin atajos que quiten teclas al escritorio remoto.
-
-**Compartir**
-
-- Portapapeles de texto en ambos sentidos, desactivado hasta que lo actives.
-- Hasta cuatro mandos, reenviados como mandos estándar.
+- El escritorio remoto ocupa toda la pantalla; los controles flotan encima en Liquid Glass y se recogen en dos botones en las esquinas.
+- Un panel de texto: escribe con los métodos de entrada del sistema, el dictado o pegando, y envíalo todo de una vez al cursor del host.
+- Entrada por voz: mantén pulsada la tecla del micrófono y habla; lo que digas se transcribe en el dispositivo y se escribe en el host.
+- Pellizca para ampliar la imagen, o usa **Llenar la pantalla**; ampliada, la imagen sigue al puntero.
+- Avisos de región: vigila una parte de la pantalla, como un terminal, y recibe un aviso cuando deja de cambiar o empieza a cambiar.
 
 **Y además**
 
-- Desconectar (la sesión remota sigue en marcha) o cerrar sesión (la termina).
-- La interfaz está en inglés, chino simplificado, chino tradicional, japonés y español, según el idioma del sistema.
+- Portapapeles de texto en ambos sentidos (desactivado hasta que lo actives) y hasta cuatro mandos.
+- Desconectar (la sesión sigue en marcha) o cerrar sesión (la termina).
+- Inglés, chino simplificado, chino tradicional, japonés y español.
 
-### Hoja de ruta
-
-Pendiente:
-
-- La capa de refinamiento sin pérdidas (refine) y los códecs AV1 y PyroWave
-- Enviar tu micrófono al escritorio remoto: escrito y probado, desactivado por ahora
-- Comprobar en iOS los certificados emitidos por una autoridad de certificación (por ahora se confía en ellos en el primer uso, como en cualquier otro)
+**Pendiente:** la capa de refinamiento sin pérdidas, AV1 y PyroWave, enviar tu micrófono al host (escrito, desactivado por ahora) y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
 ## Capturas de pantalla
 
 | La ventana de inicio en el Mac | Una sesión en iPad |
 |---|---|
-| ![La ventana de inicio en el Mac: los hosts en la barra lateral y, del elegido, la última imagen y Conectar](docs/images/macos-home.webp) | ![Un escritorio GNOME en iPad, del tamaño de la pantalla del iPad, con la barra de teclas abierta en la esquina inferior derecha](docs/images/ipad-session.webp) |
+| ![La ventana de inicio en el Mac: los hosts en la barra lateral y, del elegido, la última imagen y Conectar](assets/macos-home.webp) | ![Un escritorio GNOME en iPad, del tamaño de la pantalla del iPad, con la barra de teclas abierta en la esquina inferior derecha](assets/ipad-session.webp) |
 
 ## Requisitos
 
-- Un Mac con Apple silicon y macOS 27, o un iPhone o iPad con iOS o iPadOS 27 (solo arm64)
-- Un host ghost al que conectarte (ghostd y wraith); consulta el proyecto [ghost](https://github.com/jsaiko/ghost) para montar uno
+- Un Mac con Apple silicon y macOS 27, o un iPhone o iPad con iOS o iPadOS 27
+- Un host ghost (ghostd y wraith); consulta el proyecto [ghost](https://github.com/jsaiko/ghost) para montar uno
 
-## Primeros pasos
+## Instalación
 
-La app para Mac está en [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest): descarga el `.dmg`, ábrelo y arrastra Spectre a Aplicaciones. Está firmada con un Developer ID y notarizada por Apple.
+Descarga el `.dmg` notarizado para Mac desde [GitHub Releases](https://github.com/pokoblin/spectre-apple/releases/latest) y arrastra Spectre a Aplicaciones. Para iPhone y iPad, compílalo desde el código fuente.
 
-Para iPhone y iPad, o para trabajar en Spectre, compílalo desde el código fuente como se explica a continuación.
+## Uso
 
-### Herramientas
+Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña. Luego **Conectar** y elige un escritorio. En la primera conexión, confirma la huella del certificado del servidor.
 
-- Xcode 27, con el entorno de ejecución del simulador de iOS 27
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen)
-- `cmake` (3.25 o posterior) y `ninja`: `brew install cmake ninja`
-- [vcpkg](https://github.com/microsoft/vcpkg), a ser posible fijado en el commit que usa la CI del proyecto original:
+En el Mac, cada sesión se abre en su propia ventana; al cerrarla se desconecta y el escritorio sigue abierto en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
+
+**Teclado en el Mac.** Cmd se envía como Super, así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
+
+| Atajo | Acción |
+|---|---|
+| Ctrl+Cmd+G | Capturar o liberar el ratón |
+| Ctrl+Cmd+F | Pantalla completa |
+| Cmd+Q | Salir |
+
+**Toques en iPad y iPhone.** **Más › Modo de entrada** cambia entre:
+
+- **Trackpad** (predeterminado): mueve el cursor con un dedo y toca para hacer clic.
+- **Táctil**: el puntero va donde tocas. Toca para hacer clic, mantén pulsado para el clic derecho, arrastra con un dedo, desplázate con dos y toca con dos o tres dedos para el clic derecho o central.
+
+## Compilar desde el código fuente
+
+Necesitas Xcode 27 con el entorno de ejecución del simulador de iOS 27, [XcodeGen](https://github.com/yonaskolb/XcodeGen), `cmake` 3.25 o posterior y `ninja` (`brew install cmake ninja`), y [vcpkg](https://github.com/microsoft/vcpkg), a ser posible en el commit que usa la CI del proyecto original:
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/src/vcpkg
@@ -112,23 +115,19 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 ~/src/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 ```
 
-Si tienes vcpkg en otro sitio que no sea `~/src/vcpkg`, define `VCPKG_ROOT`.
+Si tienes vcpkg en otro sitio, define `VCPKG_ROOT`.
 
-### Compilación
-
-1. Clona el repositorio junto con el submódulo de ghost (en un clon existente, ejecuta `git submodule sync && git submodule update --init`). Por ahora el submódulo apunta al fork [pokoblin/ghost](https://github.com/pokoblin/ghost), que añade la transferencia de archivos al protocolo hasta que el proyecto original la incorpore:
+1. Clona el repositorio con el submódulo de ghost, que por ahora apunta al fork [pokoblin/ghost](https://github.com/pokoblin/ghost) (el original más la transferencia de archivos). En un clon existente, ejecuta `git submodule sync && git submodule update --init`.
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
    ```
 
-2. Compila `GDPCore.xcframework`, que reúne libgdp, sus dependencias y un pequeño puente en C. Se genera en `Packages/GDPKit/Artifacts/` y no se incluye en el repositorio. La primera compilación tarda unos minutos; las siguientes reutilizan la caché binaria de vcpkg. Los registros van a `build/logs/`.
+2. Compila `GDPCore.xcframework` (libgdp, sus dependencias y un puente en C) en `Packages/GDPKit/Artifacts/`. La primera vez tarda unos minutos; indica `macos`, `ios` o `ios-simulator` para compilar solo esos slices.
 
    ```bash
    scripts/build-gdpcore.sh
    ```
-
-   Compila los slices `macos`, `ios` e `ios-simulator`; indica algunos de ellos para compilar solo esos, por ejemplo `scripts/build-gdpcore.sh macos`.
 
 3. Genera el proyecto de Xcode, abre `Spectre.xcodeproj` y ejecuta el esquema `Spectre`:
 
@@ -136,48 +135,17 @@ Si tienes vcpkg en otro sitio que no sea `~/src/vcpkg`, define `VCPKG_ROOT`.
    xcodegen generate
    ```
 
-   O compila la app para Mac desde la línea de comandos:
+   O compila la app para Mac desde la línea de comandos y cópiala a Aplicaciones:
 
    ```bash
    xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=macOS,arch=arm64' -configuration Release -derivedDataPath build/DerivedData build
    ```
 
-4. Para quedarte con la app para Mac, cópiala a Aplicaciones:
-
    ```bash
    ditto build/DerivedData/Build/Products/Release/Spectre.app /Applications/Spectre.app
    ```
 
-Para ejecutar Spectre en un iPhone o iPad, elige tu equipo de desarrollo para el target en Xcode.
-
-## Uso
-
-Spectre se abre en una pantalla de inicio con tus hosts. Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña, que se guarda en el llavero si activas **Recordar en el llavero**. Luego haz clic o toca **Conectar** y elige un escritorio; sin contraseña, primero se te pide. En la primera conexión se te pide que confirmes la huella del certificado del servidor. Si el servidor pide algo más, como un código de un solo uso, se pregunta aparte; deja la contraseña vacía para responder así a todas las preguntas.
-
-En el Mac la pantalla de inicio es una ventana propia, y cada sesión se abre en otra ventana; al cerrarla se desconecta y la sesión de escritorio sigue abierta en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
-
-### Teclado y ratón
-
-Cmd se envía como Super (la tecla Windows), así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
-
-| Atajo | Acción |
-|---|---|
-| Ctrl+Cmd+G | Capturar o liberar el ratón (también con el botón Capturar ratón de la barra de herramientas) |
-| Ctrl+Cmd+F | Pantalla completa |
-| Cmd+Q | Salir |
-
-### Toques en iPad y iPhone
-
-**Más › Modo de entrada**, en la barra de la sesión, cambia entre dos modos:
-
-- **Táctil**: el puntero va donde tocas. Toca para hacer clic, mantén pulsado para el clic derecho, arrastra con un dedo para arrastrar, arrastra con dos dedos para desplazarte y toca con dos o tres dedos para el clic derecho o central.
-- **Trackpad** (predeterminado): la pantalla funciona como un trackpad. Mueve el cursor con un dedo y toca para hacer clic.
-
-### Sonido
-
-El sonido del escritorio remoto se reproduce cuando el host lo envía (wraith lo hace cuando puede capturar el audio de la sesión). **Silenciar**, en la barra de herramientas (en iPad y iPhone, el menú Más), lo silencia solo en este dispositivo, y el ajuste se recuerda.
-
-Enviar tu micrófono al escritorio remoto está desactivado por ahora. En iPad y iPhone el micrófono sirve en cambio para la entrada por voz: mantén pulsada la tecla del micrófono en la barra de teclas y habla, y lo que digas se transcribe en el dispositivo y se escribe en el cursor del host.
+Para un iPhone o iPad, elige tu equipo de desarrollo para el target en Xcode.
 
 ## Desarrollo
 
@@ -191,37 +159,24 @@ swift test --package-path Packages/GDPKit
 swift test --package-path Packages/SpectreKit
 ```
 
-Los dos paquetes incluyen un host y un lobby de prueba dentro del proceso, así que las pruebas de extremo a extremo usan una conexión QUIC real por la interfaz de bucle local. Las pruebas de SpectreKit también decodifican barras de color H.264 y HEVC y las dibujan con Metal. Para ejecutarlas en el simulador de iPad:
-
-```bash
-(cd Packages/GDPKit && xcodebuild test -scheme GDPKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-GDPKit)
-```
-
-```bash
-(cd Packages/SpectreKit && xcodebuild test -scheme SpectreKit -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -derivedDataPath ../../build/DerivedData-SpectreKit)
-```
+Los dos paquetes incluyen un host y un lobby de prueba dentro del proceso, así que las pruebas de extremo a extremo usan QUIC real por la interfaz de bucle local. Para el simulador de iPad, ejecuta `xcodebuild test` en cada paquete con `-destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0'`.
 
 ### Sin servidor
 
-Con cualquiera de las opciones siguientes, Spectre se salta el inicio de sesión y empieza a reproducir. Primero codifica con VideoToolbox un flujo de prueba de 10 segundos a 1080p60 (unos 3 segundos) y luego lo repite en bucle. Las estadísticas de decodificación, presentación y sesión aparecen arriba a la izquierda y se imprimen en stdout cada segundo; la barra de herramientas cambia la fuente, el códec y el ritmo de presentación. Hay tres fuentes:
+Estas opciones se saltan el inicio de sesión y reproducen un flujo de prueba generado a 1080p60, con las estadísticas en pantalla y en stdout:
 
-- **Loopback** (la predeterminada): un host de prueba dentro de la app envía el flujo por una sesión GDP real (QUIC en 127.0.0.1). También emite un pitido cada segundo, para probar el sonido.
-- **Direct**: el flujo va directamente al decodificador, sin red.
-- **Remote**: un wraith iniciado con un token estático (§6.11 de la especificación):
-
-```bash
-build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --connect HOST:PORT --token TOKEN --fingerprint SHA256
-```
-
-El modo de rendimiento mide durante N segundos tras 2 segundos de calentamiento, imprime las estadísticas y sale:
+- `--source loopback` (la predeterminada): un host de prueba dentro de la app, por una sesión GDP real en 127.0.0.1
+- `--source direct`: directamente al decodificador, sin red
+- `--connect HOST:PORT --token TOKEN --fingerprint SHA256`: un wraith iniciado con un token estático
+- `--bench N`: mide durante N segundos, imprime los resultados y sale
 
 ```bash
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Otras opciones: `--source loopback|direct`, `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight <N, 0 sin límite>`, `--screen <índice de pantalla>`, `--rate <Hz del display link>`, `--min-present-ms <ms>` y `--host-clipboard <texto>` (el portapapeles inicial del host loopback).
+Además: `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
-### Simulador de iOS y iPadOS
+En el simulador de iOS:
 
 ```bash
 xcodebuild -project Spectre.xcodeproj -scheme Spectre -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5),OS=27.0' -configuration Release -derivedDataPath build/DerivedData build
@@ -235,62 +190,34 @@ xcrun simctl install booted build/DerivedData/Build/Products/Release-iphonesimul
 xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopback
 ```
 
-En iOS la app arranca desde un app delegate de UIKit, para que su controlador de vista raíz pueda bloquear el puntero (véase [docs/input.md](docs/input.md)). Si tienes instalada una compilación anterior a ese cambio, desinstálala una vez con `xcrun simctl uninstall booted org.ghost.spectre.apple`; si no, el sistema restaura la ventana antigua y se queda en negro.
-
-El simulador decodifica el vídeo por software y no informa de `presentedTime`, así que sus tiempos no se pueden comparar con los de un dispositivo o un Mac.
+El simulador decodifica por software, así que sus tiempos no se pueden comparar con los de un dispositivo.
 
 ### Estructura del proyecto
 
 | Ruta | Contenido |
 |---|---|
-| `project.yml` | El proyecto de XcodeGen: un único target de app multiplataforma para macOS e iOS |
-| `App/` | La app: puntos de entrada por plataforma, la pantalla de inicio y las hojas de inicio de sesión, la interfaz de la sesión, los controles flotantes de iPad y iPhone, el icono |
-| `Packages/GDPKit/` | El puente en C hacia libgdp (`Native/`) y su capa en Swift: sesiones, lobby, host de prueba |
-| `Packages/SpectreKit/` | Código compartido: la sesión, la decodificación con VideoToolbox, la presentación con Metal, la entrada, el flujo de inicio de sesión |
+| `project.yml` | El proyecto de XcodeGen: un único target de app multiplataforma |
+| `App/` | La app: puntos de entrada, la pantalla de inicio, la interfaz de la sesión, los controles de iPad y iPhone, el icono |
+| `Packages/GDPKit/` | El puente en C hacia libgdp y su capa en Swift |
+| `Packages/SpectreKit/` | La sesión, la decodificación, la presentación con Metal, la entrada, el inicio de sesión |
 | `scripts/` | Compilan las dependencias y el xcframework |
-| `docs/` | Notas de diseño y mediciones, en chino simplificado |
-| `experiments/` | Experimentos puntuales, como una prueba de interoperabilidad Swift/C++; no forman parte de la app |
-| `third_party/ghost/` | ghost, como submódulo de git: la rama `feat/file-transfer` del fork pokoblin/ghost (el original más la transferencia de archivos); solo se compila libgdp |
-
-### Notas de diseño
-
-Las notas de [`docs/`](docs/) explican cómo funciona cada parte, qué se midió y qué problemas surgieron por el camino. Están escritas en chino simplificado.
-
-- [prototype-findings.md](docs/prototype-findings.md): los tres riesgos técnicos del prototipo y cómo se resolvió cada uno (llamar a libgdp desde Swift, presentación sin copias, compilación cruzada para iOS)
-- [session-client.md](docs/session-client.md): la capa de sesión, contrastada con los §6–§11 de la especificación
-- [login.md](docs/login.md): inicio de sesión en el lobby y confianza en el certificado
-- [saved-logins.md](docs/saved-logins.md): contraseñas guardadas en el llavero, inicio de sesión con un toque
-- [reconnect.md](docs/reconnect.md): reconexión de una sesión perdida, repetición del inicio de sesión, iOS en segundo plano
-- [keep-alive.md](docs/keep-alive.md): keep-alive de QUIC, y cuánto se tarda en detectar una conexión perdida
-- [resolution.md](docs/resolution.md): ajustar el escritorio remoto al tamaño de la ventana
-- [input.md](docs/input.md): teclado, ratón, cursor y toques
-- [keyboard.md](docs/keyboard.md): el teclado en pantalla en iOS, de caracteres a teclas, la barra de teclas
-- [ipad-layout.md](docs/ipad-layout.md): la interfaz de iPad y iPhone: los controles flotantes, la barra de teclas, el panel de texto, la ampliación, la pantalla de inicio, los avisos de región
-- [macos-layout.md](docs/macos-layout.md): la interfaz del Mac: la ventana de inicio, una ventana por sesión, la barra de herramientas, el menú Session
-- [audio.md](docs/audio.md): sonido, búfer de fluctuación, decodificación Opus, micrófono
-- [voice-input.md](docs/voice-input.md): entrada por voz, los modelos de Speech en el dispositivo, la tecla del micrófono
-- [clipboard.md](docs/clipboard.md): el portapapeles en el Mac y en iPad, supresión del eco, el aviso de pegar
-- [gamepad.md](docs/gamepad.md): mandos, la asignación de botones, el botón Home
-- [localization.md](docs/localization.md): los idiomas de la interfaz, el glosario, cómo añadir un texto
-- [app-icon.md](docs/app-icon.md): el icono de la app y cómo cambiarlo
+| `third_party/ghost/` | ghost como submódulo (el fork pokoblin/ghost); solo se compila libgdp |
 
 ## Cómo contribuir
 
-Las incidencias y las pull requests son bienvenidas; para cambios grandes, abre antes una incidencia. Ten en cuenta lo siguiente:
+Las incidencias y las pull requests son bienvenidas; para cambios grandes, abre antes una incidencia.
 
-- El cliente está escrito a partir de la especificación de GDP (`third_party/ghost/docs/spec/gdp-spec.md`) y de estándares públicos. La mayor parte del proyecto ghost original es GPL-3.0, así que no copies ni adaptes código de él, incluido su propio cliente spectre; solo `libgdp/` y la especificación son MIT.
-- Ejecuta las pruebas de los dos paquetes antes de enviar un cambio, y actualiza la nota correspondiente de `docs/` cuando cambie el comportamiento.
-- Los textos nuevos de la interfaz necesitan traducción a todos los idiomas en los String Catalogs; consulta [docs/localization.md](docs/localization.md).
+- Escribe el código cliente a partir de la especificación de GDP (`third_party/ghost/docs/spec/gdp-spec.md`) y de estándares públicos. La mayor parte del proyecto ghost original es GPL-3.0, así que no copies ni adaptes código de él, incluido su cliente spectre; solo `libgdp/` y la especificación son MIT.
+- Ejecuta las pruebas de los dos paquetes antes de enviar un cambio.
+- Los textos nuevos de la interfaz necesitan traducción a todos los idiomas; `scripts/sync-strings.sh` actualiza los String Catalogs.
 
 ## Agradecimientos
 
-spectre-apple está inspirado en [ghost](https://github.com/jsaiko/ghost), de [Joseph Saiko](https://saiko.dev), un sistema completo de escritorio remoto formado por el protocolo GDP, el host wraith y el cliente spectre para Linux. Este proyecto usa la biblioteca de protocolo de ghost, libgdp, está escrito a partir de la especificación del protocolo y los documentos de diseño publicados por ghost, y toma el nombre Spectre del cliente original. Muchas gracias al autor por publicar ghost como código abierto y por liberar libgdp y la especificación del protocolo bajo la licencia MIT; sin ello este proyecto no existiría.
-
-spectre-apple es un cliente independiente, de terceros, y no forma parte del proyecto ghost.
+spectre-apple está inspirado en [ghost](https://github.com/jsaiko/ghost), de [Joseph Saiko](https://saiko.dev): el protocolo GDP, el host wraith y el cliente spectre para Linux. Usa la biblioteca libgdp de ghost, sigue su especificación y sus documentos de diseño publicados, y toma el nombre Spectre del cliente original. Muchas gracias al autor por publicar ghost como código abierto y por liberar libgdp y la especificación bajo la licencia MIT; sin ello este proyecto no existiría.
 
 ## Licencia
 
 [MIT](LICENSE).
 
-- En el proyecto ghost original, `libgdp/` y la especificación del protocolo son MIT, y todo lo demás (incluido su propio cliente spectre) es GPL-3.0-only. Este proyecto solo compila `libgdp/`; su código cliente está escrito a partir de la especificación y de estándares públicos, y no copia ni adapta código de las partes GPL.
-- La app enlaza estáticamente ngtcp2, OpenSSL, Protocol Buffers, Abseil y zstd, todas con licencias permisivas (MIT, Apache-2.0, BSD-3-Clause). Una distribución binaria debe incluir sus avisos de licencia: véase [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+- En el proyecto ghost original, `libgdp/` y la especificación son MIT, y todo lo demás es GPL-3.0-only. Este proyecto solo compila `libgdp/`, y nada de su código está copiado ni adaptado de las partes GPL.
+- La app enlaza estáticamente ngtcp2, OpenSSL, Protocol Buffers, Abseil y zstd (MIT, Apache-2.0, BSD-3-Clause); sus avisos de licencia están en [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
