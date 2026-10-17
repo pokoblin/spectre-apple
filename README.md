@@ -28,6 +28,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Trust on first use: confirm the server's certificate fingerprint once and it is remembered; **Trusted Servers…** lists and forgets them.
 - Save the password with the server for one-tap Connect, optionally in the Keychain.
 - Lost connections (Wi-Fi changes, sleep, iOS suspending the app) reconnect by themselves.
+- Disconnect (the desktop session keeps running) or log out (it ends).
 
 **Picture and sound**
 
@@ -42,12 +43,21 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Mouse with every button, smooth scrolling and a captured relative mode for games and 3D; the remote cursor is drawn locally.
 - On iPad: hardware keyboards, trackpads and mice, plus touch in a direct or trackpad mode.
 - On iPhone and iPad: the on-screen keyboard, with a key bar for arrows, Esc, Tab, sticky modifiers and system combinations such as Super+Tab.
+- Up to four game controllers.
+
+**Clipboard and files**
+
+- Two-way text clipboard, off until you switch it on.
+- Send files to the host: drop them on the picture, or use **Send Files…**. They land in the host user's download folder, never over an existing file, and Spectre says which folder.
+- Files copied on the host can be downloaded: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
+- On the Mac, with the clipboard shared, a copy of files on the host (up to 100 MB in all) goes straight onto the Mac's clipboard, so **Paste** in the Finder pastes the files themselves.
+- Progress, cancelling and the results in a list of transfers. Needs a host with file transfer; see [Requirements](#requirements).
 
 **On the Mac**
 
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
-- A toolbar for clipboard, mouse capture and mute, with the round trip and frame rate in its subtitle.
-- A **Session** menu for mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
+- A toolbar for files, clipboard, mouse capture and mute, with the round trip and frame rate in its subtitle.
+- A **Session** menu for files, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
 
 **On iPad and iPhone**
 
@@ -57,13 +67,9 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Pinch to magnify, or **Fill Screen**; the magnified picture follows the pointer.
 - Region alerts: watch part of the screen, such as a terminal, and be told when it stops or starts changing.
 
-**And also**
+**Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-- Two-way text clipboard (off until you switch it on) and up to four game controllers.
-- Disconnect (the session keeps running) or log out (it ends).
-- English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
-
-**Not done yet:** the lossless refinement layer, AV1 and PyroWave, sending your microphone to the host (written, turned off for now), and checking CA-issued certificates on iOS.
+**Not done yet:** the lossless refinement layer, AV1 and PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
@@ -75,6 +81,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - A Mac with Apple silicon on macOS 27, or an iPhone or iPad on iOS or iPadOS 27
 - A ghost host (ghostd and wraith); see [ghost](https://github.com/jsaiko/ghost) for setting one up
+- For file transfer, a wraith that offers it: until upstream takes it ([jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)), build the host from the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork's `feat/file-transfer` branch. Everything else works with upstream ghost.
 
 ## Install
 
@@ -85,6 +92,8 @@ Download the notarized `.dmg` for the Mac from [GitHub Releases](https://github.
 Add a server with **+**: its address (`host` or `host:port`, port 4442 by default), your user name and optionally your password. Then **Connect** and choose a desktop. On the first connection, confirm the server's certificate fingerprint.
 
 On the Mac, each session opens in its own window; closing it disconnects and leaves the desktop running on the host. On iPad and iPhone the session covers the home screen.
+
+**Files.** Drop files on the picture, or choose **Send Files…** (on the Mac in the toolbar and the Session menu, on iPad and iPhone under **More › Files**). The host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. When the host's user copies files, Spectre offers to download them; with the clipboard shared, small copies (up to 100 MB in all) go straight onto the Mac's clipboard instead. Folders can't be sent either way yet.
 
 **Keyboard on the Mac.** Cmd is sent as Super, so copy and paste on the remote desktop stay Ctrl+C and Ctrl+V. Only these shortcuts stay local:
 
@@ -117,7 +126,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Set `VCPKG_ROOT` if vcpkg lives elsewhere.
 
-1. Clone with the ghost submodule, which points at the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork (upstream plus file transfer) for now. In an existing clone, run `git submodule sync && git submodule update --init`.
+1. Clone with the ghost submodule, which points at the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork (upstream plus file transfer) until upstream takes the file transfer pull requests. In an existing clone, run `git submodule sync && git submodule update --init`.
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -176,6 +185,8 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 Also: `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
+For file transfer with the loopback host: `--send-file PATH` sends a file once the session starts, `--host-file PATH` has the test host's user copy one (both can be given more than once), `--download-copied` downloads every copy, and `--download-dir DIR` puts downloads in `DIR`.
+
 In the iOS simulator:
 
 ```bash
@@ -197,9 +208,9 @@ The simulator decodes in software, so its timings aren't comparable with a devic
 | Path | Contents |
 |---|---|
 | `project.yml` | XcodeGen project: one multiplatform app target |
-| `App/` | The app: entry points, home screen, session UI, iPad and iPhone controls, icon |
+| `App/` | The app: entry points, home screen, session UI, file transfer views, iPad and iPhone controls, icon |
 | `Packages/GDPKit/` | The C bridge to libgdp and its Swift wrapper |
-| `Packages/SpectreKit/` | Session, decoding, Metal presentation, input, login |
+| `Packages/SpectreKit/` | Session, decoding, Metal presentation, input, clipboard, file transfers, login |
 | `scripts/` | Builds the dependencies and the xcframework |
 | `third_party/ghost/` | ghost as a submodule (pokoblin/ghost fork); only libgdp is built |
 

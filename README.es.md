@@ -28,6 +28,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Confianza en el primer uso: confirmas una vez la huella del certificado del servidor y se recuerda; **Servidores de confianza…** las muestra y te permite olvidarlas.
 - Guarda la contraseña con el servidor para Conectar con un toque, si quieres en el llavero.
 - Las conexiones perdidas (al cambiar de Wi-Fi, al dormirse el equipo o al suspender iOS la app) se vuelven a conectar solas.
+- Desconectar (la sesión de escritorio sigue en marcha) o cerrar sesión (la termina).
 
 **Imagen y sonido**
 
@@ -42,12 +43,21 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Ratón con todos los botones, desplazamiento suave y un modo capturado con movimiento relativo para juegos y 3D; el cursor remoto se dibuja localmente.
 - En iPad: teclados, trackpads y ratones físicos, y los dedos en modo de toque directo o de trackpad.
 - En iPhone y iPad: el teclado en pantalla, con una barra de teclas para las flechas, Esc, Tab, modificadores que quedan pulsados y combinaciones del sistema como Super+Tab.
+- Hasta cuatro mandos.
+
+**Portapapeles y archivos**
+
+- Portapapeles de texto en ambos sentidos, desactivado hasta que lo actives.
+- Envía archivos al host: suéltalos sobre la imagen o usa **Enviar archivos…**. Se guardan en la carpeta de descargas del usuario del host, nunca encima de un archivo existente, y Spectre te dice en qué carpeta.
+- Los archivos copiados en el host se pueden descargar: en Descargas en el Mac, y en la carpeta de Spectre de la app Archivos en iPad y iPhone.
+- En el Mac, con el portapapeles compartido, lo que copies en el host (hasta 100 MB en total) pasa directamente al portapapeles del Mac, así que **Pegar** en el Finder pega los propios archivos.
+- Progreso, cancelación y resultados en una lista de transferencias. Hace falta un host con transferencia de archivos; consulta [Requisitos](#requisitos).
 
 **En el Mac**
 
 - Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
-- Una barra de herramientas para el portapapeles, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en su subtítulo.
-- Un menú **Session** para la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se reserva. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
+- Una barra de herramientas para los archivos, el portapapeles, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en su subtítulo.
+- Un menú **Session** para los archivos, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se reserva. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
 
 **En iPad y iPhone**
 
@@ -57,13 +67,9 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Pellizca para ampliar la imagen, o usa **Llenar la pantalla**; ampliada, la imagen sigue al puntero.
 - Avisos de región: vigila una parte de la pantalla, como un terminal, y recibe un aviso cuando deja de cambiar o empieza a cambiar.
 
-**Y además**
+**Idiomas:** inglés, chino simplificado, chino tradicional, japonés y español.
 
-- Portapapeles de texto en ambos sentidos (desactivado hasta que lo actives) y hasta cuatro mandos.
-- Desconectar (la sesión sigue en marcha) o cerrar sesión (la termina).
-- Inglés, chino simplificado, chino tradicional, japonés y español.
-
-**Pendiente:** la capa de refinamiento sin pérdidas, AV1 y PyroWave, enviar tu micrófono al host (escrito, desactivado por ahora) y comprobar en iOS los certificados emitidos por una autoridad de certificación.
+**Pendiente:** la capa de refinamiento sin pérdidas, AV1 y PyroWave, enviar tu micrófono al host (escrito, desactivado por ahora), enviar carpetas y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
 ## Capturas de pantalla
 
@@ -75,6 +81,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 - Un Mac con Apple silicon y macOS 27, o un iPhone o iPad con iOS o iPadOS 27
 - Un host ghost (ghostd y wraith); consulta el proyecto [ghost](https://github.com/jsaiko/ghost) para montar uno
+- Para transferir archivos, un wraith que lo ofrezca: hasta que el proyecto original lo incorpore ([jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)), compila el host desde la rama `feat/file-transfer` del fork [pokoblin/ghost](https://github.com/pokoblin/ghost). Todo lo demás funciona con el ghost original.
 
 ## Instalación
 
@@ -85,6 +92,8 @@ Descarga el `.dmg` notarizado para Mac desde [GitHub Releases](https://github.co
 Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña. Luego **Conectar** y elige un escritorio. En la primera conexión, confirma la huella del certificado del servidor.
 
 En el Mac, cada sesión se abre en su propia ventana; al cerrarla se desconecta y el escritorio sigue abierto en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
+
+**Archivos.** Suelta archivos sobre la imagen o elige **Enviar archivos…** (en el Mac, en la barra de herramientas y el menú Session; en iPad y iPhone, en **Más › Archivos**). El host los guarda en la carpeta de descargas de su usuario (`~/Downloads`, o `[files] directory` en wraith.toml), como «nombre (1).ext» si el nombre ya existe. Cuando el usuario del host copia archivos, Spectre ofrece descargarlos; con el portapapeles compartido, las copias pequeñas (hasta 100 MB en total) pasan directamente al portapapeles del Mac. Todavía no se pueden enviar carpetas en ningún sentido.
 
 **Teclado en el Mac.** Cmd se envía como Super, así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
 
@@ -117,7 +126,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Si tienes vcpkg en otro sitio, define `VCPKG_ROOT`.
 
-1. Clona el repositorio con el submódulo de ghost, que por ahora apunta al fork [pokoblin/ghost](https://github.com/pokoblin/ghost) (el original más la transferencia de archivos). En un clon existente, ejecuta `git submodule sync && git submodule update --init`.
+1. Clona el repositorio con el submódulo de ghost, que apunta al fork [pokoblin/ghost](https://github.com/pokoblin/ghost) (el original más la transferencia de archivos) hasta que el proyecto original incorpore las pull requests de transferencia de archivos. En un clon existente, ejecuta `git submodule sync && git submodule update --init`.
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -176,6 +185,8 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 Además: `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
+Para probar la transferencia de archivos con el host de loopback: `--send-file PATH` envía un archivo al empezar la sesión, `--host-file PATH` hace que el usuario del host de prueba copie uno (ambas opciones se pueden repetir), `--download-copied` descarga cada copia y `--download-dir DIR` guarda las descargas en `DIR`.
+
 En el simulador de iOS:
 
 ```bash
@@ -197,9 +208,9 @@ El simulador decodifica por software, así que sus tiempos no se pueden comparar
 | Ruta | Contenido |
 |---|---|
 | `project.yml` | El proyecto de XcodeGen: un único target de app multiplataforma |
-| `App/` | La app: puntos de entrada, la pantalla de inicio, la interfaz de la sesión, los controles de iPad y iPhone, el icono |
+| `App/` | La app: puntos de entrada, la pantalla de inicio, la interfaz de la sesión, la transferencia de archivos, los controles de iPad y iPhone, el icono |
 | `Packages/GDPKit/` | El puente en C hacia libgdp y su capa en Swift |
-| `Packages/SpectreKit/` | La sesión, la decodificación, la presentación con Metal, la entrada, el inicio de sesión |
+| `Packages/SpectreKit/` | La sesión, la decodificación, la presentación con Metal, la entrada, el portapapeles, la transferencia de archivos, el inicio de sesión |
 | `scripts/` | Compilan las dependencias y el xcframework |
 | `third_party/ghost/` | ghost como submódulo (el fork pokoblin/ghost); solo se compila libgdp |
 
