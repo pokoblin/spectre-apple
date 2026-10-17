@@ -8,14 +8,17 @@ public protocol FileSender: AnyObject, Sendable {
     func offerFile(name: String, size: UInt64, modified: Date?) -> UInt64?
     func sendFileData(_ id: UInt64, _ data: Data)
     func cancelFile(_ id: UInt64)
+    func requestFile(listID: UInt64, index: UInt32) -> UInt64?
+    func consumeFileData(_ id: UInt64, _ count: Int)
     func linkStats() -> GDPSession.LinkStats?
 }
 
 extension GDPSession: FileSender {}
 
-/// A session window's files on their way to the host (gdp-spec.md §7.12): a
-/// queue the user adds to, at most ``GDPSession/fileStreamsAtOnce`` offered
-/// at once, each read as the host takes it in.
+/// A session window's files on their way to the host, and the host's
+/// copied files on their way here (gdp-spec.md §7.12): one queue, at most
+/// ``GDPSession/fileStreamsAtOnce`` going at once, each read as the host
+/// takes it in, or written as it arrives.
 ///
 /// It outlives a connection: ``attach(_:)`` gives it the session to send
 /// through (one with `file` in effect), ``detach()`` takes it away when the
@@ -28,32 +31,50 @@ extension GDPSession: FileSender {}
 /// ``UploadWindow`` allows; each acknowledgement makes room for the next.
 /// Nothing reads a whole file into memory.
 ///
+/// The host lists what its user copies (``hostFiles``);
+/// ``downloadCopiedFiles()`` fetches them into ``downloadDirectory``, each
+/// through a hidden temporary file there, renamed into place ("name 2.ext"
+/// when the name is taken) once every byte is down. A file's bytes are
+/// handed back to the session only once written, so a slow disk holds the
+/// host back.
+///
 /// The session's file events reach it through the ``Link`` that
 /// ``attach(_:)`` returns, from the session's queue; everything the
 /// interface reads is on the main actor.
 @MainActor
 @Observable
 public final class FileTransfers {
+    public enum Direction: Sendable, Equatable {
+        /// To the host.
+        case upload
+        /// From the host: one of its copied files.
+        case download
+    }
+
     public struct Item: Identifiable, Sendable, Equatable {
         public enum State: Sendable, Equatable {
             /// In the queue, or being opened.
             case waiting
-            /// Offered, waiting for the host's answer.
+            /// Offered (or asked for), waiting for the host's answer.
             case offered
             case sending
-            /// Stored by the host under `name`.
+            /// An upload: stored by the host under `name`. A download:
+            /// stored here under `name`, at ``Item/localURL``.
             case saved(name: String)
             case failed(Failure)
             case cancelled
         }
 
         public let id: Int
-        /// As the user knows it.
+        public internal(set) var direction: Direction = .upload
+        /// As the user knows it (a download: as the host named it).
         public let name: String
-        public let size: UInt64
-        /// Bytes the host has acknowledged.
+        public internal(set) var size: UInt64
+        /// Bytes the host has acknowledged, or (a download) written here.
         public internal(set) var sent: UInt64 = 0
         public internal(set) var state: State = .waiting
+        /// A download, once stored.
+        public internal(set) var localURL: URL?
 
         public var isFinished: Bool {
             switch state {
@@ -80,18 +101,35 @@ public final class FileTransfers {
         case timedOut
         /// The connection ended (or the host stopped taking files) before it went.
         case notSent
+        /// A download: it couldn't be written here.
+        case couldntSave
+    }
+
+    /// What the host's user copied (§7.12), to download.
+    public struct HostFiles: Sendable, Equatable {
+        public var listID: UInt64
+        public var files: [GDPSession.FileListEntry]
+        /// Those that can be downloaded (not folders).
+        public var downloadable: [GDPSession.FileListEntry] { files.filter { !$0.isDirectory } }
     }
 
     /// A run of transfers that has just finished (nothing left going), for
     /// a notice; `serial` tells one from the next.
     public struct Batch: Sendable, Equatable {
         public var serial: Int
-        /// The host's names of what was saved, and the user's names of what wasn't.
+        /// The host's names of what was saved, the names of what was
+        /// downloaded here, and of what didn't go either way.
         public var saved: [String]
         public var failed: [String]
+        public var downloaded: [String] = []
     }
 
     public private(set) var items: [Item] = []
+    /// The host's copied files, while it has some (nil: none, or no session).
+    public private(set) var hostFiles: HostFiles?
+    /// Where downloads go: the user's Downloads folder unless set.
+    @ObservationIgnored public var downloadDirectory: URL = FileManager.default.urls(for: .downloadsDirectory,
+                                                                                   in: .userDomainMask)[0]
     public private(set) var lastBatch: Batch?
     /// Whether there is a session to send through.
     public private(set) var isAvailable = false
@@ -112,10 +150,16 @@ public final class FileTransfers {
     /// What the batch going on so far has come to.
     @ObservationIgnored private var batchSaved: [String] = []
     @ObservationIgnored private var batchFailed: [String] = []
+    @ObservationIgnored private var batchDownloaded: [String] = []
     @ObservationIgnored private var nextID = 0
-    /// Files waiting to be opened and offered, oldest first.
-    @ObservationIgnored private var queue: [(id: Int, source: FileSource)] = []
-    /// Every unfinished item's source, to queue it again after a detach.
+    /// What one item does: offer a file, or fetch one of the host's.
+    private enum Job {
+        case upload(FileSource)
+        case download(listID: UInt64, index: UInt32)
+    }
+    /// Items waiting to go, oldest first.
+    @ObservationIgnored private var queue: [(id: Int, job: Job)] = []
+    /// Every unfinished upload's source, to queue it again after a detach.
     @ObservationIgnored private var sources: [Int: FileSource] = [:]
     /// Item ids being opened or offered (counted against the stream limit).
     @ObservationIgnored private var busy: Set<Int> = []
@@ -124,6 +168,8 @@ public final class FileTransfers {
     @ObservationIgnored private var itemIDs: [UInt64: Int] = [:]
     /// The pumps by attachment and the session's id: reached from its queue too.
     @ObservationIgnored nonisolated private let pumps = Mutex<[PumpKey: FilePump]>([:])
+    /// The same for downloads: where each one's bytes are written.
+    @ObservationIgnored nonisolated private let sinks = Mutex<[PumpKey: FileSink]>([:])
     private struct PumpKey: Hashable { var generation: Int; var wire: UInt64 }
 
     /// Where one attached session's file events go. They count only while
@@ -145,6 +191,16 @@ public final class FileTransfers {
         }
         public func fileFinished(_ wire: UInt64, _ outcome: GDPSession.FileOutcome) {
             transfers?.finished(wire, outcome, generation)
+        }
+        /// GDPSession.Handlers.fileList, fileSending and fileData.
+        public func fileList(_ listID: UInt64, _ files: [GDPSession.FileListEntry]) {
+            transfers?.listed(listID, files, generation)
+        }
+        public func fileSending(_ wire: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) {
+            transfers?.sending(wire, name, size, modified, generation)
+        }
+        public func fileData(_ wire: UInt64, _ bytes: UnsafeRawBufferPointer) {
+            transfers?.received(wire, bytes, generation)
         }
     }
 
@@ -178,14 +234,26 @@ public final class FileTransfers {
             return Array(pumps.values)
         }
         gone.forEach { $0.close() }
+        let unwritten = sinks.withLock { sinks in
+            defer { sinks = [:] }
+            return Array(sinks.values)
+        }
+        unwritten.forEach { $0.abort() }
+        hostFiles = nil
         for id in itemIDs.values { fail(id, .notSent) }
         wireIDs = [:]
         itemIDs = [:]
         busy = []
-        // Those still opening: again, first, next time.
+        // Downloads still queued name a list of the session that went.
+        for (id, job) in queue {
+            if case .download = job { fail(id, .notSent) }
+        }
+        queue.removeAll { if case .download = $0.job { true } else { false } }
+        // Uploads still opening: again, first, next time.
         let queued = Set(queue.map(\.id))
-        let reopening = items.filter { $0.state == .waiting && !queued.contains($0.id) }
-        queue.insert(contentsOf: reopening.compactMap { item in sources[item.id].map { (item.id, $0) } }, at: 0)
+        let reopening = items.filter { $0.direction == .upload && $0.state == .waiting && !queued.contains($0.id) }
+        queue.insert(contentsOf: reopening.compactMap { item in sources[item.id].map { (item.id, .upload($0)) } },
+                     at: 0)
         finishBatchIfDone()
     }
 
@@ -195,7 +263,7 @@ public final class FileTransfers {
         for source in sources {
             nextID += 1
             items.append(Item(id: nextID, name: source.name, size: source.size))
-            queue.append((nextID, source))
+            queue.append((nextID, .upload(source)))
             self.sources[nextID] = source
         }
         startNext()
@@ -220,11 +288,30 @@ public final class FileTransfers {
         finishBatchIfDone()
     }
 
+    /// Downloads every file of ``hostFiles`` into ``downloadDirectory``; a
+    /// folder shows up as failed right away.
+    public func downloadCopiedFiles() {
+        guard let hostFiles else { return }
+        for (index, file) in hostFiles.files.enumerated() {
+            nextID += 1
+            items.append(Item(id: nextID, direction: .download, name: file.name, size: file.size))
+            if file.isDirectory {
+                update(nextID) { $0.state = .failed(.folder) }
+                batchFailed.append(file.name)
+            } else {
+                queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index))))
+            }
+        }
+        startNext()
+        finishBatchIfDone()
+    }
+
     public func cancel(_ id: Int) {
         guard let item = items.first(where: { $0.id == id }), !item.isFinished else { return }
         queue.removeAll { $0.id == id }
         if let wire = wireIDs[id] {
             sender?.cancelFile(wire)
+            sinks.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.abort()
             finish(wire)
         }
         busy.remove(id)
@@ -256,15 +343,54 @@ public final class FileTransfers {
     }
 
     nonisolated fileprivate func finished(_ wire: UInt64, _ outcome: GDPSession.FileOutcome, _ generation: Int) {
-        pumps.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.close()
+        let key = PumpKey(generation: generation, wire: wire)
+        pumps.withLock { $0.removeValue(forKey: key) }?.close()
+        if let sink = sinks.withLock({ $0.removeValue(forKey: key) }) {
+            if case .saved = outcome {
+                // Written out, then put in place: reported once it is.
+                sink.finish { [weak self] result in
+                    Task { @MainActor in self?.downloaded(wire, result, of: generation) }
+                }
+                Task { @MainActor in self.fetched(wire, of: generation) }
+                return
+            }
+            sink.abort()
+        }
         Task { @MainActor in self.finished(wire, outcome, of: generation) }
+    }
+
+    nonisolated fileprivate func listed(_ listID: UInt64, _ files: [GDPSession.FileListEntry], _ generation: Int) {
+        Task { @MainActor in
+            guard generation == self.generation else { return }
+            self.hostFiles = files.isEmpty ? nil : HostFiles(listID: listID, files: files)
+        }
+    }
+
+    nonisolated fileprivate func sending(_ wire: UInt64, _ name: String, _ size: UInt64, _ modified: Date?,
+                                         _ generation: Int) {
+        sinks.withLock { $0[PumpKey(generation: generation, wire: wire)] }?.begin(size: size, modified: modified)
+        Task { @MainActor in
+            guard generation == self.generation, let id = self.itemIDs[wire] else { return }
+            self.update(id) {
+                $0.size = size
+                $0.state = .sending
+            }
+        }
+    }
+
+    nonisolated fileprivate func received(_ wire: UInt64, _ bytes: UnsafeRawBufferPointer, _ generation: Int) {
+        sinks.withLock { $0[PumpKey(generation: generation, wire: wire)] }?.append(bytes)
     }
 
     // MARK: - Internals
 
     private func startNext() {
-        while sender != nil, busy.count < GDPSession.fileStreamsAtOnce, !queue.isEmpty {
-            let (id, source) = queue.removeFirst()
+        while let sender, busy.count < GDPSession.fileStreamsAtOnce, !queue.isEmpty {
+            let (id, job) = queue.removeFirst()
+            guard case .upload(let source) = job else {
+                if case .download(let listID, let index) = job { startDownload(id, listID: listID, index: index, sender) }
+                continue
+            }
             guard let wireName = fileNameForHost(source.name) else {
                 fail(id, .badName)
                 continue
@@ -276,6 +402,80 @@ public final class FileTransfers {
                 await self?.opened(id, source: source, wireName: wireName, reader: reader, generation: generation)
             }
         }
+    }
+
+    private func startDownload(_ id: Int, listID: UInt64, index: UInt32, _ sender: FileSender) {
+        guard let item = items.first(where: { $0.id == id }) else { return }
+        guard let wire = sender.requestFile(listID: listID, index: index) else {
+            fail(id, .notSent)
+            return
+        }
+        busy.insert(id)
+        let generation = generation
+        let sink = FileSink(wire: wire, name: fileNameForHost(item.name) ?? "Download", directory: downloadDirectory,
+                            sender: sender) { [weak self] written in
+            Task { @MainActor in self?.wrote(wire, written, of: generation) }
+        } failed: { [weak self] in
+            Task { @MainActor in self?.couldntSave(wire, of: generation) }
+        }
+        sinks.withLock { $0[PumpKey(generation: generation, wire: wire)] = sink }
+        wireIDs[id] = wire
+        itemIDs[wire] = id
+        update(id) { $0.state = .offered }
+    }
+
+    private func wrote(_ wire: UInt64, _ written: UInt64, of generation: Int) {
+        let key = PumpKey(generation: generation, wire: wire)
+        guard let id = pendingDownloads[key] ?? (generation == self.generation ? itemIDs[wire] : nil) else { return }
+        update(id) { $0.sent = max($0.sent, written) }
+    }
+
+    /// Every byte arrived; the file is still being written out and put in
+    /// place, and its stream's slot is free for the next.
+    private func fetched(_ wire: UInt64, of generation: Int) {
+        guard generation == self.generation, let id = itemIDs[wire] else { return }
+        pendingDownloads[PumpKey(generation: generation, wire: wire)] = id
+        finish(wire)
+        busy.remove(id)
+        startNext()
+    }
+
+    /// Written out and in place (or not). Kept across a detach: the bytes are all here.
+    private func downloaded(_ wire: UInt64, _ result: Result<URL, Error>, of generation: Int) {
+        let key = PumpKey(generation: generation, wire: wire)
+        var found = pendingDownloads.removeValue(forKey: key)
+        if found == nil, generation == self.generation, let live = itemIDs[wire] {
+            // Before fetched() got to it.
+            found = live
+            finish(wire)
+            busy.remove(live)
+            startNext()
+        }
+        // Cancelled while being written out: left as the user said.
+        guard let id = found, items.first(where: { $0.id == id })?.isFinished == false else { return }
+        switch result {
+        case .success(let url):
+            update(id) {
+                $0.sent = $0.size
+                $0.state = .saved(name: url.lastPathComponent)
+                $0.localURL = url
+            }
+            batchDownloaded.append(url.lastPathComponent)
+            finishBatchIfDone()
+        case .failure:
+            fail(id, .couldntSave)
+        }
+    }
+
+    /// Writing a download failed: it is stopped, and its partial file gone.
+    private func couldntSave(_ wire: UInt64, of generation: Int) {
+        guard generation == self.generation, let id = itemIDs[wire] else { return }
+        sender?.cancelFile(wire)
+        sinks.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.abort()
+        finish(wire)
+        busy.remove(id)
+        fail(id, .couldntSave)
+        startNext()
     }
 
     private func opened(_ id: Int, source: FileSource, wireName: String, reader: FileReader?, generation: Int) {
@@ -306,6 +506,9 @@ public final class FileTransfers {
         itemIDs[wire] = id
         update(id) { $0.state = .offered }
     }
+
+    /// Downloads whose bytes have all arrived, until written out.
+    @ObservationIgnored private var pendingDownloads: [PumpKey: Int] = [:]
 
     private func accepted(_ wire: UInt64, of generation: Int) {
         guard generation == self.generation, let id = itemIDs[wire] else { return }
@@ -363,10 +566,12 @@ public final class FileTransfers {
 
     /// Nothing left going: what the batch came to, for a notice.
     private func finishBatchIfDone() {
-        guard !hasActive, !batchSaved.isEmpty || !batchFailed.isEmpty else { return }
-        lastBatch = Batch(serial: (lastBatch?.serial ?? 0) + 1, saved: batchSaved, failed: batchFailed)
+        guard !hasActive, !batchSaved.isEmpty || !batchFailed.isEmpty || !batchDownloaded.isEmpty else { return }
+        lastBatch = Batch(serial: (lastBatch?.serial ?? 0) + 1, saved: batchSaved, failed: batchFailed,
+                          downloaded: batchDownloaded)
         batchSaved = []
         batchFailed = []
+        batchDownloaded = []
     }
 
     /// Forgets the session's id; closes its pump if it is still open.
@@ -463,3 +668,52 @@ final class FilePump: @unchecked Sendable {
         }
     }
 }
+
+/// Carries a session's file events to the ``FileTransfers/Link`` of the
+/// moment, from the session's queue. The host lists its copied files right
+/// after SessionAccept, before the interface has attached a session to its
+/// transfers: the latest list is kept until there is a link to give it to.
+public final class FileEventRelay: Sendable {
+    private struct State {
+        var link: FileTransfers.Link?
+        var pendingList: (UInt64, [GDPSession.FileListEntry])?
+    }
+    private let state = Mutex(State())
+
+    public init() {}
+
+    /// Where events go from now on (nil: nowhere, until the next one). A
+    /// list that came before it is handed over now.
+    public func connect(_ link: FileTransfers.Link?) {
+        let pending: (UInt64, [GDPSession.FileListEntry])? = state.withLock {
+            $0.link = link
+            guard link != nil else { return nil }
+            defer { $0.pendingList = nil }
+            return $0.pendingList
+        }
+        if let link, let (listID, files) = pending { link.fileList(listID, files) }
+    }
+
+    /// Forgets a list kept for a link that never came (the session ended first).
+    public func reset() {
+        state.withLock { $0 = State() }
+    }
+
+    private var link: FileTransfers.Link? { state.withLock { $0.link } }
+
+    public func fileAccepted(_ wire: UInt64) { link?.fileAccepted(wire) }
+    public func fileProgress(_ wire: UInt64, _ acknowledged: UInt64) { link?.fileProgress(wire, acknowledged) }
+    public func fileFinished(_ wire: UInt64, _ outcome: GDPSession.FileOutcome) { link?.fileFinished(wire, outcome) }
+    public func fileSending(_ wire: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) {
+        link?.fileSending(wire, name, size, modified)
+    }
+    public func fileData(_ wire: UInt64, _ bytes: UnsafeRawBufferPointer) { link?.fileData(wire, bytes) }
+    public func fileList(_ listID: UInt64, _ files: [GDPSession.FileListEntry]) {
+        let link: FileTransfers.Link? = state.withLock {
+            if $0.link == nil { $0.pendingList = (listID, files) }
+            return $0.link
+        }
+        link?.fileList(listID, files)
+    }
+}
+

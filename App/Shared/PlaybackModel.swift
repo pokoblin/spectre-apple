@@ -8,7 +8,6 @@ import UIKit
 import GDPKit
 import Observation
 import SpectreKit
-import Synchronization
 
 /// Drives the video path from one of three sources and reports timings once
 /// a second (and, with `--bench`, a summary over a fixed run before exiting):
@@ -20,6 +19,8 @@ import Synchronization
 ///   (a wraith started with a static token, gdp-spec.md §6.11).
 ///
 /// `--host-clipboard TEXT` gives the loopback host a clipboard to send on attach.
+/// `--host-file PATH` (any number of times) has the loopback host's user
+/// "copy" files, for the viewer to download (gdp-spec.md §7.12).
 /// `--send-file PATH` (any number of times) sends files once the first session
 /// takes them (gdp-spec.md §7.12), as if picked: for checking file transfer
 /// from the command line. The app is sandboxed, so the paths must be in its
@@ -138,8 +139,8 @@ final class PlaybackModel {
     /// across reconnects. Usable while ``FileTransfers/isAvailable``: a
     /// session with `file` in effect.
     let files = FileTransfers()
-    /// Where the current session's file events go (it changes with each session).
-    @ObservationIgnored private let fileLink = FileLinkBox()
+    /// Carries the current session's file events to `files` (the link changes with each session).
+    @ObservationIgnored private let fileEvents = FileEventRelay()
     @ObservationIgnored private var fileBatchPrinted = 0
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
@@ -202,6 +203,8 @@ final class PlaybackModel {
     private var hostClipboard: String?
     /// `--send-file` paths, sent at the first SessionAccept with `file`.
     @ObservationIgnored private var sendOnAccept: [URL] = []
+    /// `--host-file` paths: what the loopback host's user has copied.
+    @ObservationIgnored private var hostCopiedFiles: [URL] = []
     private var terminationObserver: NSObjectProtocol?
     /// Held while a stream plays: keeps App Nap from throttling the timers
     /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
@@ -239,6 +242,8 @@ final class PlaybackModel {
         hostClipboard = value("--host-clipboard")
         let arguments = CommandLine.arguments
         sendOnAccept = arguments.indices.dropLast().filter { arguments[$0] == "--send-file" }
+            .map { URL(filePath: arguments[$0 + 1]) }
+        hostCopiedFiles = arguments.indices.dropLast().filter { arguments[$0] == "--host-file" }
             .map { URL(filePath: arguments[$0 + 1]) }
         if let target = value("--connect") {
             let parts = target.split(separator: ":")
@@ -460,7 +465,8 @@ final class PlaybackModel {
             } else {
                 do {
                     // No test tone in a bench run: it measures video.
-                    let host = try LoopbackHost(stream: stream, audio: bench == nil, clipboard: hostClipboard)
+                    let host = try LoopbackHost(stream: stream, audio: bench == nil, clipboard: hostClipboard,
+                                                copiedFiles: hostCopiedFiles)
                     loopback = host
                     print("host files: \(host.fileDirectory.path(percentEncoded: false))")
                     connect(host.sessionConfiguration())
@@ -536,11 +542,15 @@ final class PlaybackModel {
         remote.onStateChange = { [weak self] state in
             Task { @MainActor in self?.sessionStateChanged(state, remote: remote) }
         }
-        // From the session's queue, straight to the transfers' readers.
-        let fileLink = fileLink
-        remote.onFileAccepted = { fileLink.link?.fileAccepted($0) }
-        remote.onFileProgress = { fileLink.link?.fileProgress($0, $1) }
-        remote.onFileFinished = { fileLink.link?.fileFinished($0, $1) }
+        // From the session's queue, straight to the transfers' readers and writers.
+        let fileEvents = fileEvents
+        fileEvents.reset()
+        remote.onFileAccepted = { fileEvents.fileAccepted($0) }
+        remote.onFileProgress = { fileEvents.fileProgress($0, $1) }
+        remote.onFileFinished = { fileEvents.fileFinished($0, $1) }
+        remote.onFileList = { fileEvents.fileList($0, $1) }
+        remote.onFileSending = { fileEvents.fileSending($0, $1, $2, $3) }
+        remote.onFileData = { fileEvents.fileData($0, $1) }
         self.remote = remote
         // Created now, not at SessionAccept: the host's clipboard follows
         // the accept immediately (§7.9) and must find it there.
@@ -613,7 +623,7 @@ final class PlaybackModel {
                 clipboardSync?.start()
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
-                fileLink.link = files.attach(session)
+                fileEvents.connect(files.attach(session))
                 if !sendOnAccept.isEmpty {
                     sendFiles(sendOnAccept)
                     sendOnAccept = []
@@ -862,7 +872,7 @@ final class PlaybackModel {
 
     /// What was on its way fails; the queue waits for a reconnect.
     private func endFiles() {
-        fileLink.link = nil
+        fileEvents.connect(nil)
         files.detach()
     }
 
@@ -1097,14 +1107,5 @@ final class PlaybackModel {
         \(String(format: "gpu %.2f ms, interval %.2f ms (max %.2f)", s.gpu.mean, s.presentInterval.p50, s.presentInterval.max))
         \(String(format: "zero-copy %d/%d, replaced %llu, cpu %.1f%%", s.zeroCopyFrames, s.presentedFrames + s.unpresentedFrames, s.replacedFrames, s.cpuPercent))
         """
-    }
-}
-
-/// The current session's ``FileTransfers/Link``, read on the session's queue.
-private final class FileLinkBox: Sendable {
-    private let value = Mutex<FileTransfers.Link?>(nil)
-    var link: FileTransfers.Link? {
-        get { value.withLock { $0 } }
-        set { value.withLock { $0 = newValue } }
     }
 }

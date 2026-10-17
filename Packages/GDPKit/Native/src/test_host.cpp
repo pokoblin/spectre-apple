@@ -644,6 +644,10 @@ struct TestHost::Impl {
 		auto *sending = reply.mutable_sending();
 		sending->set_name(path.substr(path.find_last_of('/') + 1));
 		sending->set_size(data.size());
+		struct stat st;
+		if (::stat(path.c_str(), &st) == 0) {
+			sending->set_modified_unix_ms(int64_t(st.st_mtimespec.tv_sec) * 1000 + st.st_mtimespec.tv_nsec / 1000000);
+		}
 		f->stream->send_message(reply);
 		f->stream->send(reinterpret_cast<const uint8_t *>(data.data()), data.size(), true);
 		{

@@ -40,6 +40,11 @@ public final class RemoteSession: @unchecked Sendable {
     public var onFileAccepted: (@Sendable (UInt64) -> Void)?
     public var onFileProgress: (@Sendable (UInt64, UInt64) -> Void)?
     public var onFileFinished: (@Sendable (UInt64, GDPSession.FileOutcome) -> Void)?
+    /// Called on the session queue: the host's copied files, and each fetch's
+    /// header and bytes (``FileTransfers/Link/fileList(_:_:)`` and its siblings).
+    public var onFileList: (@Sendable (UInt64, [GDPSession.FileListEntry]) -> Void)?
+    public var onFileSending: (@Sendable (UInt64, String, UInt64, Date?) -> Void)?
+    public var onFileData: (@Sendable (UInt64, UnsafeRawBufferPointer) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -197,6 +202,9 @@ public final class RemoteSession: @unchecked Sendable {
         h.fileAccepted = { [weak self] id in self?.onFileAccepted?(id) }
         h.fileProgress = { [weak self] id, acknowledged in self?.onFileProgress?(id, acknowledged) }
         h.fileFinished = { [weak self] id, outcome in self?.onFileFinished?(id, outcome) }
+        h.fileList = { [weak self] listID, files in self?.onFileList?(listID, files) }
+        h.fileSending = { [weak self] id, name, size, modified in self?.onFileSending?(id, name, size, modified) }
+        h.fileData = { [weak self] id, bytes in self?.onFileData?(id, bytes) }
         let session = GDPSession(handlers: h)
         self.session = session
         stats.setTimingSink { [weak session] decode, present in

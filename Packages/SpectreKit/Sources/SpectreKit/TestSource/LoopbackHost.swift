@@ -26,7 +26,10 @@ public final class LoopbackHost: @unchecked Sendable {
     private var beepIndex = 0 // queue only
 
     /// `clipboard`: the host's clipboard text to start with (gdp-spec.md §7.9).
-    public init(stream: TestStream, audio: Bool = true, clipboard: String? = nil) throws(GDPTestHost.Failure) {
+    /// `copiedFiles`: files the host's user has "copied", for the viewer to
+    /// download (§7.12).
+    public init(stream: TestStream, audio: Bool = true, clipboard: String? = nil,
+                copiedFiles: [URL] = []) throws(GDPTestHost.Failure) {
         var config = GDPTestHost.Configuration()
         config.codecs = [stream.codec.rawValue]
         config.width = UInt32(stream.width)
@@ -39,6 +42,7 @@ public final class LoopbackHost: @unchecked Sendable {
         config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
                                GDPSession.Capability.file]
         config.clipboard = clipboard
+        config.hostFiles = copiedFiles
         fileDirectory = FileManager.default.temporaryDirectory.appending(path: "Loopback Files", directoryHint: .isDirectory)
         // Without the directory the files would only be kept in memory.
         if (try? FileManager.default.createDirectory(at: fileDirectory, withIntermediateDirectories: true)) != nil {

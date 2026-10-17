@@ -29,10 +29,6 @@ private final class MemoryReader: FileReader, @unchecked Sendable {
     func close() {}
 }
 
-private final class LinkBox: Sendable {
-    let link = Mutex<FileTransfers.Link?>(nil)
-}
-
 private final class Flag: Sendable {
     private let value = Mutex(false)
     func set() { value.withLock { $0 = true } }
@@ -66,12 +62,15 @@ private final class Harness {
     /// A new session to the host, attached when accepted: the first, or a reconnect.
     func connect() async throws {
         let accepted = Flag()
-        let box = LinkBox()
+        let relay = FileEventRelay()
         var handlers = GDPSession.Handlers()
         handlers.accepted = { _ in accepted.set() }
-        handlers.fileAccepted = { id in box.link.withLock { $0 }?.fileAccepted(id) }
-        handlers.fileProgress = { id, acked in box.link.withLock { $0 }?.fileProgress(id, acked) }
-        handlers.fileFinished = { id, outcome in box.link.withLock { $0 }?.fileFinished(id, outcome) }
+        handlers.fileAccepted = { relay.fileAccepted($0) }
+        handlers.fileProgress = { relay.fileProgress($0, $1) }
+        handlers.fileFinished = { relay.fileFinished($0, $1) }
+        handlers.fileList = { relay.fileList($0, $1) }
+        handlers.fileSending = { relay.fileSending($0, $1, $2, $3) }
+        handlers.fileData = { relay.fileData($0, $1) }
         session = GDPSession(handlers: handlers)
         var config = host.sessionConfiguration(codecs: ["h264"])
         config.capabilities = [GDPSession.Capability.file]
@@ -80,7 +79,7 @@ private final class Harness {
         #expect(await until { accepted.isSet })
         previousLink = link
         let link = transfers.attach(session)
-        box.link.withLock { $0 = link }
+        relay.connect(link)
         self.link = link
     }
 
@@ -331,5 +330,123 @@ struct UploadWindowTests {
         #expect(woken.withLock { $0 } == 1)
         #expect(budget.reserve(5000, wake: {}) == 1000)
         #expect(budget.inFlight == window)
+    }
+}
+
+/// The host's copied files, downloaded (§7.12).
+@Suite("File downloads (§7.12)", .serialized)
+@MainActor
+struct FileDownloadTests {
+    /// A host "copying" `files` (written to a folder of their own), and a
+    /// download folder; both removed by `done`.
+    private func harness(_ files: [(String, [UInt8])], folder: Bool = false,
+                         downloads: URL? = nil) async throws -> (Harness, URL, URL) {
+        let copied = FileManager.default.temporaryDirectory.appending(path: "spectrekit-copied-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: copied, withIntermediateDirectories: true)
+        var urls: [URL] = []
+        for (name, content) in files {
+            let url = copied.appending(path: name)
+            try Data(content).write(to: url)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSince1970: 1_600_000_000)],
+                                                  ofItemAtPath: url.path(percentEncoded: false))
+            urls.append(url)
+        }
+        if folder {
+            let url = copied.appending(path: "a folder")
+            try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+            urls.append(url)
+        }
+        let h = try await Harness { $0.hostFiles = urls }
+        let target = downloads ?? FileManager.default.temporaryDirectory.appending(path: "spectrekit-dl-\(UUID().uuidString)")
+        try? FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        h.transfers.downloadDirectory = target
+        #expect(await h.until { h.transfers.hostFiles != nil })
+        return (h, copied, target)
+    }
+
+    private func names(in folder: URL) -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: folder.path(percentEncoded: false))) ?? []).sorted()
+    }
+
+    @Test func copiedFilesAreDownloadedIntoTheFolder() async throws {
+        let big = bytes(5 << 20, seed: 9)
+        let (h, copied, target) = try await harness([("notes.txt", Array("copied ✓".utf8)), ("big.bin", big)],
+                                                    folder: true)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.files.map(\.name) == ["notes.txt", "big.bin", "a folder"])
+        #expect(h.transfers.hostFiles?.downloadable.count == 2)
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        let items = h.transfers.items
+        #expect(items.map(\.direction) == [.download, .download, .download])
+        #expect(items.map(\.state) == [.saved(name: "notes.txt"), .saved(name: "big.bin"), .failed(.folder)])
+        #expect(try Data(contentsOf: target.appending(path: "notes.txt")) == Data("copied ✓".utf8))
+        #expect(try Data(contentsOf: target.appending(path: "big.bin")) == Data(big))
+        #expect(items[1].localURL == target.appending(path: "big.bin") && items[1].sent == UInt64(big.count))
+        let mtime = try FileManager.default.attributesOfItem(atPath: target.appending(path: "notes.txt")
+            .path(percentEncoded: false))[.modificationDate] as? Date
+        #expect(mtime?.timeIntervalSince1970 == 1_600_000_000)
+        #expect(names(in: target) == ["big.bin", "notes.txt"]) // no temporary file left
+        #expect(h.transfers.lastBatch?.downloaded == ["notes.txt", "big.bin"])
+        #expect(h.transfers.lastBatch?.failed == ["a folder"])
+    }
+
+    @Test func aTakenNameGetsANumber() async throws {
+        let (h, copied, target) = try await harness([("report.pdf", [1, 2, 3])])
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        try Data("already here".utf8).write(to: target.appending(path: "report.pdf"))
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        #expect(h.transfers.items.map(\.state) == [.saved(name: "report 2.pdf"), .saved(name: "report 3.pdf")])
+        #expect(try Data(contentsOf: target.appending(path: "report.pdf")) == Data("already here".utf8))
+        #expect(try Data(contentsOf: target.appending(path: "report 3.pdf")) == Data([1, 2, 3]))
+    }
+
+    @Test func theListFollowsTheHostsClipboard() async throws {
+        let (h, copied, target) = try await harness([("a.txt", [1])])
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        let first = try #require(h.transfers.hostFiles)
+        let b = copied.appending(path: "b.txt")
+        try Data([2]).write(to: b)
+        h.host.sendFileList([b])
+        #expect(await h.until { h.transfers.hostFiles?.listID != first.listID })
+        #expect(h.transfers.hostFiles?.files.map(\.name) == ["b.txt"])
+        h.host.sendFileList([])
+        #expect(await h.until { h.transfers.hostFiles == nil })
+        h.transfers.downloadCopiedFiles() // nothing to download
+        #expect(h.transfers.items.isEmpty)
+    }
+
+    @Test func aCancelledOrBrokenDownloadLeavesNothingBehind() async throws {
+        let big = bytes(6 << 20, seed: 2)
+        let (h, copied, target) = try await harness([("big.bin", big)])
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { (h.transfers.items.first?.sent ?? 0) > 0 })
+        h.transfers.cancel(h.transfers.items[0].id)
+        #expect(h.transfers.items[0].state == .cancelled)
+        #expect(await h.until { self.names(in: target).isEmpty })
+
+        // The session goes mid-way: failed, and its partial file gone.
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { (h.transfers.items.last?.sent ?? 0) > 0 })
+        h.transfers.detach()
+        #expect(h.transfers.items.last?.state == .failed(.notSent))
+        #expect(h.transfers.hostFiles == nil)
+        #expect(await h.until { self.names(in: target).isEmpty })
+    }
+
+    @Test func aFolderThatCantBeWrittenFails() async throws {
+        let missing = FileManager.default.temporaryDirectory.appending(path: "spectrekit-nowhere-\(UUID().uuidString)")
+            .appending(path: "deeper")
+        let (h, copied, _) = try await harness([("a.txt", [1, 2])], downloads: missing)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied) }
+        try? FileManager.default.removeItem(at: missing) // nowhere to write
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        #expect(h.transfers.items.first?.state == .failed(.couldntSave))
+        #expect(h.transfers.lastBatch?.failed == ["a.txt"])
     }
 }

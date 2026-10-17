@@ -128,6 +128,7 @@ extension FileTransfers.Failure {
         case .cancelledByHost: String(localized: "The host stopped receiving it.")
         case .timedOut: String(localized: "The host didn't answer.")
         case .notSent: String(localized: "The connection ended before it was sent.")
+        case .couldntSave: String(localized: "It couldn't be saved on this device.")
         }
     }
 }
