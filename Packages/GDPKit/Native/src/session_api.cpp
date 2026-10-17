@@ -154,10 +154,12 @@ struct gdpc_session {
 		cb.file_data = [this](uint64_t id, const uint8_t *data, size_t len) {
 			if (callbacks.file_data) callbacks.file_data(callbacks.ctx, id, data, len);
 		};
-		cb.file_finished = [this](uint64_t id, gdpcore::FileOutcome outcome, int32_t error, const std::string &name) {
+		cb.file_finished = [this](uint64_t id, gdpcore::FileOutcome outcome, int32_t error, const std::string &name,
+			const std::string &directory) {
 			if (!callbacks.file_finished) return;
 			bool saved = outcome == gdpcore::FileOutcome::kSaved;
-			callbacks.file_finished(callbacks.ctx, id, static_cast<int32_t>(outcome), error, saved ? name.c_str() : nullptr);
+			callbacks.file_finished(callbacks.ctx, id, static_cast<int32_t>(outcome), error, saved ? name.c_str() : nullptr,
+				saved && !directory.empty() ? directory.c_str() : nullptr);
 		};
 		return cb;
 	}

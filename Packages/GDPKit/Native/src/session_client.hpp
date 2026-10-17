@@ -155,10 +155,12 @@ public:
 		// its bytes now. `file_progress`: how many of them the host has
 		// acknowledged, coalesced. `file_finished`: exactly once per offer
 		// (except after cancel_file()), with the FileErrorCode for kRefused
-		// and kFailed and the stored name for kSaved.
+		// and kFailed, and for kSaved the stored name and the host's folder
+		// it is in (empty if the host doesn't say, and for a fetch).
 		std::function<void(uint64_t id)> file_accepted;
 		std::function<void(uint64_t id, uint64_t acked)> file_progress;
-		std::function<void(uint64_t id, FileOutcome outcome, int32_t error, const std::string &saved_name)>
+		std::function<void(uint64_t id, FileOutcome outcome, int32_t error, const std::string &saved_name,
+			const std::string &saved_directory)>
 			file_finished;
 		// Copied files (§7.12): the host's latest FileList (none: nothing is
 		// copied any more). Then, per request_file() id, the file's name, size
@@ -290,7 +292,8 @@ private:
 	// Returns false once `t` is gone (or the connection is being closed).
 	bool handle_file_reply(FileTransfer *t, const gdp::session::FileReply &reply);
 	// Drops the transfer, then reports it.
-	void finish_file(FileTransfer *t, FileOutcome outcome, int32_t error = 0, const std::string &saved_name = {});
+	void finish_file(FileTransfer *t, FileOutcome outcome, int32_t error = 0, const std::string &saved_name = {},
+		const std::string &saved_directory = {});
 	// Offers the host hasn't answered in time.
 	void expire_file_offers();
 	void handle_video_frame(gdp::VideoFrameReassembler::Frame &frame);

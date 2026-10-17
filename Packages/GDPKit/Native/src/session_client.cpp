@@ -799,7 +799,7 @@ bool SessionClient::handle_file_reply(FileTransfer *t, const gdp::session::FileR
 		return false;
 	case R::kSaved:
 		if (t->state != State::kSent) return out_of_order();
-		finish_file(t, FileOutcome::kSaved, 0, reply.saved().name());
+		finish_file(t, FileOutcome::kSaved, 0, reply.saved().name(), reply.saved().directory());
 		return false;
 	case R::kFailed:
 		if (t->state == State::kOffered) return out_of_order();
@@ -811,12 +811,13 @@ bool SessionClient::handle_file_reply(FileTransfer *t, const gdp::session::FileR
 	}
 }
 
-void SessionClient::finish_file(FileTransfer *t, FileOutcome outcome, int32_t error, const std::string &saved_name) {
+void SessionClient::finish_file(FileTransfer *t, FileOutcome outcome, int32_t error, const std::string &saved_name,
+	const std::string &saved_directory) {
 	uint64_t id = t->id;
 	// Dropping the stream: let go gracefully once our side has finished
 	// (the host's last frames still arrive), reset otherwise.
 	files_.erase(id);
-	if (cb_.file_finished) cb_.file_finished(id, outcome, error, saved_name);
+	if (cb_.file_finished) cb_.file_finished(id, outcome, error, saved_name, saved_directory);
 }
 
 void SessionClient::expire_file_offers() {

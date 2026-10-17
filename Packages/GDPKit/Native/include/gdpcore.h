@@ -292,10 +292,12 @@ typedef struct {
     // (coalesced); and how it ended, exactly once per offer unless it was
     // cancelled. `outcome` is a gdpc_file_outcome, `error` the
     // FileErrorCode of a refusal or failure, `saved_name` the name it was
-    // stored under (NULL unless saved).
+    // stored under and `saved_directory` the host's folder it is in (NULL
+    // unless saved; the folder also when the host doesn't say).
     void (*file_accepted)(void *ctx, uint64_t id);
     void (*file_progress)(void *ctx, uint64_t id, uint64_t acked);
-    void (*file_finished)(void *ctx, uint64_t id, int32_t outcome, int32_t error, const char *saved_name);
+    void (*file_finished)(void *ctx, uint64_t id, int32_t outcome, int32_t error, const char *saved_name,
+                          const char *saved_directory);
     // Copied files (§7.12): the host's latest FileList (count 0: nothing is
     // copied any more). Then, per gdpc_session_request_file() id, the file
     // as the host sends it (name, size, time), and its bytes in order: hand

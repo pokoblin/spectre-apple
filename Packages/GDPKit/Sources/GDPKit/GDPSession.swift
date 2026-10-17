@@ -181,9 +181,10 @@ public final class GDPSession: @unchecked Sendable {
     /// How a file transfer ended (§7.12).
     public enum FileOutcome: Sendable, Equatable {
         /// An offer: the host stored it, under `name` (the offered one, or
-        /// "name (1).ext" when that was taken). A fetch: every byte arrived,
-        /// `name` being the host's.
-        case saved(name: String)
+        /// "name (1).ext" when that was taken), in `directory` (an absolute
+        /// path on the host; nil if it didn't say). A fetch: every byte
+        /// arrived, `name` being the host's.
+        case saved(name: String, directory: String? = nil)
         /// The host refused the offer.
         case refused(FileError)
         /// The host accepted it, then gave up.
@@ -381,9 +382,10 @@ public final class GDPSession: @unchecked Sendable {
             callbacks.diagnostics_requested = { ctx in GDPSession.from(ctx).handlers.diagnosticsRequested?() }
             callbacks.file_accepted = { ctx, id in GDPSession.from(ctx).handlers.fileAccepted?(id) }
             callbacks.file_progress = { ctx, id, acked in GDPSession.from(ctx).handlers.fileProgress?(id, acked) }
-            callbacks.file_finished = { ctx, id, outcome, error, name in
+            callbacks.file_finished = { ctx, id, outcome, error, name, directory in
                 let result: FileOutcome = switch outcome {
-                case Int32(GDPC_FILE_SAVED.rawValue): .saved(name: name.map { String(cString: $0) } ?? "")
+                case Int32(GDPC_FILE_SAVED.rawValue):
+                    .saved(name: name.map { String(cString: $0) } ?? "", directory: directory.map { String(cString: $0) })
                 case Int32(GDPC_FILE_REFUSED.rawValue): .refused(FileError(code: error))
                 case Int32(GDPC_FILE_FAILED.rawValue): .failed(FileError(code: error))
                 case Int32(GDPC_FILE_CANCELLED.rawValue): .cancelledByHost

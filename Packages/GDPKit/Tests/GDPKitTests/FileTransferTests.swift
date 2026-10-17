@@ -226,8 +226,11 @@ struct FileTransferTests {
         let session = try await fileSession(host, rec)
         let data = randomFrame(300_000)
         let modified = Date(timeIntervalSince1970: 1_600_000_000.5)
+        // Where it went, as the host tells it.
+        var folder = dir.path(percentEncoded: false)
+        while folder.count > 1, folder.hasSuffix("/") { folder.removeLast() }
         #expect(try await upload(session, rec, name: "notes.txt", data: data, modified: modified)
-            == .saved(name: "notes (1).txt"))
+            == .saved(name: "notes (1).txt", directory: folder))
         #expect(try Data(contentsOf: dir.appending(path: "notes.txt")) == Data("old".utf8))
         let written = dir.appending(path: "notes (1).txt")
         #expect(try Data(contentsOf: written) == Data(data))

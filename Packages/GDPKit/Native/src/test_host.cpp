@@ -578,6 +578,8 @@ struct TestHost::Impl {
 		}
 		gdp::session::FileReply reply;
 		reply.mutable_saved()->set_name(saved);
+		// Only when there is one: in memory, it says nothing (an older host).
+		reply.mutable_saved()->set_directory(cfg.file_directory);
 		f->stream->send_message(reply);
 		f->stream->send(nullptr, 0, true);
 		{
