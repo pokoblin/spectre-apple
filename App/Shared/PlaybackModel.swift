@@ -144,6 +144,7 @@ final class PlaybackModel {
     /// Carries the current session's file events to `files` (the link changes with each session).
     @ObservationIgnored private let fileEvents = FileEventRelay()
     @ObservationIgnored private var fileBatchPrinted = 0
+    @ObservationIgnored private var clipboardFetchPrinted: FileTransfers.ClipboardFetch?
     private let mailbox = FrameMailbox()
     private let stats: PlaybackStats
     private var player: StreamPlayer?
@@ -631,6 +632,10 @@ final class PlaybackModel {
             if accept.capabilities.contains(GDPSession.Capability.clipboard) {
                 clipboardInEffect = true
                 clipboardSync?.start()
+                #if os(macOS)
+                // The host's copied files, fetched, go on the clipboard (§7.12).
+                files.clipboard = clipboardSync
+                #endif
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
                 fileEvents.connect(files.attach(session))
@@ -899,6 +904,14 @@ final class PlaybackModel {
         #endif
     }
 
+    /// The copied files to offer in a banner: not those on their way to
+    /// the clipboard or on it, only if that didn't work out.
+    var copiedFilesOffer: FileTransfers.HostFiles? {
+        guard let list = copiedFiles else { return nil }
+        if let fetch = files.clipboardFetch, fetch.listID == list.listID, fetch.state != .notOnClipboard { return nil }
+        return list
+    }
+
     func downloadCopiedFiles() {
         print("files: downloading \(files.hostFiles?.downloadable.count ?? 0) copied file(s)")
         files.downloadCopiedFiles()
@@ -911,6 +924,7 @@ final class PlaybackModel {
     }
 
     private func endClipboard() {
+        files.clipboard = nil
         clipboardSync?.stop()
         clipboardSync = nil
         clipboardInEffect = false
@@ -1030,6 +1044,10 @@ final class PlaybackModel {
 
     /// Prints how the last batch of files went, once.
     private func printFileTransfers() {
+        if files.clipboardFetch != clipboardFetchPrinted {
+            clipboardFetchPrinted = files.clipboardFetch
+            if let fetch = files.clipboardFetch { print("files: copied list \(fetch.listID) for the clipboard: \(fetch.state)") }
+        }
         guard let batch = files.lastBatch, batch.serial != fileBatchPrinted else { return }
         fileBatchPrinted = batch.serial
         print("files: saved \(batch.saved.map(\.debugDescription).joined(separator: ", ")); "

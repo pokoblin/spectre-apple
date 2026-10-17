@@ -174,7 +174,7 @@ struct TopNotices: View {
                 }
             }
             .allowsHitTesting(false)
-            if let files = model.copiedFiles, files.listID == copiedOffer {
+            if let files = model.copiedFilesOffer, files.listID == copiedOffer {
                 CopiedFilesBanner(files: files) {
                     model.downloadCopiedFiles()
                     withAnimation(.easeInOut(duration: 0.2)) { copiedOffer = nil }
@@ -196,9 +196,9 @@ struct TopNotices: View {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))
         }
-        .task(id: model.copiedFiles?.listID) {
-            // A new copy on the host: offered for a while.
-            guard let listID = model.copiedFiles?.listID else { return }
+        .task(id: model.copiedFilesOffer?.listID) {
+            // A new copy on the host (not put on the clipboard): offered for a while.
+            guard let listID = model.copiedFilesOffer?.listID else { return }
             await show(listID, in: $copiedOffer, for: .seconds(10))
         }
         .task(id: model.files.lastBatch) {
