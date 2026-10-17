@@ -16,8 +16,9 @@ public protocol PointerLockHost: UIViewController {
 /// - a hardware keyboard: `UIKey.keyCode` already is the HID usage (§8.2);
 /// - an iPad trackpad or mouse: hover moves the pointer (absolute), clicks
 ///   arrive as `.indirectPointer` touches with their buttons, scrolling as
-///   a scroll-only pan; captured, the pointer is locked and GCMouse gives
-///   the deltas and buttons;
+///   a scroll-only pan (a trackpad's coasts on, see ``ScrollMomentum``);
+///   captured, the pointer is locked and GCMouse gives the deltas and
+///   buttons;
 /// - fingers: see ``TouchPointerMapper``.
 ///
 /// The system pointer is hidden over the picture: iPadOS can't show a
@@ -33,6 +34,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
             oldValue?.onTouchKeyboardChange = nil
             oldValue?.showsTouchKeyboard = false
             endTouches()
+            stopScrollMomentum()
             touchMapper = nil
             input?.captureHandler = { [weak self] on in self?.capture(on) ?? false }
             input?.onDisplayChange = { [weak self] in self?.layoutChanged() }
@@ -46,6 +48,10 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
     /// Pointer buttons held through `.indirectPointer` touches.
     private var heldPointerButtons: Set<UInt32> = []
     private var lastScrollTranslation: CGPoint = .zero
+    /// The trackpad's scroll pan; a wheel's has no momentum.
+    private var trackpadScroll: UIPanGestureRecognizer?
+    private var scrollMomentum = ScrollMomentum()
+    private var scrollMomentumLink: CADisplayLink?
     private var observers: [NSObjectProtocol] = []
     /// The mice listened to while captured, and the observers that keep the list current.
     private var mice: [GCMouse] = []
@@ -70,10 +76,13 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         isMultipleTouchEnabled = true
         addInteraction(UIPointerInteraction(delegate: self))
         addGestureRecognizer(UIHoverGestureRecognizer(target: self, action: #selector(hovered(_:))))
-        let scroll = UIPanGestureRecognizer(target: self, action: #selector(scrolled(_:)))
-        scroll.allowedScrollTypesMask = .all
-        scroll.allowedTouchTypes = [] // trackpad and wheel scrolling only; fingers are touches
-        addGestureRecognizer(scroll)
+        for types: UIScrollTypeMask in [.continuous, .discrete] {
+            let scroll = UIPanGestureRecognizer(target: self, action: #selector(scrolled(_:)))
+            scroll.allowedScrollTypesMask = types
+            scroll.allowedTouchTypes = [] // trackpad and wheel scrolling only; fingers are touches
+            addGestureRecognizer(scroll)
+            if types == .continuous { trackpadScroll = scroll }
+        }
     }
 
     // MARK: - Focus
@@ -98,12 +107,14 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         guard let window else {
             edgePanLink?.invalidate() // it holds this view
             edgePanLink = nil
+            stopScrollMomentum()
             input?.end()
             return
         }
         let lost: @Sendable (Notification) -> Void = { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.endTouches()
+                self?.stopScrollMomentum()
                 self?.input?.focusLost()
             }
         }
@@ -236,6 +247,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
         guard let input else { return }
         switch g.state {
         case .began:
+            stopScrollMomentum() // fingers back on the trackpad catch the coast
             lastScrollTranslation = .zero
             fallthrough
         case .changed:
@@ -243,9 +255,29 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
             let t = g.translation(in: self)
             input.scroll(deltaX: t.x - lastScrollTranslation.x, deltaY: t.y - lastScrollTranslation.y, precise: true)
             lastScrollTranslation = t
+        case .ended where g === trackpadScroll:
+            lastScrollTranslation = .zero
+            scrollMomentum.start(velocity: g.velocity(in: self))
+            guard scrollMomentum.isCoasting, scrollMomentumLink == nil else { return }
+            let link = CADisplayLink(target: self, selector: #selector(scrollMomentumTick(_:)))
+            link.add(to: .main, forMode: .common)
+            scrollMomentumLink = link
         default:
             lastScrollTranslation = .zero
         }
+    }
+
+    @objc private func scrollMomentumTick(_ link: CADisplayLink) {
+        guard let input, let d = scrollMomentum.advance(by: min(link.targetTimestamp - link.timestamp, 0.1)) else {
+            return stopScrollMomentum()
+        }
+        input.scroll(deltaX: d.x, deltaY: d.y, precise: true)
+    }
+
+    private func stopScrollMomentum() {
+        scrollMomentum.stop()
+        scrollMomentumLink?.invalidate() // it holds this view
+        scrollMomentumLink = nil
     }
 
     public func pointerInteraction(_ interaction: UIPointerInteraction, styleFor region: UIPointerRegion) -> UIPointerStyle? {
@@ -254,6 +286,7 @@ public final class IOSSessionView: MTKView, UIPointerInteractionDelegate, UIKeyI
 
     public override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         if input != nil, !isFirstResponder { becomeFirstResponder() }
+        stopScrollMomentum() // a click or a finger stops the coast, as on a scroll view
         input?.onPictureTouch?()
         pointerTouches(touches, event: event, ending: false)
         fingers(touches, event: event) { $0.began($1, at: $2) }

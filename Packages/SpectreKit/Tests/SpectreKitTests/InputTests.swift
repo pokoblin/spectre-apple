@@ -166,6 +166,57 @@ struct ScrollTests {
     }
 }
 
+@Suite("Scroll momentum")
+struct ScrollMomentumTests {
+    @Test func aSlowEndDoesNotCoast() {
+        var m = ScrollMomentum()
+        m.start(velocity: CGPoint(x: 10, y: -10))
+        #expect(!m.isCoasting && m.advance(by: 1.0 / 60) == nil)
+    }
+
+    @Test func coastsInTheFlicksDirectionAndSlowsDown() throws {
+        var m = ScrollMomentum()
+        m.start(velocity: CGPoint(x: 0, y: -1000))
+        let a = m.advance(by: 1.0 / 60), b = m.advance(by: 1.0 / 60)
+        let first = try #require(a), second = try #require(b)
+        #expect(first.x == 0 && first.y < 0)
+        #expect(second.y < 0 && abs(second.y) < abs(first.y))
+    }
+
+    /// The whole coast covers v₀/k, like a UIScrollView's at the normal rate:
+    /// about half a second's worth of the flick's speed.
+    @Test func theCoastCoversWhatAScrollViewWould() {
+        var m = ScrollMomentum()
+        m.start(velocity: CGPoint(x: 2000, y: 0))
+        var total = 0.0, frames = 0
+        while let d = m.advance(by: 1.0 / 120) {
+            total += d.x
+            frames += 1
+        }
+        let k = -log(0.998) * 1000
+        #expect(abs(total - (2000 - m.minimumSpeed) / k) < 1)
+        #expect(frames > 100 && frames < 400) // stops on its own, in 1–3 s
+    }
+
+    @Test func frameRateDoesNotChangeTheDistance() {
+        func coast(_ dt: Double) -> Double {
+            var m = ScrollMomentum()
+            m.start(velocity: CGPoint(x: 0, y: 1500))
+            var total = 0.0
+            for _ in 0..<Int((0.5 / dt).rounded()) { total += m.advance(by: dt).map { Double($0.y) } ?? 0 }
+            return total
+        }
+        #expect(abs(coast(1.0 / 60) - coast(1.0 / 120)) < 0.01)
+    }
+
+    @Test func stopEndsTheCoast() {
+        var m = ScrollMomentum()
+        m.start(velocity: CGPoint(x: 0, y: 800))
+        m.stop()
+        #expect(m.advance(by: 1.0 / 60) == nil)
+    }
+}
+
 @Suite("Modifier state from event flags")
 struct ModifierSyncTests {
     func down(_ flags: UInt, _ keyCode: UInt16? = nil, held: Set<UInt32> = []) -> Set<UInt32> {

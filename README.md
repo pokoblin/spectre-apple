@@ -43,7 +43,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - Keys are sent by physical position, so the remote layout decides what they type.
 - Mouse with every button, smooth scrolling and a captured relative mode for games and 3D; the remote cursor is drawn locally.
-- On iPad: hardware keyboards, trackpads and mice, plus touch in a direct or trackpad mode.
+- On iPad: hardware keyboards, trackpads and mice, plus touch in a direct or trackpad mode. Trackpad scrolling keeps coasting after a flick, as it does in iPadOS.
 - On iPhone and iPad: the on-screen keyboard, with a key bar for arrows, Esc, Tab, sticky modifiers and system combinations such as Super+Tab.
 - Up to four game controllers.
 
