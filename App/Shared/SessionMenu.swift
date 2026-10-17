@@ -34,6 +34,9 @@ struct SessionMenu: Commands {
                 .disabled(model?.input == nil)
             Button("Send Clipboard to Host", action: sendClipboard)
                 .disabled(model?.clipboard == nil)
+            Toggle("Lossless Refinement", isOn: Binding(get: { model?.isRefinementOn ?? false },
+                                                        set: { model?.isRefinementOn = $0 }))
+                .disabled(model?.hasRefinement != true)
             Button("Send Files…") { session?.sendFiles() }
                 .disabled(model?.files.isAvailable != true)
             Button("Download Copied Files") { model?.downloadCopiedFiles() }

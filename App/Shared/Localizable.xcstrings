@@ -1854,6 +1854,34 @@
         }
       }
     },
+    "Exact text and lines on a still screen, at more work for the host" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Texto y líneas exactos cuando la pantalla está quieta, a costa de más trabajo para el host"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "静止した画面の文字や線を正確に表示します。ホストの負荷は増えます"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面静止时文字和线条逐像素精确，主机的工作量会增加"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "畫面靜止時文字和線條逐像素精確，主機的工作量會增加"
+          }
+        }
+      }
+    },
     "Files" : {
       "localizations" : {
         "es" : {
@@ -2858,6 +2886,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "要登出遠端桌面嗎？"
+          }
+        }
+      }
+    },
+    "Lossless Refinement" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Refinamiento sin pérdidas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ロスレス補正"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无损增强"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無損增強"
           }
         }
       }
@@ -3898,30 +3954,30 @@
         }
       }
     },
-    "Resolution, gamepads, statistics, and logging out" : {
+    "Resolution, lossless refinement, gamepads, statistics, and logging out" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Resolución, mandos, estadísticas y cierre de sesión"
+            "value" : "Resolución, refinamiento sin pérdidas, mandos, estadísticas y cierre de sesión"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "解像度、ゲームコントローラ、統計情報、ログアウト"
+            "value" : "解像度、ロスレス補正、ゲームコントローラ、統計情報、ログアウト"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "分辨率、手柄、统计信息和注销"
+            "value" : "分辨率、无损增强、手柄、统计信息和注销"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "解析度、遊戲控制器、統計資料和登出"
+            "value" : "解析度、無損增強、遊戲控制器、統計資料和登出"
           }
         }
       }

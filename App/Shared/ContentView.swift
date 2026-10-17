@@ -268,6 +268,13 @@ struct SessionView: View {
             if model.isRemoteSession {
                 ResolutionControls(model: model)
             }
+            if model.hasRefinement {
+                Section("Exact text and lines on a still screen, at more work for the host") {
+                    Toggle(isOn: Binding(get: { model.isRefinementOn }, set: { model.isRefinementOn = $0 })) {
+                        Label("Lossless Refinement", systemImage: "sparkles")
+                    }
+                }
+            }
             if let gamepads = model.gamepads {
                 GamepadControls(gamepads: gamepads)
             }
@@ -284,7 +291,7 @@ struct SessionView: View {
             Label("More", systemImage: "ellipsis")
         }
         .menuIndicator(.hidden)
-        .help("Resolution, gamepads, statistics, and logging out")
+        .help("Resolution, lossless refinement, gamepads, statistics, and logging out")
     }
 
     /// The window's subtitle while the picture plays: the round trip and

@@ -101,6 +101,18 @@ final class PlaybackModel {
             scheduleResolution()
         }
     }
+    /// Lossless refinement (gdp-spec.md §7.8): still regions shown exact over
+    /// the video. On unless turned off, remembered; off pauses it on the host,
+    /// which then stops reading back and hashing every frame.
+    var isRefinementOn = UserDefaults.standard.object(forKey: PlaybackModel.refinementKey) as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(isRefinementOn, forKey: Self.refinementKey)
+            remote?.setRefinePaused(!isRefinementOn)
+        }
+    }
+    private static let refinementKey = "losslessRefinement"
+    /// Whether the session has lossless refinement (the host took `refine`).
+    private(set) var hasRefinement = false
     /// Points (the default) or, for a sharper picture, pixels; remembered.
     var resolutionUnits = UserDefaults.standard.string(forKey: PlaybackModel.resolutionUnitsKey)
         .flatMap(ResolutionFollower.Units.init) ?? .points {
@@ -446,6 +458,7 @@ final class PlaybackModel {
 
     /// Lets go of the session (not the test sources): what a reconnect replaces.
     private func endSession() {
+        endRefinement()
         input?.end()
         input = nil
         endClipboard()
@@ -534,6 +547,9 @@ final class PlaybackModel {
         let remote = RemoteSession(mailbox: mailbox, stats: stats) { [presenter] in presenter.frameAvailable() }
         remote.offersMicrophone = Self.forwardsMicrophone
         remote.isAudioMuted = isAudioMuted || isQuietForDictation
+        remote.setRefinePaused(!isRefinementOn)
+        // A layer-only frame: the last picture again, with the plane changed.
+        remote.onRefinementChanged = { [presenter] in presenter.refinementChanged() }
         remote.onPictureChange = { [weak presenter, weak self] picture in
             Task { @MainActor in
                 presenter?.displaySize = picture.size
@@ -655,12 +671,18 @@ final class PlaybackModel {
                 forwarder.start()
                 gamepads = forwarder
             }
+            if accept.capabilities.contains(GDPSession.Capability.refine) {
+                presenter?.refinement = remote.refinement
+                hasRefinement = true
+                print("session: lossless refinement\(isRefinementOn ? "" : " (paused)")")
+            }
             stats.reset()
             phase = .playing
             startTicker()
             scheduleResolution() // the view may have changed while connecting
         case let .ended(ending):
             print("session: ended: \(ending)")
+            endRefinement()
             input?.end()
             input = nil
             endClipboard()
@@ -974,6 +996,12 @@ final class PlaybackModel {
     }
 
     /// The session's side: what the transport measures and what goes into StatsReport.
+    /// The next connection starts its own plane; the picture shows without one until then.
+    private func endRefinement() {
+        presenter?.refinement = nil
+        hasRefinement = false
+    }
+
     private func sessionOverlay() -> String {
         guard let link = remote?.linkStats() else { return "" }
         var text = String(format: "QUIC RTT %.2f ms, MTU %u, %.1f Mb/s, lost %d of last %u frames",
@@ -983,6 +1011,10 @@ final class PlaybackModel {
                        link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
         text += "\n" + audioOverlay()
         text += "\n" + microphoneOverlay()
+        if hasRefinement, let c = remote?.refinement.counters {
+            text += String(format: "\nrefine %@: %llu layers, %llu tiles, %.1f Mpx, %llu resets",
+                           isRefinementOn ? "on" : "paused", c.layers, c.tiles, Double(c.tilePixels) / 1e6, c.resets)
+        }
         if let host = testHost?.observed {
             text += String(format: "\nhost saw: %u reports, frame %u acked, decode %u µs, present %u µs, %u lost",
                            host.statsReports, host.lastHighestFrameID, host.lastDecodeMicroseconds,

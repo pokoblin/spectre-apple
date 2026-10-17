@@ -198,6 +198,13 @@ struct SessionMoreMenu: View {
                     Label("Performance", systemImage: "gauge.with.dots.needle.33percent")
                 }
             }
+            if model.hasRefinement {
+                Section("Exact text and lines on a still screen, at more work for the host") {
+                    Toggle(isOn: $model.isRefinementOn) {
+                        Label("Lossless Refinement", systemImage: "sparkles")
+                    }
+                }
+            }
             if model.isRemoteSession {
                 Section("Sharper on Retina screens, at up to four times the work for the host") {
                     Toggle(isOn: Binding(get: { model.resolutionUnits == .pixels },
