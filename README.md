@@ -32,7 +32,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Picture and sound**
 
-- H.264 and HEVC decoded in hardware and presented with Metal without copying frames.
+- H.264, HEVC and AV1 decoded in hardware and presented with Metal without copying frames. AV1 is asked for first on devices that decode it in hardware (Apple M3, A17 Pro and later), and used when the host's GPU can encode it; otherwise HEVC.
 - Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** turns it off to spare the host the work.
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
@@ -70,7 +70,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-**Not done yet:** AV1 and PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
+**Not done yet:** PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
@@ -184,7 +184,7 @@ These options skip the login and play a generated 1080p60 test stream, with stat
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-Also: `--codec h264|h265`, `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
+Also: `--codec h264|h265|av1` (AV1 plays a bundled stream, where it decodes in hardware), `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
 For file transfer with the loopback host: `--send-file PATH` sends a file once the session starts, `--host-file PATH` has the test host's user copy one (both can be given more than once), `--download-copied` downloads every copy, and `--download-dir DIR` puts downloads in `DIR`.
 

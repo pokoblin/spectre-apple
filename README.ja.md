@@ -32,7 +32,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 **映像と音声**
 
-- H.264 と HEVC をハードウェアでデコードし、フレームをコピーせずに Metal で表示します。
+- H.264、HEVC、AV1 をハードウェアでデコードし、フレームをコピーせずに Metal で表示します。AV1 をハードウェアでデコードできるデバイス（Apple M3、A17 Pro 以降）では AV1 を優先して要求し、ホストの GPU が AV1 をエンコードできればそれを使います。できなければ HEVC です。
 - ロスレス補正：画面の止まった部分をホストがロスレスで送り直し、映像の上にピクセル単位で正確に重ねるので、文字や線がくっきり表示されます。既定でオンです。**その他 › ロスレス補正** でオフにすると、ホストの負荷を減らせます。
 - リモートデスクトップのサイズはウインドウや画面に合わせて変わります。Retina のフル解像度で動かすこともできます。
 - Mac のフルスクリーンでは、ポインタが上端に来るまでツールバーとメニューバーを隠します。
@@ -70,7 +70,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 **言語：** 英語、簡体字中国語、繁体字中国語、日本語、スペイン語。
 
-**未実装：** AV1 と PyroWave、マイクの音声をホストに送る機能（実装済みで、いまは無効）、フォルダの送信、iOS での認証局発行の証明書の検証。
+**未実装：** PyroWave、マイクの音声をホストに送る機能（実装済みで、いまは無効）、フォルダの送信、iOS での認証局発行の証明書の検証。
 
 ## スクリーンショット
 
@@ -184,7 +184,7 @@ swift test --package-path Packages/SpectreKit
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-そのほか：`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
+そのほか：`--codec h264|h265|av1`（AV1 は同梱のテストストリームを再生します。ハードウェアデコードが必要です）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
 ループバックのホストでファイル転送を試すには：`--send-file PATH` はセッション開始後にファイルを送り、`--host-file PATH` はテスト用ホストのユーザにファイルをコピーさせます（どちらも複数回指定できます）。`--download-copied` はコピーされるたびにダウンロードし、`--download-dir DIR` はダウンロード先を `DIR` にします。
 

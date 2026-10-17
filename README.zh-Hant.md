@@ -32,7 +32,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 
 **畫面與聲音**
 
-- H.264 和 HEVC 由硬體解碼，交給 Metal 顯示，全程不複製影格。
+- H.264、HEVC 和 AV1 由硬體解碼，交給 Metal 顯示，全程不複製影格。在能以硬體解碼 AV1 的裝置上（Apple M3、A17 Pro 及以後）會優先要求 AV1，主機的顯示卡能編碼 AV1 時就使用它，否則使用 HEVC。
 - 無損增強：畫面上停止變化的區域，主機會再以無損方式傳送一次，疊在視訊上逐像素精確顯示，文字和線條因此非常清晰。預設開啟；**更多 › 無損增強** 可以關閉，減輕主機的負擔。
 - 遠端桌面的大小會跟隨視窗或螢幕，也可以以 Retina 的完整解析度執行。
 - Mac 上全螢幕時會隱藏工具列和選單列，指標移到頂端邊緣時才出現。
@@ -70,7 +70,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 
 **語言：** 英文、簡體中文、繁體中文、日文和西班牙文。
 
-**尚未完成：** AV1 和 PyroWave、將你的麥克風傳送到主機（已經寫好，暫時停用）、傳送檔案夾，以及在 iOS 上驗證憑證授權單位簽發的憑證。
+**尚未完成：** PyroWave、將你的麥克風傳送到主機（已經寫好，暫時停用）、傳送檔案夾，以及在 iOS 上驗證憑證授權單位簽發的憑證。
 
 ## 螢幕截圖
 
@@ -184,7 +184,7 @@ swift test --package-path Packages/SpectreKit
 build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --bench 60 --codec h265
 ```
 
-其他參數：`--codec h264|h265`、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
+其他參數：`--codec h264|h265|av1`（AV1 播放內建的測試串流，需要硬體解碼）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
 以回送主機測試檔案傳輸：`--send-file PATH` 在工作階段開始後傳送一個檔案，`--host-file PATH` 讓測試主機的使用者拷貝一個檔案（兩者都可以指定多次），`--download-copied` 下載每一次拷貝的檔案，`--download-dir DIR` 將下載存到 `DIR`。
 
