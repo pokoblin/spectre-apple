@@ -33,6 +33,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 **Imagen y sonido**
 
 - H.264 y HEVC, decodificados por hardware y mostrados con Metal sin copiar fotogramas.
+- Refinamiento sin pérdidas: cuando una parte de la pantalla deja de cambiar, el host la vuelve a enviar sin pérdidas y se muestra exacta píxel a píxel sobre el vídeo, así que el texto y las líneas se ven nítidos. Activado por defecto; **Más › Refinamiento sin pérdidas** lo desactiva para ahorrarle trabajo al host.
 - El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa.
 - En el Mac, la pantalla completa oculta la barra de herramientas y la barra de menús hasta que el puntero llega al borde superior.
 - El sonido del escritorio remoto, con un búfer de fluctuación y un botón para silenciarlo.
@@ -69,7 +70,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 **Idiomas:** inglés, chino simplificado, chino tradicional, japonés y español.
 
-**Pendiente:** la capa de refinamiento sin pérdidas, AV1 y PyroWave, enviar tu micrófono al host (escrito, desactivado por ahora), enviar carpetas y comprobar en iOS los certificados emitidos por una autoridad de certificación.
+**Pendiente:** AV1 y PyroWave, enviar tu micrófono al host (escrito, desactivado por ahora), enviar carpetas y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
 ## Capturas de pantalla
 

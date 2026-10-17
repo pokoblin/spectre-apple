@@ -33,6 +33,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 **Picture and sound**
 
 - H.264 and HEVC decoded in hardware and presented with Metal without copying frames.
+- Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** turns it off to spare the host the work.
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
@@ -69,7 +70,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-**Not done yet:** the lossless refinement layer, AV1 and PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
+**Not done yet:** AV1 and PyroWave, sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
