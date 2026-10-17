@@ -121,6 +121,8 @@ extension FileTransfers.Failure {
             case .refused: String(localized: "The host refused it.")
             case .writeFailed: String(localized: "The host couldn't save it.")
             case .sizeMismatch: String(localized: "The transfer was incomplete.")
+            case .gone: String(localized: "It's no longer on the host.")
+            case .readFailed: String(localized: "The host couldn't read it.")
             case .unsupported, .unspecified: String(localized: "The host couldn't take it.")
             }
         case .cancelledByHost: String(localized: "The host stopped receiving it.")

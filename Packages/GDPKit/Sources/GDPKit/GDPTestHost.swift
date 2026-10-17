@@ -44,6 +44,9 @@ public final class GDPTestHost: @unchecked Sendable {
         /// Write received files here instead of keeping them in memory
         /// (never over an existing file); ``ReceivedFile/path`` says where.
         public var fileDirectory: URL?
+        /// Files "copied" on the host (§7.12): listed right after SessionAccept
+        /// when `file` is in effect, and sent when the viewer asks.
+        public var hostFiles: [URL] = []
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -118,6 +121,11 @@ public final class GDPTestHost: @unchecked Sendable {
         public var filesOffered, filesSaved, filesRefused, filesFailed, filesCancelled: UInt32
         public var fileStreamsOpen: UInt32
         public var lastFileName: String
+        /// Copied files (§7.12): lists sent and the latest one's id, requests,
+        /// files sent whole, requests refused.
+        public var fileListsSent: UInt32
+        public var fileListID: UInt64
+        public var filesRequested, filesServed, fileRequestsRefused: UInt32
     }
 
     /// A file the host saved (§7.12).
@@ -198,7 +206,8 @@ public final class GDPTestHost: @unchecked Sendable {
     public init(_ config: Configuration = Configuration()) throws(Failure) {
         _ = GDP.ignoreBrokenPipes
         var error = [CChar](repeating: 0, count: 256)
-        let h: OpaquePointer? = withCStrings(config.codecs) { codecs in
+        let hostFiles = config.hostFiles.map { $0.path(percentEncoded: false) }
+        let h: OpaquePointer? = withCStrings(hostFiles) { hostFiles in withCStrings(config.codecs) { codecs in
             withCStrings(config.capabilities) { caps in
                 config.scratchDirectory.path(percentEncoded: false).withCString { dir in
                     config.token.withCString { token in
@@ -237,6 +246,8 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.file_fail_after = config.fileFailAfter
                                 c.file_ignore_offers = config.fileIgnoreOffers
                                 c.file_directory = fileDirectory
+                                c.host_files = hostFiles.baseAddress
+                                c.host_file_count = hostFiles.count
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
                             }
@@ -247,6 +258,7 @@ public final class GDPTestHost: @unchecked Sendable {
                     }
                 }
             }
+        }
         }
         guard let h else { throw Failure(description: string(fromNulTerminated: error)) }
         handle = h
@@ -312,6 +324,14 @@ public final class GDPTestHost: @unchecked Sendable {
         }
     }
     public func sendClipboard(_ text: String) { sendClipboard(Array(text.utf8)) }
+
+    /// Lists `files` as what the host's user copied (§7.12), replacing the
+    /// last list; none says nothing is copied any more.
+    public func sendFileList(_ files: [URL]) {
+        withCStrings(files.map { $0.path(percentEncoded: false) }) {
+            gdpc_test_host_send_file_list(handle, $0.baseAddress, $0.count)
+        }
+    }
 
     /// The data of the latest ClipboardData from the viewer.
     public var lastClipboard: [UInt8] {
@@ -412,7 +432,9 @@ public final class GDPTestHost: @unchecked Sendable {
             microphoneDropped: o.microphone_dropped,
             filesOffered: o.files_offered, filesSaved: o.files_saved, filesRefused: o.files_refused,
             filesFailed: o.files_failed, filesCancelled: o.files_cancelled, fileStreamsOpen: o.file_streams_open,
-            lastFileName: s(o.last_file_name))
+            lastFileName: s(o.last_file_name), fileListsSent: o.file_lists_sent, fileListID: o.file_list_id,
+            filesRequested: o.files_requested, filesServed: o.files_served,
+            fileRequestsRefused: o.file_requests_refused)
     }
 }
 

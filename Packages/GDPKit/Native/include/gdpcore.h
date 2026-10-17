@@ -255,6 +255,15 @@ typedef struct {
     const char *host_name;
 } gdpc_session_accept;
 
+// One file of a host's FileList (§7.12). `name` is the host's: check it
+// before storing anything under it.
+typedef struct gdpc_file_list_entry {
+    const char *name;
+    uint64_t size;
+    int64_t modified_unix_ms;
+    bool directory;          // a folder: can't be fetched in this version
+} gdpc_file_list_entry;
+
 typedef struct {
     void *ctx;
     void (*accepted)(void *ctx, const gdpc_session_accept *accept);
@@ -287,6 +296,15 @@ typedef struct {
     void (*file_accepted)(void *ctx, uint64_t id);
     void (*file_progress)(void *ctx, uint64_t id, uint64_t acked);
     void (*file_finished)(void *ctx, uint64_t id, int32_t outcome, int32_t error, const char *saved_name);
+    // Copied files (§7.12): the host's latest FileList (count 0: nothing is
+    // copied any more). Then, per gdpc_session_request_file() id, the file
+    // as the host sends it (name, size, time), and its bytes in order: hand
+    // each piece back with gdpc_session_consume_file_data() once stored. A
+    // fetch ends in file_finished: GDPC_FILE_SAVED when every byte arrived
+    // (`saved_name` is the host's name for it).
+    void (*file_list)(void *ctx, uint64_t list_id, const gdpc_file_list_entry *files, size_t count);
+    void (*file_sending)(void *ctx, uint64_t id, const char *name, uint64_t size, int64_t modified_unix_ms);
+    void (*file_data)(void *ctx, uint64_t id, const uint8_t *data, size_t len);
 } gdpc_session_callbacks;
 
 typedef enum {
@@ -307,6 +325,8 @@ typedef enum {
     GDPC_FILE_ERROR_REFUSED = 4,
     GDPC_FILE_ERROR_WRITE_FAILED = 5,
     GDPC_FILE_ERROR_SIZE_MISMATCH = 6,
+    GDPC_FILE_ERROR_GONE = 7,
+    GDPC_FILE_ERROR_READ_FAILED = 8,
 } gdpc_file_error;
 
 // How many file streams a host grants at once (§7.12): keep no more offers
@@ -385,6 +405,12 @@ uint64_t gdpc_session_offer_file(gdpc_session *session, const char *name, uint64
 bool gdpc_session_send_file_data(gdpc_session *session, uint64_t id, const uint8_t *data, size_t len);
 // Cancels (resets the stream). No file_finished follows.
 void gdpc_session_cancel_file(gdpc_session *session, uint64_t id);
+// Fetches file `index` of FileList `list_id` and returns its id; 0 before
+// establishment or without `file` in effect. Counts against the same
+// GDPC_FILE_STREAMS_AT_ONCE as offers.
+uint64_t gdpc_session_request_file(gdpc_session *session, uint64_t list_id, uint32_t index);
+// `len` bytes of a fetch's file_data are stored: the host may send more.
+void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len);
 // §7.12's name rules: valid UTF-8, 1-255 bytes, no '/', '\\' or control
 // characters, not "." or "..".
 bool gdpc_valid_file_name(const char *name);
@@ -441,6 +467,10 @@ typedef struct {
     // NULL, or a directory to write received files to instead of keeping
     // them in memory (never over an existing file).
     const char *file_directory;
+    // Files "copied" on the host: listed right after SessionAccept when
+    // `file` is in effect, and sent when the viewer asks (§7.12).
+    const char *const *host_files;
+    size_t host_file_count;
 } gdpc_test_host_config;
 
 // A file the test host saved (§7.12).
@@ -563,6 +593,11 @@ typedef struct {
     uint32_t files_cancelled;        // the viewer reset the stream
     uint32_t file_streams_open;
     char last_file_name[256];        // as offered
+    uint32_t file_lists_sent;        // copied files (§7.12)
+    uint64_t file_list_id;           // the latest
+    uint32_t files_requested;
+    uint32_t files_served;           // sent whole
+    uint32_t file_requests_refused;
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
@@ -589,6 +624,9 @@ void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host);
 // Sends ClipboardData as given, even if invalid; a text/plain one also
 // becomes the host's clipboard.
 void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, const uint8_t *data, size_t len);
+// Lists `paths` as the files the host's user copied, replacing the last
+// list; none says nothing is copied any more (§7.12).
+void gdpc_test_host_send_file_list(gdpc_test_host *host, const char *const *paths, size_t count);
 void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 // Whether a keyframe was asked for (KeyframeRequest or a newly reported
 // loss) since the last call.

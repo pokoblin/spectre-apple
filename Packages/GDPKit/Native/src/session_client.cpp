@@ -230,6 +230,17 @@ bool SessionClient::handle_envelope(const gdp::session::ControlEnvelope &env) {
 		diagnostics_pending_ = true;
 		if (cb_.diagnostics_requested) cb_.diagnostics_requested();
 		break;
+	case E::kFileList: {
+		// §7.12: only with `file` in effect; at most the limit's entries.
+		if (!file_ || !cb_.file_list) break;
+		std::vector<FileListEntry> files;
+		for (const auto &f : env.file_list().files()) {
+			if (files.size() == gdp::kMaxFileListEntries) break;
+			files.push_back({f.name(), f.size(), f.modified_unix_ms(), f.directory()});
+		}
+		cb_.file_list(env.file_list().list_id(), files);
+		break;
+	}
 	case E::kClipboard: {
 		const auto &c = env.clipboard();
 		// §7.9: text/plain only, never empty, never over the limit.
@@ -657,6 +668,100 @@ void SessionClient::cancel_file(uint64_t id) {
 	files_.erase(it);
 }
 
+uint64_t SessionClient::request_file(uint64_t list_id, uint32_t index) {
+	if (!accepted_ || !file_ || !conn_) return 0;
+	std::unique_ptr<gdp::Stream> stream = conn_->open_stream();
+	if (!stream) return 0;
+	gdp::session::FileOpen file_open;
+	file_open.mutable_request()->set_list_id(list_id);
+	file_open.mutable_request()->set_index(index);
+	gdp::session::StreamOpen open;
+	open.set_kind(gdp::kStreamKindFile);
+	open.set_params(file_open.SerializeAsString());
+	std::vector<uint8_t> frame;
+	if (!gdp::encode_frame(open, &frame)) return 0;
+
+	auto owned = std::make_unique<FileTransfer>();
+	FileTransfer *t = owned.get();
+	t->id = next_file_id_++;
+	t->stream = std::move(stream);
+	t->state = FileTransfer::State::kRequested;
+	t->fetch_reader = std::make_unique<gdp::FrameThenRawReader>(gdp::kMaxFileOpenFrameSize);
+	t->offered_us = gdp::monotonic_us();
+	t->stream->on_data = [this, t](const uint8_t *data, size_t len) { handle_fetch_data(t, data, len); };
+	t->stream->on_fin = [this, t] { handle_fetch_fin(t); };
+	t->stream->on_reset = [this, t](uint64_t) { finish_file(t, FileOutcome::kCancelled); };
+	// The request is all this side sends.
+	t->stream->send(frame.data(), frame.size(), true);
+	files_[t->id] = std::move(owned);
+	return t->id;
+}
+
+void SessionClient::consume_file_data(uint64_t id, size_t len) {
+	auto it = files_.find(id);
+	if (it != files_.end()) it->second->stream->consume(len);
+}
+
+void SessionClient::handle_fetch_data(FileTransfer *t, const uint8_t *data, size_t len) {
+	if (local_close_ || closed_reported_) return;
+	if (t->state == FileTransfer::State::kReceiving) {
+		receive_file_bytes(t, data, len);
+		return;
+	}
+	auto state = t->fetch_reader->feed(data, len);
+	if (state == gdp::FrameThenRawReader::State::kError) {
+		fail(t->fetch_reader->error_code(), "the host sent an oversized file reply");
+		return;
+	}
+	if (state == gdp::FrameThenRawReader::State::kWaiting) {
+		t->stream->consume(len); // all of it reply so far
+		return;
+	}
+	std::vector<uint8_t> rest = t->fetch_reader->take_data();
+	// The reply's own bytes: nothing for the application to store.
+	t->stream->consume(len - rest.size());
+	gdp::session::FileReply reply;
+	if (!reply.ParseFromString(t->fetch_reader->frame())) {
+		fail(code(gdp::ErrorCode::kMalformedFrame), "the host sent a malformed file reply");
+		return;
+	}
+	if (reply.has_refused()) {
+		finish_file(t, FileOutcome::kRefused, reply.refused().code());
+		return;
+	}
+	if (!reply.has_sending()) {
+		fail(code(gdp::ErrorCode::kMalformedFrame), "the host's file reply came out of order");
+		return;
+	}
+	t->name = reply.sending().name();
+	t->size = reply.sending().size();
+	t->state = FileTransfer::State::kReceiving;
+	if (cb_.file_sending) cb_.file_sending(t->id, t->name, t->size, reply.sending().modified_unix_ms());
+	if (!rest.empty() && files_.count(t->id)) receive_file_bytes(t, rest.data(), rest.size());
+}
+
+void SessionClient::receive_file_bytes(FileTransfer *t, const uint8_t *data, size_t len) {
+	if (len > t->size - t->received) {
+		// More than the host said: not this file.
+		t->stream->reset(0);
+		finish_file(t, FileOutcome::kFailed, gdp::session::FILE_ERROR_SIZE_MISMATCH);
+		return;
+	}
+	t->received += len;
+	if (cb_.file_data) cb_.file_data(t->id, data, len);
+}
+
+void SessionClient::handle_fetch_fin(FileTransfer *t) {
+	if (t->state == FileTransfer::State::kReceiving && t->received == t->size) {
+		std::string name = t->name;
+		finish_file(t, FileOutcome::kSaved, 0, name);
+		return;
+	}
+	finish_file(t, FileOutcome::kFailed,
+		t->state == FileTransfer::State::kReceiving ? gdp::session::FILE_ERROR_SIZE_MISMATCH
+													: gdp::session::FILE_ERROR_UNSPECIFIED);
+}
+
 void SessionClient::handle_file_data(FileTransfer *t, const uint8_t *data, size_t len) {
 	gdp::session::FileReply reply;
 	bool ok = t->reader.feed_and_drain(data, len, &reply, [&] { return handle_file_reply(t, reply); });
@@ -720,7 +825,8 @@ void SessionClient::expire_file_offers() {
 	uint64_t now = gdp::monotonic_us();
 	std::vector<FileTransfer *> expired;
 	for (auto &[id, t] : files_) {
-		if (t->state == FileTransfer::State::kOffered && now - t->offered_us > timeout_us) expired.push_back(t.get());
+		bool waiting = t->state == FileTransfer::State::kOffered || t->state == FileTransfer::State::kRequested;
+		if (waiting && now - t->offered_us > timeout_us) expired.push_back(t.get());
 	}
 	for (FileTransfer *t : expired) {
 		t->stream->reset(0);

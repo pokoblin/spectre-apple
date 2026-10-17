@@ -11,6 +11,7 @@
 #include "receive_stats.hpp"
 
 #include "gdp/client_connection.hpp"
+#include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
 #include "gdp/video_reassembler.hpp"
 
@@ -94,6 +95,14 @@ enum class FileOutcome : int32_t {
 	kLost = 6,      // the connection ended first
 };
 
+// One file of a host's FileList (§7.12).
+struct FileListEntry {
+	std::string name;
+	uint64_t size = 0;
+	int64_t modified_unix_ms = 0;
+	bool directory = false;
+};
+
 class SessionClient : public gdp::ClientConnection {
 public:
 	struct Config {
@@ -151,6 +160,16 @@ public:
 		std::function<void(uint64_t id, uint64_t acked)> file_progress;
 		std::function<void(uint64_t id, FileOutcome outcome, int32_t error, const std::string &saved_name)>
 			file_finished;
+		// Copied files (§7.12): the host's latest FileList (none: nothing is
+		// copied any more). Then, per request_file() id, the file's name, size
+		// and time as the host sends it, and its bytes in order; hand each
+		// piece back with consume_file_data() once it is stored. A fetch ends
+		// in file_finished: kSaved (every byte arrived; the name is the
+		// host's), kRefused, kFailed (short), kCancelled, kTimedOut or kLost.
+		std::function<void(uint64_t list_id, const std::vector<FileListEntry> &files)> file_list;
+		std::function<void(uint64_t id, const std::string &name, uint64_t size, int64_t modified_unix_ms)>
+			file_sending;
+		std::function<void(uint64_t id, const uint8_t *data, size_t len)> file_data;
 	};
 
 	struct LinkStats {
@@ -223,6 +242,13 @@ public:
 	bool send_file_data(uint64_t id, const uint8_t *data, size_t len);
 	// Cancels: the stream is reset (code 0). No file_finished follows.
 	void cancel_file(uint64_t id);
+	// Fetches file `index` of FileList `list_id` (§7.12) on a stream of its
+	// own, and returns its id; 0 before establishment or without `file`.
+	// The same limit of streams at once as offer_file().
+	uint64_t request_file(uint64_t list_id, uint32_t index);
+	// `len` bytes of a fetched file's file_data are stored: the host may
+	// send that much more.
+	void consume_file_data(uint64_t id, size_t len);
 
 	// One Opus packet of the microphone (§10.1) on datagram channel 0x03:
 	// seq counts from 0 at SessionAccept, pts is our session clock. Dropped
@@ -241,10 +267,15 @@ private:
 	void handle_datagram(const uint8_t *data, size_t len, uint64_t arrival_us);
 
 	struct FileTransfer {
-		enum class State { kOffered, kSending, kSent };
+		// An offer: kOffered, kSending, kSent. A request: kRequested, kReceiving.
+		enum class State { kOffered, kSending, kSent, kRequested, kReceiving };
 		uint64_t id = 0;
 		std::unique_ptr<gdp::Stream> stream;
 		gdp::FrameReader reader;
+		// A request's reply: one frame, then the file.
+		std::unique_ptr<gdp::FrameThenRawReader> fetch_reader;
+		std::string name;
+		uint64_t received = 0;
 		State state = State::kOffered;
 		uint64_t size = 0;
 		uint64_t sent = 0;
@@ -252,6 +283,10 @@ private:
 		uint64_t offered_us = 0;
 	};
 	void handle_file_data(FileTransfer *t, const uint8_t *data, size_t len);
+	void handle_fetch_data(FileTransfer *t, const uint8_t *data, size_t len);
+	void handle_fetch_fin(FileTransfer *t);
+	// A fetched file's bytes, past its reply.
+	void receive_file_bytes(FileTransfer *t, const uint8_t *data, size_t len);
 	// Returns false once `t` is gone (or the connection is being closed).
 	bool handle_file_reply(FileTransfer *t, const gdp::session::FileReply &reply);
 	// Drops the transfer, then reports it.

@@ -153,13 +153,36 @@ public final class GDPSession: @unchecked Sendable {
         case writeFailed
         /// The stream ended before or after the offered size.
         case sizeMismatch
+        /// A fetch: the list or file is no longer there.
+        case gone
+        /// A fetch: the host couldn't read the file.
+        case readFailed
 
         init(code: Int32) { self = FileError(rawValue: code) ?? .unspecified }
     }
 
+    /// One file of the host's ``Handlers/fileList`` (§7.12): what its user copied.
+    public struct FileListEntry: Sendable, Equatable {
+        /// The host's name for it: check it before storing anything under it.
+        public var name: String
+        public var size: UInt64
+        public var modified: Date?
+        /// A folder: can't be fetched in this version.
+        public var isDirectory: Bool
+
+        public init(name: String, size: UInt64, modified: Date?, isDirectory: Bool) {
+            self.name = name
+            self.size = size
+            self.modified = modified
+            self.isDirectory = isDirectory
+        }
+    }
+
     /// How a file transfer ended (§7.12).
     public enum FileOutcome: Sendable, Equatable {
-        /// The host stored it, under `name` (the offered one, or "name (1).ext" when that was taken).
+        /// An offer: the host stored it, under `name` (the offered one, or
+        /// "name (1).ext" when that was taken). A fetch: every byte arrived,
+        /// `name` being the host's.
         case saved(name: String)
         /// The host refused the offer.
         case refused(FileError)
@@ -252,6 +275,15 @@ public final class GDPSession: @unchecked Sendable {
         public var fileAccepted: (@Sendable (_ id: UInt64) -> Void)?
         public var fileProgress: (@Sendable (_ id: UInt64, _ acknowledged: UInt64) -> Void)?
         public var fileFinished: (@Sendable (_ id: UInt64, _ outcome: FileOutcome) -> Void)?
+        /// Copied files (§7.12): the host's latest list (empty: nothing is
+        /// copied any more). Then, per ``GDPSession/requestFile(listID:index:)``
+        /// id, the file as the host sends it, and its bytes in order (valid
+        /// only during the call): give each piece back with
+        /// ``GDPSession/consumeFileData(_:_:)`` once stored. A fetch ends in
+        /// ``fileFinished``, `.saved` once every byte has arrived.
+        public var fileList: (@Sendable (_ listID: UInt64, _ files: [FileListEntry]) -> Void)?
+        public var fileSending: (@Sendable (_ id: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) -> Void)?
+        public var fileData: (@Sendable (_ id: UInt64, _ bytes: UnsafeRawBufferPointer) -> Void)?
 
         public init() {}
     }
@@ -359,6 +391,21 @@ public final class GDPSession: @unchecked Sendable {
                 default: .connectionEnded
                 }
                 GDPSession.from(ctx).handlers.fileFinished?(id, result)
+            }
+            callbacks.file_list = { ctx, listID, entries, count in
+                let files = UnsafeBufferPointer(start: entries, count: count).map {
+                    FileListEntry(name: $0.name.map { String(cString: $0) } ?? "", size: $0.size,
+                                  modified: GDPSession.date(unixMilliseconds: $0.modified_unix_ms),
+                                  isDirectory: $0.directory)
+                }
+                GDPSession.from(ctx).handlers.fileList?(listID, files)
+            }
+            callbacks.file_sending = { ctx, id, name, size, modified in
+                GDPSession.from(ctx).handlers.fileSending?(id, name.map { String(cString: $0) } ?? "", size,
+                                                           GDPSession.date(unixMilliseconds: modified))
+            }
+            callbacks.file_data = { ctx, id, data, len in
+                GDPSession.from(ctx).handlers.fileData?(id, UnsafeRawBufferPointer(start: data, count: len))
             }
             callbacks.clipboard_text = { ctx, data, len in
                 guard let text = String(validating: UnsafeBufferPointer(start: data, count: len), as: UTF8.self) else {
@@ -513,6 +560,28 @@ public final class GDPSession: @unchecked Sendable {
 
     /// Cancels file `id` (its stream is reset); no ``Handlers/fileFinished`` follows.
     public func cancelFile(_ id: UInt64) { async { gdpc_session_cancel_file($0, id) } }
+
+    /// Fetches file `index` of the host's list `listID` (§7.12) on a stream
+    /// of its own; it arrives through ``Handlers/fileSending``,
+    /// ``Handlers/fileData`` and ``Handlers/fileFinished``. Nil before
+    /// establishment or without ``Capability/file``. Counts against
+    /// ``fileStreamsAtOnce`` with the offers.
+    public func requestFile(listID: UInt64, index: UInt32) -> UInt64? {
+        onQueue {
+            guard let handle, !ended else { return nil }
+            let id = gdpc_session_request_file(handle, listID, index)
+            return id == 0 ? nil : id
+        }
+    }
+
+    /// `count` bytes of fetch `id`'s data are stored: the host may send that much more.
+    public func consumeFileData(_ id: UInt64, _ count: Int) {
+        async { gdpc_session_consume_file_data($0, id, count) }
+    }
+
+    static func date(unixMilliseconds ms: Int64) -> Date? {
+        ms == 0 ? nil : Date(timeIntervalSince1970: Double(ms) / 1000)
+    }
 
     // Input (§8.2, §8.3).
     public func sendKey(hidUsage: UInt32, pressed: Bool) { async { gdpc_session_send_key($0, hidUsage, pressed) } }

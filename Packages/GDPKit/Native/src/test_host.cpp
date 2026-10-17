@@ -19,6 +19,9 @@
 #include <set>
 
 #include <fcntl.h>
+#include <fstream>
+#include <iterator>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 
@@ -78,6 +81,10 @@ struct TestHost::Impl {
 	};
 	std::list<std::unique_ptr<Incoming>> incoming;
 	std::set<std::string> saved_names;
+	// The latest FileList's id and paths (§7.12); loop thread.
+	uint64_t list_id = 0;
+	std::vector<std::string> list_paths;
+	std::vector<bool> list_directories;
 
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
@@ -293,11 +300,12 @@ struct TestHost::Impl {
 		c->set_argb8888(std::string(16, '\xff'));
 		send(p, cursor);
 
-		// §7.12: the viewer's file streams.
+		// §7.12: the viewer's file streams, and the files "copied" here.
 		if (p.file) {
 			Peer *peer = &p;
 			p.conn->on_stream = [this, peer](std::unique_ptr<gdp::Stream> s) { on_file_stream(peer, std::move(s)); };
 			p.conn->allow_streams(gdp::kFileStreamsAtOnce);
+			if (!cfg.host_files.empty()) list_files(cfg.host_files);
 		}
 
 		// §7.9: and the current clipboard text, if there is any.
@@ -507,6 +515,10 @@ struct TestHost::Impl {
 			drop_file(f);
 			return;
 		}
+		if (open.has_request()) {
+			serve_file(f, open.request());
+			return;
+		}
 		f->name = open.offer().name();
 		f->size = open.offer().size();
 		f->modified_unix_ms = open.offer().modified_unix_ms();
@@ -573,6 +585,72 @@ struct TestHost::Impl {
 			obs.files_saved++;
 			received_files.push_back({f->name, saved, f->modified_unix_ms, std::move(f->data), path, f->size});
 		}
+		drop_file(f);
+	}
+
+	// --- Copied files (§7.12) ---
+
+	void list_files(const std::vector<std::string> &paths) {
+		list_id++;
+		list_paths.clear();
+		list_directories.clear();
+		gdp::session::ControlEnvelope env;
+		auto *list = env.mutable_file_list();
+		list->set_list_id(list_id);
+		for (const std::string &path : paths) {
+			struct stat st;
+			if (::stat(path.c_str(), &st) != 0) continue;
+			auto *entry = list->add_files();
+			entry->set_name(path.substr(path.find_last_of('/') + 1));
+			entry->set_size(S_ISDIR(st.st_mode) ? 0 : uint64_t(st.st_size));
+			entry->set_modified_unix_ms(int64_t(st.st_mtimespec.tv_sec) * 1000 + st.st_mtimespec.tv_nsec / 1000000);
+			entry->set_directory(S_ISDIR(st.st_mode));
+			list_paths.push_back(path);
+			list_directories.push_back(S_ISDIR(st.st_mode));
+		}
+		if (viewer && viewer->accepted && viewer->file) send(*viewer, env);
+		std::lock_guard lock(mu);
+		obs.file_lists_sent++;
+		obs.file_list_id = list_id;
+	}
+
+	// Sends file `request.index()` of the latest list whole: reply, bytes, FIN.
+	void serve_file(Incoming *f, const gdp::session::FileRequest &request) {
+		{
+			std::lock_guard lock(mu);
+			obs.files_requested++;
+		}
+		uint32_t index = request.index();
+		std::string data;
+		bool ok = request.list_id() == list_id && index < list_paths.size() && !list_directories[index];
+		if (ok) {
+			std::ifstream in(list_paths[index], std::ios::binary);
+			ok = bool(in);
+			if (ok) data.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+		}
+		gdp::session::FileReply reply;
+		if (!ok) {
+			reply.mutable_refused()->set_code(gdp::session::FILE_ERROR_GONE);
+			f->stream->send_message(reply);
+			f->stream->send(nullptr, 0, true);
+			{
+				std::lock_guard lock(mu);
+				obs.file_requests_refused++;
+			}
+			drop_file(f);
+			return;
+		}
+		const std::string &path = list_paths[index];
+		auto *sending = reply.mutable_sending();
+		sending->set_name(path.substr(path.find_last_of('/') + 1));
+		sending->set_size(data.size());
+		f->stream->send_message(reply);
+		f->stream->send(reinterpret_cast<const uint8_t *>(data.data()), data.size(), true);
+		{
+			std::lock_guard lock(mu);
+			obs.files_served++;
+		}
+		// Let go gracefully: our FIN is queued behind the bytes.
 		drop_file(f);
 	}
 
@@ -846,6 +924,10 @@ void TestHost::send_diagnostics_request() {
 		env.mutable_diagnostics_request();
 		m->send(*m->viewer, env);
 	});
+}
+
+void TestHost::send_file_list(std::vector<std::string> paths) {
+	impl_->post([m = impl_.get(), paths = std::move(paths)] { m->list_files(paths); });
 }
 
 void TestHost::send_clipboard(std::string mime_type, std::string data) {

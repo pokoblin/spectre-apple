@@ -64,6 +64,9 @@ public:
 		uint64_t file_fail_after = 0;
 		bool file_ignore_offers = false;
 		std::string file_directory;
+		// Copied files (§7.12): listed to the viewer right after
+		// SessionAccept when `file` is in effect, and sent when it asks.
+		std::vector<std::string> host_files;
 	};
 
 	// One input event as received (§8.2, §8.3, §8.5), in order.
@@ -182,6 +185,11 @@ public:
 		uint32_t files_cancelled = 0; // the viewer reset the stream
 		uint32_t file_streams_open = 0;
 		std::string last_file_name;   // as offered
+		uint32_t file_lists_sent = 0;
+		uint64_t file_list_id = 0;    // the latest
+		uint32_t files_requested = 0;
+		uint32_t files_served = 0;    // sent whole
+		uint32_t file_requests_refused = 0;
 
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;
@@ -215,6 +223,9 @@ public:
 	// Sends ClipboardData as given, even if invalid (tests); a text/plain
 	// one also becomes the host's clipboard.
 	void send_clipboard(std::string mime_type, std::string data);
+	// Lists `paths` as the files the host's user copied (§7.12), replacing
+	// the last list; none says nothing is copied any more.
+	void send_file_list(std::vector<std::string> paths);
 	void close(uint64_t code);
 
 	// Whether a keyframe was asked for (KeyframeRequest, or a newly reported

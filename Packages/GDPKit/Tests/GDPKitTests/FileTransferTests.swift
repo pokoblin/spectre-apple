@@ -264,4 +264,146 @@ struct FileTransferTests {
         #expect(host.receivedFiles.first?.data == [1, 2, 3])
         session.close()
     }
+
+    // MARK: Copied files, from the host (§7.12)
+
+    private func copiedFiles() throws -> (dir: URL, small: URL, big: URL, folder: URL) {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "gdpkit-copied-\(UUID().uuidString)")
+        let folder = dir.appending(path: "a folder")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let small = dir.appending(path: "notes ✓.txt"), big = dir.appending(path: "big.bin")
+        try Data("copied on the host".utf8).write(to: small)
+        try Data(randomFrame(3 << 20)).write(to: big)
+        return (dir, small, big, folder)
+    }
+
+    @Test func theHostsCopiedFilesAreListedAndFetched() async throws {
+        let files = try copiedFiles()
+        defer { try? FileManager.default.removeItem(at: files.dir) }
+        let host = try fileHost { $0.hostFiles = [files.small, files.folder, files.big] }
+        let rec = Recorder()
+        let session = try await fileSession(host, rec)
+        // Listed right after SessionAccept.
+        #expect(await eventually { !rec.snapshot.fileLists.isEmpty })
+        let (listID, list) = try #require(rec.snapshot.fileLists.first)
+        #expect(listID == host.observed.fileListID)
+        #expect(list.map(\.name) == ["notes ✓.txt", "a folder", "big.bin"])
+        #expect(list.map(\.isDirectory) == [false, true, false])
+        #expect(list[0].size == 18 && list[2].size == 3 << 20 && list[0].modified != nil)
+
+        // A small file, then a big one, handing the bytes back as they arrive.
+        for index: UInt32 in [0, 2] {
+            let id = try #require(session.requestFile(listID: listID, index: index))
+            var consumed = 0
+            #expect(await eventually(.seconds(10)) {
+                let got = rec.snapshot.fetched[id]?.count ?? 0
+                if got > consumed {
+                    session.consumeFileData(id, got - consumed)
+                    consumed = got
+                }
+                return rec.snapshot.filesFinished[id] != nil
+            })
+            let expected = try Data(contentsOf: index == 0 ? files.small : files.big)
+            #expect(rec.snapshot.filesFinished[id] == .saved(name: list[Int(index)].name))
+            #expect(rec.snapshot.fetchHeaders[id]?.size == UInt64(expected.count))
+            #expect(rec.snapshot.fetched[id].map { Data($0) } == expected)
+        }
+        #expect(host.observed.filesServed == 2)
+        session.close()
+    }
+
+    @Test func aFetchWaitsForItsBytesToBeStored() async throws {
+        let files = try copiedFiles()
+        defer { try? FileManager.default.removeItem(at: files.dir) }
+        let host = try fileHost { $0.hostFiles = [files.big] }
+        let rec = Recorder()
+        let session = try await fileSession(host, rec)
+        #expect(await eventually { !rec.snapshot.fileLists.isEmpty })
+        let id = try #require(session.requestFile(listID: rec.snapshot.fileLists[0].0, index: 0))
+        // Nothing handed back: the stream's window holds the host to a part of it.
+        try await Task.sleep(for: .milliseconds(500))
+        let held = rec.snapshot.fetched[id]?.count ?? 0
+        #expect(held > 0 && held < 3 << 20 && rec.snapshot.filesFinished[id] == nil)
+        // Handing it back lets the rest come.
+        var consumed = 0
+        #expect(await eventually(.seconds(10)) {
+            let got = rec.snapshot.fetched[id]?.count ?? 0
+            if got > consumed {
+                session.consumeFileData(id, got - consumed)
+                consumed = got
+            }
+            return rec.snapshot.filesFinished[id] != nil
+        })
+        #expect(rec.snapshot.filesFinished[id] == .saved(name: "big.bin"))
+        #expect(rec.snapshot.fetched[id]?.count == 3 << 20)
+        session.close()
+    }
+
+    @Test func whatCantBeFetchedIsRefused() async throws {
+        let files = try copiedFiles()
+        defer { try? FileManager.default.removeItem(at: files.dir) }
+        let host = try fileHost { $0.hostFiles = [files.small, files.folder] }
+        let rec = Recorder()
+        let session = try await fileSession(host, rec)
+        #expect(await eventually { !rec.snapshot.fileLists.isEmpty })
+        let listID = rec.snapshot.fileLists[0].0
+        let folder = try #require(session.requestFile(listID: listID, index: 1))
+        let past = try #require(session.requestFile(listID: listID, index: 7))
+        #expect(await eventually { rec.snapshot.filesFinished[folder] != nil && rec.snapshot.filesFinished[past] != nil })
+        #expect(rec.snapshot.filesFinished[folder] == .refused(.gone))
+        #expect(rec.snapshot.filesFinished[past] == .refused(.gone))
+        // A new list (and then none): the old one can't be fetched from.
+        host.sendFileList([files.big])
+        #expect(await eventually { rec.snapshot.fileLists.count == 2 })
+        #expect(rec.snapshot.fileLists[1].0 != listID && rec.snapshot.fileLists[1].1.map(\.name) == ["big.bin"])
+        let stale = try #require(session.requestFile(listID: listID, index: 0))
+        #expect(await eventually { rec.snapshot.filesFinished[stale] != nil })
+        #expect(rec.snapshot.filesFinished[stale] == .refused(.gone))
+        host.sendFileList([])
+        #expect(await eventually { rec.snapshot.fileLists.count == 3 })
+        #expect(rec.snapshot.fileLists[2].1.isEmpty)
+        #expect(host.observed.fileRequestsRefused == 3)
+        session.close()
+    }
+
+    @Test func noListAndNoFetchWithoutTheCapability() async throws {
+        let files = try copiedFiles()
+        defer { try? FileManager.default.removeItem(at: files.dir) }
+        var hc = GDPTestHost.Configuration()
+        hc.hostFiles = [files.small] // but no `file`
+        let host = try GDPTestHost(hc)
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.capabilities = [GDPSession.Capability.file] }
+        #expect(session.requestFile(listID: 1, index: 0) == nil)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(rec.snapshot.fileLists.isEmpty)
+        session.close()
+    }
+
+    @Test func aCancelledFetchEndsQuietly() async throws {
+        let files = try copiedFiles()
+        defer { try? FileManager.default.removeItem(at: files.dir) }
+        let host = try fileHost { $0.hostFiles = [files.big] }
+        let rec = Recorder()
+        let session = try await fileSession(host, rec)
+        #expect(await eventually { !rec.snapshot.fileLists.isEmpty })
+        let id = try #require(session.requestFile(listID: rec.snapshot.fileLists[0].0, index: 0))
+        #expect(await eventually { (rec.snapshot.fetched[id]?.count ?? 0) > 0 })
+        session.cancelFile(id)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(rec.snapshot.filesFinished[id] == nil)
+        // The session goes on: the file can be fetched again, whole.
+        let again = try #require(session.requestFile(listID: rec.snapshot.fileLists[0].0, index: 0))
+        var consumed = 0
+        #expect(await eventually(.seconds(10)) {
+            let got = rec.snapshot.fetched[again]?.count ?? 0
+            if got > consumed {
+                session.consumeFileData(again, got - consumed)
+                consumed = got
+            }
+            return rec.snapshot.filesFinished[again] != nil
+        })
+        #expect(rec.snapshot.filesFinished[again] == .saved(name: "big.bin"))
+        session.close()
+    }
 }

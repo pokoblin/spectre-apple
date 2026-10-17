@@ -28,6 +28,10 @@ final class Recorder: Sendable {
         var filesFinished: [UInt64: GDPSession.FileOutcome] = [:]
         /// File outcomes in the order they came, and whether the session had already ended by then.
         var fileFinishOrder: [(UInt64, Bool)] = []
+        /// Copied files (§7.12): every list, and each fetch's header and bytes so far.
+        var fileLists: [(UInt64, [GDPSession.FileListEntry])] = []
+        var fetchHeaders: [UInt64: (name: String, size: UInt64)] = [:]
+        var fetched: [UInt64: [UInt8]] = [:]
     }
 
     let state = Mutex(State())
@@ -57,6 +61,12 @@ final class Recorder: Sendable {
         h.clipboardText = { t in self.state.withLock { $0.clipboards.append(t) } }
         h.fileAccepted = { id in self.state.withLock { $0.filesAccepted.append(id) } }
         h.fileProgress = { id, acked in self.state.withLock { $0.fileProgress[id, default: []].append(acked) } }
+        h.fileList = { listID, files in self.state.withLock { $0.fileLists.append((listID, files)) } }
+        h.fileSending = { id, name, size, _ in self.state.withLock { $0.fetchHeaders[id] = (name, size) } }
+        h.fileData = { id, bytes in
+            let copy = Array(bytes)
+            self.state.withLock { $0.fetched[id, default: []] += copy }
+        }
         h.fileFinished = { id, outcome in
             self.state.withLock {
                 $0.filesFinished[id] = outcome

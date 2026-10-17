@@ -141,6 +141,19 @@ struct gdpc_session {
 		cb.file_progress = [this](uint64_t id, uint64_t acked) {
 			if (callbacks.file_progress) callbacks.file_progress(callbacks.ctx, id, acked);
 		};
+		cb.file_list = [this](uint64_t list_id, const std::vector<gdpcore::FileListEntry> &files) {
+			if (!callbacks.file_list) return;
+			std::vector<gdpc_file_list_entry> c;
+			c.reserve(files.size());
+			for (const auto &f : files) c.push_back({f.name.c_str(), f.size, f.modified_unix_ms, f.directory});
+			callbacks.file_list(callbacks.ctx, list_id, c.data(), c.size());
+		};
+		cb.file_sending = [this](uint64_t id, const std::string &name, uint64_t size, int64_t modified) {
+			if (callbacks.file_sending) callbacks.file_sending(callbacks.ctx, id, name.c_str(), size, modified);
+		};
+		cb.file_data = [this](uint64_t id, const uint8_t *data, size_t len) {
+			if (callbacks.file_data) callbacks.file_data(callbacks.ctx, id, data, len);
+		};
 		cb.file_finished = [this](uint64_t id, gdpcore::FileOutcome outcome, int32_t error, const std::string &name) {
 			if (!callbacks.file_finished) return;
 			bool saved = outcome == gdpcore::FileOutcome::kSaved;
@@ -228,6 +241,14 @@ bool gdpc_session_send_file_data(gdpc_session *session, uint64_t id, const uint8
 }
 
 void gdpc_session_cancel_file(gdpc_session *session, uint64_t id) { session->client.cancel_file(id); }
+
+uint64_t gdpc_session_request_file(gdpc_session *session, uint64_t list_id, uint32_t index) {
+	return session->client.request_file(list_id, index);
+}
+
+void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len) {
+	session->client.consume_file_data(id, len);
+}
 
 bool gdpc_valid_file_name(const char *name) { return name && gdp::valid_file_name(name); }
 
@@ -320,6 +341,7 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	config.file_fail_after = c->file_fail_after;
 	config.file_ignore_offers = c->file_ignore_offers;
 	if (c->file_directory) config.file_directory = c->file_directory;
+	config.host_files = strings(c->host_files, c->host_file_count);
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -377,6 +399,10 @@ void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rt
 }
 
 void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host) { host->host.send_diagnostics_request(); }
+
+void gdpc_test_host_send_file_list(gdpc_test_host *host, const char *const *paths, size_t count) {
+	host->host.send_file_list(strings(paths, count));
+}
 
 void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, const uint8_t *data, size_t len) {
 	host->host.send_clipboard(mime_type ? mime_type : "", std::string(reinterpret_cast<const char *>(data), len));
@@ -465,6 +491,11 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->files_cancelled = o.files_cancelled;
 	out->file_streams_open = o.file_streams_open;
 	copy_string(out->last_file_name, sizeof(out->last_file_name), o.last_file_name);
+	out->file_lists_sent = o.file_lists_sent;
+	out->file_list_id = o.file_list_id;
+	out->files_requested = o.files_requested;
+	out->files_served = o.files_served;
+	out->file_requests_refused = o.file_requests_refused;
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 
