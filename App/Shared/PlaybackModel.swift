@@ -252,10 +252,16 @@ final class PlaybackModel {
         hostCopiedFiles = arguments.indices.dropLast().filter { arguments[$0] == "--host-file" }
             .map { URL(filePath: arguments[$0 + 1]) }
         downloadsCopiedFiles = arguments.contains("--download-copied")
+        #if os(iOS)
+        // The app's Documents, which the Files app shows as On My iPad ›
+        // Spectre (UIFileSharingEnabled).
+        files.downloadDirectory = value("--download-dir").map { URL(filePath: $0) } ?? URL.documentsDirectory
+        #else
         // The real folder, not the sandbox container's link to it: what
         // Show in Finder reveals.
         files.downloadDirectory = value("--download-dir").map { URL(filePath: $0) }
             ?? files.downloadDirectory.resolvingSymlinksInPath()
+        #endif
         if let target = value("--connect") {
             let parts = target.split(separator: ":")
             if parts.count == 2, let port = UInt16(parts[1]), let token = value("--token"),
@@ -894,14 +900,8 @@ final class PlaybackModel {
     /// The files the host's user copied, to offer for download (§7.12): not
     /// while the user keeps the clipboard to themselves.
     var copiedFiles: FileTransfers.HostFiles? {
-        #if os(iOS)
-        // Not yet: where they would go (a folder the Files app shows) comes
-        // with the iOS interface for files.
-        return nil
-        #else
         if let clipboard, !clipboard.isEnabled { return nil }
         return files.hostFiles
-        #endif
     }
 
     /// The copied files to offer in a banner: not those on their way to

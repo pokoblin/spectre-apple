@@ -2,6 +2,8 @@ import SpectreKit
 import SwiftUI
 #if os(macOS)
 import AppKit
+#else
+import UIKit
 #endif
 
 /// The list of files going to and coming from the host (gdp-spec.md §7.12):
@@ -86,6 +88,27 @@ private struct FileTransferRow: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .help("Show in Finder")
+            }
+            #else
+            if let url = item.localURL {
+                ShareLink(item: url) {
+                    Label("Share", systemImage: "square.and.arrow.up.circle.fill")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                Button {
+                    // The Files app, at the folder the file is in.
+                    if let files = URL(string: "shareddocuments://"
+                        + url.deletingLastPathComponent().path(percentEncoded: true)) {
+                        UIApplication.shared.open(files)
+                    }
+                } label: {
+                    Label("Show in Files", systemImage: "folder.circle.fill")
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
             }
             #endif
         }
@@ -244,7 +267,11 @@ struct CopiedFilesBanner: View {
             .lineLimit(1)
             Button("Download", action: download)
                 .disabled(files.downloadable.isEmpty)
+                #if os(macOS)
                 .help("Download them to the Downloads folder")
+                #else
+                .help("Download them to Spectre's folder in the Files app")
+                #endif
             Button(action: dismiss) {
                 Label("Dismiss", systemImage: "xmark")
                     .labelStyle(.iconOnly)

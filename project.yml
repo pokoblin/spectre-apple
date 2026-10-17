@@ -39,6 +39,7 @@ targets:
         destinationFilters: [macOS]
       - path: App/iOS
         destinationFilters: [iOS]
+        excludes: [FileSharing.plist]
     dependencies:
       - package: GDPKit
       - package: SpectreKit
@@ -63,6 +64,9 @@ targets:
         # Asked the first time voice input listens (docs/voice-input.md).
         INFOPLIST_KEY_NSMicrophoneUsageDescription: "Spectre listens while you hold or tap the microphone key, and types what you say on the remote desktop."
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: "Spectre connects to ghost hosts and servers on your local network."
+        # Downloads go to Documents, which the Files app shows as On My
+        # iPad › Spectre (docs/file-transfer.md).
+        "INFOPLIST_FILE[sdk=iphone*]": App/iOS/FileSharing.plist
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
