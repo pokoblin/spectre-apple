@@ -100,6 +100,7 @@ struct TestHost::Impl {
 	uint16_t next_audio_seq = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
+	std::string codec; // the one accepted
 	std::string clipboard;
 
 	~Impl() { loop.stop(); }
@@ -250,6 +251,7 @@ struct TestHost::Impl {
 
 		width = cfg.width;
 		height = cfg.height;
+		codec = chosen;
 		gdp::session::ControlEnvelope env;
 		auto *accept = env.mutable_accept();
 		fill_output(accept->add_outputs());
@@ -332,8 +334,11 @@ struct TestHost::Impl {
 		o->mutable_display()->set_refresh_mhz(60000);
 		o->mutable_display()->set_scale(1.0);
 		auto *color = o->mutable_color();
-		color->set_matrix(gdp::session::COLOR_MATRIX_BT601);
-		color->set_range(gdp::session::COLOR_RANGE_LIMITED);
+		// §7.3: pyrowave is full-range BT.709 either way; the block codecs
+		// take their default here.
+		const bool pyrowave = codec == "pyrowave";
+		color->set_matrix(pyrowave ? gdp::session::COLOR_MATRIX_BT709 : gdp::session::COLOR_MATRIX_BT601);
+		color->set_range(pyrowave ? gdp::session::COLOR_RANGE_FULL : gdp::session::COLOR_RANGE_LIMITED);
 		color->set_primaries(gdp::session::COLOR_PRIMARIES_BT709);
 		color->set_transfer(gdp::session::COLOR_TRANSFER_SRGB);
 		color->set_bit_depth(8);
