@@ -83,6 +83,9 @@ public final class RemoteSession: @unchecked Sendable {
         self.stats = stats
         self.audioOutput = audioOutput
         self.onFrame = onFrame
+        // What kind each interface is comes from a path monitor's first
+        // report: start it now, so connecting doesn't wait for it.
+        if VideoCodec.pyrowave.isHardwareDecodable { _ = NetworkInterfaces.shared }
     }
 
     deinit {
@@ -181,6 +184,15 @@ public final class RemoteSession: @unchecked Sendable {
     /// the video for still regions, drawn from ``refinement``.
     public var offersRefine = true
 
+    /// Whether SessionHello may offer `pyrowave`, first (§6.6): it is, when
+    /// this device decodes it and ``pyroWaveRoute`` carries it, a wired link
+    /// of 1 Gbit/s or more, or the host is this machine.
+    public var offersPyroWave = true
+
+    /// The route to the host as it was when the last connection began, if
+    /// PyroWave was considered: why it was offered or not.
+    public private(set) var pyroWaveRoute: NetworkRoute?
+
     /// Lossless refinement's overlay plane, the output's size: every
     /// frame's layer goes into it as the frame arrives.
     public let refinement = RefinementPlane()
@@ -199,6 +211,7 @@ public final class RemoteSession: @unchecked Sendable {
         if offersRefine, !config.capabilities.contains(GDPSession.Capability.refine) {
             config.capabilities.append(GDPSession.Capability.refine)
         }
+        offerPyroWave(in: &config)
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
         h.closed = { [weak self] ending in
@@ -252,6 +265,26 @@ public final class RemoteSession: @unchecked Sendable {
     }
 
     public func linkStats() -> GDPSession.LinkStats? { session?.linkStats() }
+
+    /// Puts `pyrowave` first where it may go (``offersPyroWave``), judged
+    /// on the route as it is now: each connection decides afresh, so a
+    /// reconnection after moving from Wi-Fi to a cable offers it. A
+    /// configuration that names it already (the user chose it) keeps it
+    /// wherever the route goes, as §6.6 allows.
+    private func offerPyroWave(in config: inout GDPSession.Configuration) {
+        let token = VideoCodec.pyrowave.rawValue
+        pyroWaveRoute = nil
+        if !config.codecs.contains(token) {
+            guard offersPyroWave, VideoCodec.pyrowave.isHardwareDecodable else { return }
+            let route = NetworkRoute.to(host: config.host, port: config.port)
+            pyroWaveRoute = route
+            guard route?.carriesPyroWave == true else { return }
+            config.codecs.insert(token, at: 0)
+        }
+        if !config.decoders.contains("metal") { config.decoders.append("metal") }
+        // The pipelines compile while the connection is set up.
+        PyroWaveDevice.prepare()
+    }
 
     // MARK: - Session queue
 

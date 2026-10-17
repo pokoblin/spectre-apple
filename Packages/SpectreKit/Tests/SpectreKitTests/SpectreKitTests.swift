@@ -188,7 +188,10 @@ struct LoopbackSessionTests {
         #expect(await until { loopback.host.observed.lastHighestFrameID >= 30 && loopback.host.observed.lastPresentMicroseconds > 0 })
         let o = loopback.host.observed
         #expect(o.acceptedCodec == codec.rawValue)
-        #expect(o.decoders == ["videotoolbox"])
+        // The host is this machine: PyroWave is offered first where it decodes (§6.6).
+        let pyroWave = VideoCodec.pyrowave.isHardwareDecodable
+        #expect(o.codecs.first == (pyroWave ? "pyrowave" : o.codecs.first))
+        #expect(o.decoders == (pyroWave ? ["videotoolbox", "metal"] : ["videotoolbox"]))
         #expect(o.lostFrameIDs.isEmpty)
         #expect(o.lastDecodeMicroseconds > 0)
         #expect((7_000...9_000).contains(o.lastPresentMicroseconds))
