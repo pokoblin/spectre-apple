@@ -224,8 +224,11 @@ struct LoopbackSessionTests {
         #expect(await until { ready.withLock { $0 } == id })
         session.sendFileData(id, contents)
         #expect(await until { outcome.withLock { $0 } != nil })
-        #expect(outcome.withLock { $0 } == .saved(name: name))
         let file = loopback.fileDirectory.appending(path: name)
+        // The loopback host says where it put it.
+        #expect(outcome.withLock { $0 } == .saved(name: name,
+                                                 directory: file.deletingLastPathComponent().path(percentEncoded: false)
+                                                     .replacing(/\/+$/, with: "")))
         defer { try? FileManager.default.removeItem(at: file) }
         #expect(try Data(contentsOf: file) == contents)
         #expect(loopback.host.receivedFiles.last?.path == file.path(percentEncoded: false))

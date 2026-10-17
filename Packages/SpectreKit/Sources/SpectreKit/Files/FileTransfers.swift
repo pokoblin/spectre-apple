@@ -81,6 +81,9 @@ public final class FileTransfers {
         public internal(set) var state: State = .waiting
         /// A download, once stored.
         public internal(set) var localURL: URL?
+        /// An upload, once stored: the host's folder it is in (an absolute
+        /// path there), if the host said.
+        public internal(set) var hostDirectory: String?
         /// Fetched for the clipboard (not shown, not part of a batch).
         var isForClipboard = false
 
@@ -156,6 +159,9 @@ public final class FileTransfers {
         public var saved: [String]
         public var failed: [String]
         public var downloaded: [String] = []
+        /// The host's folder every saved file went to, if the host said
+        /// and it is one folder.
+        public var hostDirectory: String?
     }
 
     /// What the user sent and downloaded, oldest first.
@@ -193,6 +199,8 @@ public final class FileTransfers {
     @ObservationIgnored private var batchSaved: [String] = []
     @ObservationIgnored private var batchFailed: [String] = []
     @ObservationIgnored private var batchDownloaded: [String] = []
+    /// The host's folder of each file saved in the batch (nil: not said).
+    @ObservationIgnored private var batchDirectories: [String?] = []
     @ObservationIgnored private var nextID = 0
     /// What one item does: offer a file, or fetch one of the host's.
     private enum Job {
@@ -597,13 +605,15 @@ public final class FileTransfers {
         finish(wire)
         busy.remove(id)
         switch outcome {
-        case .saved(let name):
+        case .saved(let name, let directory):
             update(id) {
                 $0.sent = $0.size
                 $0.state = .saved(name: name)
+                $0.hostDirectory = directory
             }
             sources[id] = nil
             batchSaved.append(name)
+            batchDirectories.append(directory)
             finishBatchIfDone()
         case .refused(let error): fail(id, .refused(error))
         case .failed(let error): fail(id, .hostFailed(error))
@@ -635,9 +645,11 @@ public final class FileTransfers {
     /// Nothing left going: what the batch came to, for a notice.
     private func finishBatchIfDone() {
         guard !hasActive, !batchSaved.isEmpty || !batchFailed.isEmpty || !batchDownloaded.isEmpty else { return }
+        let folders = Set(batchDirectories)
         lastBatch = Batch(serial: (lastBatch?.serial ?? 0) + 1, saved: batchSaved, failed: batchFailed,
-                          downloaded: batchDownloaded)
+                          downloaded: batchDownloaded, hostDirectory: folders.count == 1 ? folders.first! : nil)
         batchSaved = []
+        batchDirectories = []
         batchFailed = []
         batchDownloaded = []
     }

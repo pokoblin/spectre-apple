@@ -287,7 +287,12 @@ struct FileTransfersTests {
         h.transfers.send([MemorySource(name: "a.txt", bytes: [1]), MemorySource(name: "..", bytes: [2]),
                           MemorySource(name: "b.txt", bytes: [3])])
         #expect(await h.until { h.transfers.lastBatch != nil })
-        #expect(h.transfers.lastBatch == FileTransfers.Batch(serial: 1, saved: ["a.txt", "b.txt"], failed: [".."]))
+        // The host says where they went: one folder for the batch.
+        var folder = h.directory.path(percentEncoded: false)
+        while folder.count > 1, folder.hasSuffix("/") { folder.removeLast() }
+        #expect(h.transfers.lastBatch == FileTransfers.Batch(serial: 1, saved: ["a.txt", "b.txt"], failed: [".."],
+                                                             hostDirectory: folder))
+        #expect(h.transfers.items.filter { $0.state != .failed(.badName) }.allSatisfy { $0.hostDirectory == folder })
         h.transfers.send([MemorySource(name: "c.txt", bytes: [4])])
         #expect(await h.until { h.transfers.lastBatch?.serial == 2 })
         #expect(h.transfers.lastBatch?.saved == ["c.txt"] && h.transfers.lastBatch?.failed == [])
