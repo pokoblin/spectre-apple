@@ -133,6 +133,15 @@ private struct FileTransferRow: View {
     }
 }
 
+extension FileTransfers {
+    /// How far the unfinished files have got, together.
+    var activeFraction: Double {
+        let going = items.filter { !$0.isFinished }
+        let total = going.reduce(0) { $0 + $1.size }
+        return total == 0 ? 0 : Double(going.reduce(0) { $0 + $1.sent }) / Double(total)
+    }
+}
+
 extension FileTransfers.Failure {
     /// Why a file didn't go, in a few words.
     var explanation: String {

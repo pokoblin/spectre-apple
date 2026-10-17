@@ -52,13 +52,16 @@ final class SessionChrome {
 // MARK: - Bottom-left: the session toolbar
 
 /// The round toggle in the bottom-left corner and, to its right, the bar
-/// it opens: More, paste to the host, the touch keyboard, the region alert.
+/// it opens: More, paste to the host, the touch keyboard, the region alert,
+/// and the file transfers once there are some.
 struct SessionToolbar: View {
     let model: PlaybackModel
     let chrome: SessionChrome
     let keyBar: KeyBarModel
     let regions: RegionAlertModel
     @Binding var showsStatistics: Bool
+    /// Opens the file picker (Send Files…).
+    let sendFiles: () -> Void
     let confirmLogOut: () -> Void
     @State private var toggleEdge: CGFloat = 0
     @State private var barEdge: CGFloat = 0
@@ -85,7 +88,7 @@ struct SessionToolbar: View {
     private var bar: some View {
         HStack(spacing: FloatingKeyBar.keySpacing) {
             SessionMoreMenu(model: model, keyBar: keyBar, showsStatistics: $showsStatistics,
-                            confirmLogOut: confirmLogOut)
+                            sendFiles: sendFiles, confirmLogOut: confirmLogOut)
             if let clipboard = model.clipboard, clipboard.isEnabled {
                 // The system's paste button reads the clipboard without the
                 // paste prompt; what it reads goes to the host's clipboard.
@@ -102,6 +105,9 @@ struct SessionToolbar: View {
                 KeyboardKey(input: input)
             }
             RegionAlertKey(regions: regions)
+            if !model.files.items.isEmpty {
+                TransfersKey(files: model.files, sendFiles: sendFiles)
+            }
         }
         .padding(FloatingKeyBar.barPadding)
         .glassEffect(.regular, in: .capsule)
@@ -127,6 +133,43 @@ private struct KeyboardKey: View {
     }
 }
 
+/// The files sent to and downloaded from the host (gdp-spec.md §7.12): a
+/// ring of how far they have got while some are going, their list in a
+/// popover.
+private struct TransfersKey: View {
+    let files: FileTransfers
+    let sendFiles: () -> Void
+    @State private var showsList = false
+
+    var body: some View {
+        Button {
+            showsList.toggle()
+        } label: {
+            if files.hasActive {
+                ProgressView(value: files.activeFraction)
+                    .progressViewStyle(.circular)
+                    .controlSize(.small)
+                    .tint(.white)
+            } else {
+                Image(systemName: "list.bullet")
+            }
+        }
+        .buttonStyle(KeyCapStyle(isLit: showsList))
+        .accessibilityLabel("Transfers")
+        .popover(isPresented: $showsList) {
+            FileTransferList(files: files) {
+                showsList = false
+                // The picker can't come up while the popover is still going away.
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    sendFiles()
+                }
+            }
+            .presentationCompactAdaptation(.popover)
+        }
+    }
+}
+
 // MARK: - More
 
 /// Everything else the session offers, in groups: the picture, the
@@ -135,6 +178,7 @@ struct SessionMoreMenu: View {
     @Bindable var model: PlaybackModel
     @Bindable var keyBar: KeyBarModel
     @Binding var showsStatistics: Bool
+    let sendFiles: () -> Void
     let confirmLogOut: () -> Void
 
     var body: some View {
@@ -165,6 +209,18 @@ struct SessionMoreMenu: View {
             }
             if let clipboard = model.clipboard {
                 ClipboardSection(clipboard: clipboard)
+            }
+            if model.files.isAvailable {
+                Section("Files") {
+                    Button(action: sendFiles) {
+                        Label("Send Files…", systemImage: "arrow.up.doc")
+                    }
+                    if let copied = model.copiedFiles, !copied.downloadable.isEmpty {
+                        Button(action: model.downloadCopiedFiles) {
+                            Label("Download Copied Files", systemImage: "arrow.down.doc")
+                        }
+                    }
+                }
             }
             if let voice = keyBar.voice {
                 VoiceInputSection(voice: voice)

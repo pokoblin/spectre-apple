@@ -14,6 +14,8 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         // Region alerts notify while the app's window isn't the active one.
         UNUserNotificationCenter.current().delegate = NotificationPresenter.shared
+        // Copies of files dropped in the last run that never went.
+        DroppedFile.removeAll()
         return true
     }
 
@@ -91,6 +93,8 @@ final class RootViewController: UIHostingController<ContentView>, PointerLockHos
     @objc func sessionToggleKeyBar(_ sender: Any?) { SessionCommands.shared.toggleKeyBar() }
     @objc func sessionToggleKeyboard(_ sender: Any?) { SessionCommands.shared.toggleKeyboard() }
     @objc func sessionSendClipboard(_ sender: Any?) { SessionCommands.shared.sendClipboard() }
+    @objc func sessionSendFiles(_ sender: Any?) { SessionCommands.shared.sendFiles() }
+    @objc func sessionDownloadCopiedFiles(_ sender: Any?) { SessionCommands.shared.downloadCopiedFiles() }
     @objc func sessionDisconnect(_ sender: Any?) { SessionCommands.shared.disconnect() }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

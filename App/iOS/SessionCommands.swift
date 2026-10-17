@@ -16,11 +16,15 @@ final class SessionCommands {
     private(set) weak var model: PlaybackModel?
     private(set) weak var keyBar: KeyBarModel?
     private(set) weak var regions: RegionAlertModel?
+    /// Opens the session's file picker (Send Files…).
+    private var chooseFiles: (() -> Void)?
 
-    func register(_ model: PlaybackModel, keyBar: KeyBarModel, regions: RegionAlertModel) {
+    func register(_ model: PlaybackModel, keyBar: KeyBarModel, regions: RegionAlertModel,
+                  chooseFiles: @escaping () -> Void) {
         self.model = model
         self.keyBar = keyBar
         self.regions = regions
+        self.chooseFiles = chooseFiles
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -29,6 +33,7 @@ final class SessionCommands {
         self.model = nil
         keyBar = nil
         regions = nil
+        chooseFiles = nil
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -56,6 +61,12 @@ final class SessionCommands {
                         #selector(RootViewController.sessionToggleKeyboard(_:))),
                 command(String(localized: "Send Clipboard to Host"), "doc.on.clipboard",
                         #selector(RootViewController.sessionSendClipboard(_:))),
+            ]),
+            UIMenu(options: .displayInline, children: [
+                command(String(localized: "Send Files…"), "arrow.up.doc",
+                        #selector(RootViewController.sessionSendFiles(_:))),
+                command(String(localized: "Download Copied Files"), "arrow.down.doc",
+                        #selector(RootViewController.sessionDownloadCopiedFiles(_:))),
             ]),
             UIMenu(options: .displayInline, children: [
                 command(String(localized: "Disconnect"), "xmark.circle",
@@ -88,6 +99,8 @@ extension SessionCommands {
     func toggleKeyBar() { keyBar?.isShown.toggle() }
     func toggleKeyboard() { model?.input?.showsTouchKeyboard.toggle() }
     func disconnect() { model?.disconnect() }
+    func sendFiles() { chooseFiles?() }
+    func downloadCopiedFiles() { model?.downloadCopiedFiles() }
 
     /// The iPad's clipboard to the host's, as the paste button does: on
     /// with clipboard sharing, or put there for pasting when it is off.
@@ -114,6 +127,10 @@ extension SessionCommands {
             return keyBar != nil
         case #selector(RootViewController.sessionSendClipboard(_:)):
             return model?.clipboard != nil
+        case #selector(RootViewController.sessionSendFiles(_:)):
+            return model?.files.isAvailable == true && keyBar?.isPromptOpen == false
+        case #selector(RootViewController.sessionDownloadCopiedFiles(_:)):
+            return model?.copiedFiles?.downloadable.isEmpty == false
         case #selector(RootViewController.sessionDisconnect(_:)):
             return model != nil
         default:

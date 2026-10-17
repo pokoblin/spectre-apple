@@ -61,6 +61,12 @@ struct SessionView: View {
                 // The key bar of the bottom-right corner is part of it.
                 RemoteScreen(presenter: presenter, input: model.input, keyBar: keyBar)
                     .ignoresSafeArea(.container)
+                    // Files dragged in from another app go to the host (gdp-spec.md §7.12).
+                    .dropDestination(for: DroppedFile.self) { dropped, _ in
+                        guard model.files.isAvailable, !dropped.isEmpty else { return false }
+                        model.sendFiles(dropped.map(\.url))
+                        return true
+                    } isTargeted: { dropTargeted = $0 && model.files.isAvailable }
                 if let input = model.input {
                     RegionOutline(regions: regions, input: input)
                         .ignoresSafeArea(.container)
@@ -84,6 +90,9 @@ struct SessionView: View {
             SessionStatusOverlay(model: model)
                 .animation(.easeInOut(duration: 0.2), value: model.phase)
             TopNotices(model: model, regions: regions)
+            if dropTargeted {
+                FileDropHint()
+            }
             VoiceOverlay(voice: voice)
             if keyBar.isPromptOpen {
                 PromptPanel(prompt: prompt, model: model) { keyBar.isPromptOpen = false }
@@ -92,7 +101,7 @@ struct SessionView: View {
             // The corners make way for the prompt panel, or choosing a
             // region, rather than show beside them.
             SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, regions: regions,
-                           showsStatistics: $showStats) {
+                           showsStatistics: $showStats, sendFiles: { choosingFiles = true }) {
                 confirmLogOut = true
             }
             .opacity(cornersHidden ? 0 : 1)
@@ -145,6 +154,11 @@ struct SessionView: View {
         .persistentSystemOverlays(.hidden)
         .animation(.smooth(duration: 0.3), value: keyBar.isPromptOpen)
         .animation(.smooth(duration: 0.3), value: regions.isSelecting)
+        .animation(.easeInOut(duration: 0.15), value: dropTargeted)
+        // A batch over, nothing left to send: the dropped copies can go.
+        .onChange(of: model.files.lastBatch) {
+            if !model.files.hasActive { DroppedFile.removeAll() }
+        }
         .onChange(of: regions.isSelecting) { keyBar.isSelectingRegion = regions.isSelecting }
         .onAppear {
             regions.attach(presenter: model.presenter, key: model.regionKey, title: model.title) { [weak model] in
@@ -160,7 +174,7 @@ struct SessionView: View {
             keyBar.input = model.input
             keyBar.voice = voice
             voice.model = model
-            SessionCommands.shared.register(model, keyBar: keyBar, regions: regions)
+            SessionCommands.shared.register(model, keyBar: keyBar, regions: regions) { choosingFiles = true }
         }
         .onDisappear {
             voice.cancel()
@@ -365,7 +379,7 @@ private struct FileControls: View {
                     Text("Transfers")
                 } icon: {
                     if files.hasActive {
-                        ProgressView(value: progress)
+                        ProgressView(value: files.activeFraction)
                             .progressViewStyle(.circular)
                             .controlSize(.small)
                     } else {
@@ -381,13 +395,6 @@ private struct FileControls: View {
                 }
             }
         }
-    }
-
-    /// How far the unfinished files have got, together.
-    private var progress: Double {
-        let going = files.items.filter { !$0.isFinished }
-        let total = going.reduce(0) { $0 + $1.size }
-        return total == 0 ? 0 : Double(going.reduce(0) { $0 + $1.sent }) / Double(total)
     }
 }
 
