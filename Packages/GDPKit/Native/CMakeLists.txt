@@ -27,6 +27,7 @@ add_library(gdpcore STATIC
   src/selftest.cpp
   src/receive_stats.cpp
   src/session_client.cpp
+  src/local_serve.cpp
   src/session_api.cpp
   src/test_host.cpp
   src/server_loop.cpp

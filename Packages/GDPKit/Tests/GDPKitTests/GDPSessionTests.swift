@@ -44,7 +44,18 @@ final class Recorder: Sendable {
         var fetchRanges: [UInt64: (offset: UInt64, fileSize: UInt64)] = [:]
         /// file-clipboard: each listing request's batches.
         var listings: [UInt64: [(firstIndex: UInt32, files: [GDPSession.FileListEntry])]] = [:]
+        /// file-clipboard: what the host read of this side's files (offset, size), by id.
+        var served: [UInt64: (offset: UInt64, size: UInt64)] = [:]
     }
+
+    /// Where served files' bytes go (file-clipboard): set once the session
+    /// exists. `hold`: keep them back, the descriptors open.
+    final class ServeTarget: @unchecked Sendable {
+        weak var session: GDPSession?
+        var hold = false
+        var held: [UInt64: FileHandle] = [:]
+    }
+    let serveTarget = Mutex(ServeTarget())
 
     let state = Mutex(State())
     var snapshot: State { state.withLock { $0 } }
@@ -78,6 +89,19 @@ final class Recorder: Sendable {
         h.fileSending = { id, name, size, _ in self.state.withLock { $0.fetchHeaders[id] = (name, size) } }
         h.fileRange = { id, offset, size in self.state.withLock { $0.fetchRanges[id] = (offset, size) } }
         h.fileListing = { id, first, files in self.state.withLock { $0.listings[id, default: []].append((first, files)) } }
+        h.fileServe = { id, fd, offset, size in
+            self.state.withLock { $0.served[id] = (offset, size) }
+            let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
+            self.serveTarget.withLock { target in
+                if target.hold {
+                    target.held[id] = file
+                    return
+                }
+                try? file.seek(toOffset: offset)
+                let data = (try? file.read(upToCount: Int(size))) ?? Data()
+                target.session?.sendFileData(id, data)
+            }
+        }
         h.fileData = { id, bytes in
             let copy = Array(bytes)
             self.state.withLock { $0.fetched[id, default: []] += copy }
@@ -111,6 +135,7 @@ func randomFrame(_ size: Int) -> [UInt8] {
 func connected(_ host: GDPTestHost, _ rec: Recorder, codecs: [String] = ["h264"], acceptFrames: Bool = true,
                configure: (inout GDPSession.Configuration) -> Void = { _ in }) async throws -> GDPSession {
     let session = GDPSession(handlers: rec.handlers(acceptFrames: acceptFrames))
+    rec.serveTarget.withLock { $0.session = session }
     var config = host.sessionConfiguration(codecs: codecs)
     configure(&config)
     try session.connect(config)

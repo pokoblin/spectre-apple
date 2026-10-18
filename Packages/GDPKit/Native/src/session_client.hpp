@@ -11,10 +11,12 @@
 #include "receive_stats.hpp"
 
 #include "gdp/client_connection.hpp"
+#include "gdp/file_list.hpp"
 #include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
 #include "gdp/refine.hpp"
 #include "gdp/video_reassembler.hpp"
+#include "gdp/worker.hpp"
 
 #include <cstdint>
 #include <deque>
@@ -31,6 +33,8 @@ class Stream;
 
 namespace gdp::session {
 class ControlEnvelope;
+class FileFetch;
+class FileListing;
 class FileOpen;
 class FileReply;
 class InputEnvelope;
@@ -204,6 +208,12 @@ public:
 		// file_finished: kSaved once all have come, or kRefused (GONE).
 		std::function<void(uint64_t id, uint32_t first_index, const std::vector<FileListEntry> &files)>
 			file_listing;
+		// file-clipboard: the host reads one of this side's copied files.
+		// `fd` (open, read-only) is the callee's to close: send `size` bytes
+		// of it from `offset` with send_file_data(id), as for an accepted
+		// offer, paced by file_progress. It ends in file_finished: kSaved
+		// once the host has all of it, kCancelled if it stops wanting it.
+		std::function<void(uint64_t id, int fd, uint64_t offset, uint64_t size)> file_serve;
 	};
 
 	struct LinkStats {
@@ -292,6 +302,15 @@ public:
 	// `len` bytes of a fetched file's file_data are stored: the host may
 	// send that much more.
 	void consume_file_data(uint64_t id, size_t len);
+	// file-clipboard: what this side's user copied (UTF-8 absolute paths),
+	// listed to the host with what is in its folders; none takes it back.
+	// The list is made off this thread (worker_fd()); a newer call wins.
+	void set_copied_files(const std::vector<std::string> &paths);
+
+	// Disk work for the host's requests runs on a thread of its own: call
+	// dispatch_worker() whenever worker_fd() is readable.
+	int worker_fd() const { return worker_.notify_fd(); }
+	void dispatch_worker() { worker_.dispatch(); }
 
 	// One Opus packet of the microphone (§10.1) on datagram channel 0x03:
 	// seq counts from 0 at SessionAccept, pts is our session clock. Dropped
@@ -333,6 +352,9 @@ private:
 		// The host sends more than was asked for (it ignores ranges): stop
 		// once `size` bytes have come.
 		bool cut = false;
+		// An answer to the host's FileFetch: done once it has acknowledged
+		// every byte.
+		bool answer = false;
 	};
 	void handle_file_data(FileTransfer *t, const uint8_t *data, size_t len);
 	void handle_fetch_data(FileTransfer *t, const uint8_t *data, size_t len);
@@ -349,6 +371,19 @@ private:
 		const std::string &saved_directory = {});
 	// Offers the host hasn't answered in time.
 	void expire_file_offers();
+	// file-clipboard: the host asks for one of this side's files.
+	void handle_fetch(const gdp::session::FileFetch &fetch);
+	// A new file stream answering fetch `fetch_id`, its StreamOpen sent;
+	// null if there can't be one.
+	std::unique_ptr<gdp::Stream> open_answer(uint64_t fetch_id, size_t *open_frame_len = nullptr);
+	void answer_refused(uint64_t fetch_id, int32_t code);
+	void answer_listing(uint64_t fetch_id, std::vector<gdp::session::FileListing> frames);
+	// `fd` from `offset` (at most `length` bytes, 0: to the end), named `name`.
+	void answer_bytes(uint64_t fetch_id, int fd, uint64_t file_size, int64_t modified_unix_ms, uint64_t offset,
+		uint64_t length, const std::string &name);
+	// Lists the host no longer gets to read (§7.12: kept a while after being
+	// replaced or read, a few at most).
+	void forget_copied_lists();
 	void handle_video_frame(gdp::VideoFrameReassembler::Frame &frame);
 	void deliver(const gdp::VideoFrameReassembler::Frame &frame);
 	void send_refine_pause();
@@ -387,6 +422,17 @@ private:
 	std::vector<uint8_t> refine_bgra_;
 	std::map<uint64_t, std::unique_ptr<FileTransfer>> files_;
 	uint64_t next_file_id_ = 1;
+	// file-clipboard: the lists of this side's copied files the host may
+	// still read from, by id; when each stopped being the latest (0: it is)
+	// and was last read.
+	struct CopiedList {
+		gdp::LocalFileList list;
+		uint64_t replaced_us = 0;
+		uint64_t read_us = 0;
+	};
+	std::map<uint64_t, CopiedList> copied_lists_;
+	uint64_t next_list_id_ = 1;
+	uint64_t copied_generation_ = 0; // set_copied_files() calls, so a stale build is dropped
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}
@@ -407,6 +453,8 @@ private:
 	uint64_t frames_delivered_ = 0;
 	uint64_t frames_dropped_ = 0;
 	uint32_t stats_reports_sent_ = 0;
+	// Last, so it goes first: what it hands back reaches into the rest.
+	gdp::Worker worker_;
 };
 
 } // namespace gdpcore

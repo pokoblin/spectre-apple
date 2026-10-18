@@ -78,6 +78,13 @@ struct TestHost::Impl {
 		// With cfg.file_directory: the temporary file being written.
 		int fd = -1;
 		std::string temp_path;
+		// An answer to FetchRequest `answer` (file-clipboard, file-share):
+		// its reply, then raw bytes or more listing frames.
+		uint64_t answer = 0;
+		std::unique_ptr<gdp::FrameThenRawReader> answer_reader;
+		gdp::FrameReader listing_reader;
+		bool raw = false;
+		bool listing = false;
 		~Incoming() {
 			if (fd >= 0) ::close(fd);
 			if (!temp_path.empty()) ::unlink(temp_path.c_str());
@@ -89,6 +96,13 @@ struct TestHost::Impl {
 	// them (§7.12); loop thread.
 	uint64_t list_id = 0;
 	std::map<uint64_t, gdp::LocalFileList> lists;
+
+	// The viewer's latest FileList, as client_file_list() gives it; the
+	// host's reads of its files, by fetch id (both guarded by `mu`).
+	std::string client_list;
+	uint64_t client_list_id = 0;
+	std::map<uint64_t, FetchResult> fetches;
+	uint64_t next_fetch_id = 1;
 
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
@@ -443,6 +457,19 @@ struct TestHost::Impl {
 			obs.diagnostics_report = env.diagnostics_report().text();
 			break;
 		}
+		case E::kFileList: {
+			if (!p.file_clipboard) break;
+			std::string lines;
+			for (const auto &f : env.file_list().files()) {
+				lines += std::to_string(f.parent()) + " " + f.name() + (f.directory() ? "/" : "") +
+					(f.unlisted() ? "?" : "") + "\n";
+			}
+			std::lock_guard lock(mu);
+			obs.client_file_lists++;
+			client_list = lines;
+			client_list_id = env.file_list().list_id();
+			break;
+		}
 		case E::kClipboard: {
 			const auto &c = env.clipboard();
 			if (p.clipboard && c.mime_type() == gdp::kClipboardMimeText && !c.data().empty() &&
@@ -472,7 +499,11 @@ struct TestHost::Impl {
 		f->stream->on_reset = [this, f](uint64_t) {
 			{
 				std::lock_guard lock(mu);
-				obs.files_cancelled++;
+				if (f->answer) {
+					fetches[f->answer].state = FetchResult::State::kReset;
+				} else {
+					obs.files_cancelled++;
+				}
 			}
 			drop_file(f);
 		};
@@ -484,6 +515,10 @@ struct TestHost::Impl {
 	void on_file_data(Incoming *f, const uint8_t *data, size_t len) {
 		// Kept in memory: the window comes straight back.
 		f->stream->consume(len);
+		if (f->answer) {
+			on_answer_data(f, data, len);
+			return;
+		}
 		if (!f->accepted) {
 			switch (f->reader.feed(data, len)) {
 			case gdp::FileStreamReader::State::kWaiting: return;
@@ -493,7 +528,17 @@ struct TestHost::Impl {
 				return;
 			case gdp::FileStreamReader::State::kOpened: break;
 			}
-			if (!f->reader.take_data().empty()) {
+			std::vector<uint8_t> rest = f->reader.take_data();
+			gdp::session::FileOpen open;
+			if (f->reader.kind() == gdp::kStreamKindFile && open.ParseFromString(f->reader.params()) &&
+				open.has_answer()) {
+				// The reply follows the StreamOpen at once.
+				if (start_answer(f, open.answer().fetch_id()) && !rest.empty()) {
+					on_answer_data(f, rest.data(), rest.size());
+				}
+				return;
+			}
+			if (!rest.empty()) {
 				// Bytes before "accepted".
 				close_peer(*f->peer, code(gdp::ErrorCode::kMalformedFrame));
 				drop_file(f);
@@ -567,6 +612,14 @@ struct TestHost::Impl {
 	}
 
 	void on_file_fin(Incoming *f) {
+		if (f->answer) {
+			{
+				std::lock_guard lock(mu);
+				fetches[f->answer].finished = true;
+			}
+			drop_file(f);
+			return;
+		}
 		if (!f->accepted) {
 			drop_file(f);
 			return;
@@ -724,6 +777,110 @@ struct TestHost::Impl {
 			(refused ? obs.files_refused : obs.files_failed)++;
 		}
 		drop_file(f);
+	}
+
+	// --- The viewer's files, read by the host (file-clipboard, file-share) ---
+
+	void send_fetch(uint64_t fetch_id, const FetchRequest &r) {
+		if (!viewer || !viewer->accepted) return;
+		gdp::session::ControlEnvelope env;
+		auto *fetch = env.mutable_file_fetch();
+		fetch->set_fetch_id(fetch_id);
+		fetch->set_list_id(r.list_id);
+		fetch->set_index(r.index);
+		fetch->set_offset(r.offset);
+		fetch->set_length(r.length);
+		fetch->set_listing(r.listing);
+		fetch->set_share_id(r.share_id);
+		fetch->set_path(r.path);
+		send(*viewer, env);
+	}
+
+	// Whether the stream answers a fetch still waiting; if not, it is reset.
+	bool start_answer(Incoming *f, uint64_t fetch_id) {
+		bool known;
+		{
+			std::lock_guard lock(mu);
+			auto it = fetches.find(fetch_id);
+			known = it != fetches.end() && it->second.state == FetchResult::State::kPending;
+			obs.fetch_answers++;
+		}
+		if (!known) {
+			f->stream->reset(0);
+			drop_file(f);
+			return false;
+		}
+		f->answer = fetch_id;
+		f->answer_reader = std::make_unique<gdp::FrameThenRawReader>(gdp::kMaxFrameSize);
+		return true;
+	}
+
+	void on_answer_data(Incoming *f, const uint8_t *data, size_t len) {
+		if (f->raw) {
+			std::lock_guard lock(mu);
+			auto &d = fetches[f->answer].data;
+			d.insert(d.end(), data, data + len);
+			return;
+		}
+		if (f->listing) {
+			gdp::session::FileReply reply;
+			f->listing_reader.feed_and_drain(data, len, &reply, [&] {
+				add_listing(f->answer, reply.listing());
+				return true;
+			});
+			return;
+		}
+		auto state = f->answer_reader->feed(data, len);
+		if (state == gdp::FrameThenRawReader::State::kError) {
+			close_peer(*f->peer, code(gdp::ErrorCode::kMalformedFrame));
+			drop_file(f);
+			return;
+		}
+		if (state == gdp::FrameThenRawReader::State::kWaiting) return;
+		gdp::session::FileReply reply;
+		reply.ParseFromString(f->answer_reader->frame());
+		std::vector<uint8_t> rest = f->answer_reader->take_data();
+		std::lock_guard lock(mu);
+		FetchResult &r = fetches[f->answer];
+		if (reply.has_refused()) {
+			r.state = FetchResult::State::kRefused;
+			r.error = reply.refused().code();
+		} else if (reply.has_sending()) {
+			r.state = FetchResult::State::kSending;
+			r.name = reply.sending().name();
+			r.size = reply.sending().size();
+			r.offset = reply.sending().offset();
+			r.file_size = reply.sending().file_size();
+			r.modified_unix_ms = reply.sending().modified_unix_ms();
+			r.data = std::move(rest);
+			f->raw = true;
+		} else if (reply.has_listing()) {
+			r.state = FetchResult::State::kListing;
+			r.first_index = reply.listing().first_index();
+			f->listing = true;
+			for (const auto &e : reply.listing().files()) r.entries.push_back(e.name() + (e.directory() ? "/" : ""));
+			gdp::session::FileReply more;
+			f->listing_reader.feed_and_drain(rest.data(), rest.size(), &more, [&] {
+				for (const auto &e : more.listing().files()) r.entries.push_back(e.name() + (e.directory() ? "/" : ""));
+				return true;
+			});
+		}
+	}
+
+	void add_listing(uint64_t fetch_id, const gdp::session::FileListing &listing) {
+		std::lock_guard lock(mu);
+		FetchResult &r = fetches[fetch_id];
+		for (const auto &e : listing.files()) r.entries.push_back(e.name() + (e.directory() ? "/" : ""));
+	}
+
+	void reset_answer(uint64_t fetch_id) {
+		for (auto &i : incoming) {
+			if (i->answer == fetch_id) {
+				i->stream->reset(0);
+				drop_file(i.get());
+				return;
+			}
+		}
 	}
 
 	void drop_file(Incoming *f) {
@@ -1007,6 +1164,35 @@ void TestHost::send_diagnostics_request() {
 
 void TestHost::send_file_list(std::vector<std::string> paths) {
 	impl_->post([m = impl_.get(), paths = std::move(paths)] { m->list_files(paths); });
+}
+
+uint64_t TestHost::fetch(FetchRequest request) {
+	uint64_t id;
+	{
+		std::lock_guard lock(impl_->mu);
+		id = impl_->next_fetch_id++;
+		impl_->fetches[id] = FetchResult{};
+	}
+	impl_->post([m = impl_.get(), id, request = std::move(request)] { m->send_fetch(id, request); });
+	return id;
+}
+
+bool TestHost::fetch_result(uint64_t fetch_id, FetchResult *out) const {
+	std::lock_guard lock(impl_->mu);
+	auto it = impl_->fetches.find(fetch_id);
+	if (it == impl_->fetches.end()) return false;
+	*out = it->second;
+	return true;
+}
+
+void TestHost::reset_fetch(uint64_t fetch_id) {
+	impl_->post([m = impl_.get(), fetch_id] { m->reset_answer(fetch_id); });
+}
+
+std::string TestHost::client_file_list(uint64_t *list_id) const {
+	std::lock_guard lock(impl_->mu);
+	if (list_id) *list_id = impl_->client_list_id;
+	return impl_->client_list;
 }
 
 void TestHost::send_clipboard(std::string mime_type, std::string data) {

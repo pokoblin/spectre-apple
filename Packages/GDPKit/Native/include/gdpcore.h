@@ -347,6 +347,13 @@ typedef struct {
     // (GDPC_FILE_REFUSED with GONE: not a folder, or the list is gone).
     void (*file_listing)(void *ctx, uint64_t id, uint32_t first_index, const gdpc_file_list_entry *files,
                          size_t count);
+    // file-clipboard: the host reads one of this side's copied files
+    // (gdpc_session_set_copied_files). `fd` (open, read-only) is the
+    // callee's to close: send `size` bytes of it from `offset` with
+    // gdpc_session_send_file_data(id), as for an accepted offer, paced by
+    // file_progress. It ends in file_finished: GDPC_FILE_SAVED once the host
+    // has every byte, GDPC_FILE_CANCELLED when it stops wanting them.
+    void (*file_serve)(void *ctx, uint64_t id, int fd, uint64_t offset, uint64_t size);
 } gdpc_session_callbacks;
 
 typedef enum {
@@ -404,6 +411,11 @@ void gdpc_session_destroy(gdpc_session *session);
 bool gdpc_session_connect(gdpc_session *session, const gdpc_session_config *config, char *error, size_t error_cap);
 int gdpc_session_notify_fd(const gdpc_session *session);
 void gdpc_session_dispatch(gdpc_session *session);
+// The session's disk work (the host reading this side's files) runs on a
+// thread of its own: call gdpc_session_dispatch_worker() whenever this fd
+// is readable, on the same queue as gdpc_session_dispatch().
+int gdpc_session_worker_fd(const gdpc_session *session);
+void gdpc_session_dispatch_worker(gdpc_session *session);
 // Detach (close with code 0); the desktop session keeps running (§7.10).
 void gdpc_session_close(gdpc_session *session);
 bool gdpc_session_established(const gdpc_session *session);
@@ -460,6 +472,11 @@ uint64_t gdpc_session_request_file_range(gdpc_session *session, uint64_t list_id
 // file-clipboard: the contents of folder `index` of FileList `list_id`
 // (file_listing), and its id; 0 without file-clipboard in effect.
 uint64_t gdpc_session_request_listing(gdpc_session *session, uint64_t list_id, uint32_t index);
+// file-clipboard: what this side's user copied (UTF-8 absolute paths),
+// listed to the host with what is in its folders; count 0 takes it back.
+// The host then reads them through file_serve. Ignored without
+// file-clipboard in effect; a later call wins over one still being listed.
+void gdpc_session_set_copied_files(gdpc_session *session, const char *const *paths, size_t count);
 // `len` bytes of a fetch's file_data are stored: the host may send more.
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len);
 // §7.12's name rules: valid UTF-8, 1-255 bytes, no '/', '\\' or control
@@ -661,6 +678,8 @@ typedef struct {
     uint32_t file_requests_refused;
     uint32_t listings_requested;     // FileListingRequest (file-clipboard)
     uint32_t listings_refused;
+    uint32_t client_file_lists;      // FileLists from the viewer (file-clipboard)
+    uint32_t fetch_answers;          // answering streams the viewer opened
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
@@ -698,6 +717,43 @@ void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, 
 // Lists `paths` as the files the host's user copied, replacing the last
 // list; none says nothing is copied any more (§7.12).
 void gdpc_test_host_send_file_list(gdpc_test_host *host, const char *const *paths, size_t count);
+
+// file-clipboard / file-share (§7.12): the host reads one of the viewer's
+// files with FileFetch (by list and index, or share and path); the answer
+// is kept by the id returned.
+typedef struct {
+    uint64_t list_id;
+    uint32_t index;
+    uint64_t offset;
+    uint64_t length;
+    bool listing;
+    uint64_t share_id;
+    const char *path;               // NULL: ""
+} gdpc_test_fetch;
+typedef struct {
+    int32_t state;                  // 0 waiting, 1 sending, 2 listing, 3 refused, 4 reset by the viewer
+    bool finished;                  // the viewer's FIN came
+    int32_t error;                  // refused: the FileErrorCode
+    char name[256];                 // sending: FileSending's fields
+    uint64_t size;
+    uint64_t offset;
+    uint64_t file_size;
+    int64_t modified_unix_ms;
+    uint64_t data_length;           // bytes received so far
+    uint32_t first_index;           // listing
+} gdpc_test_fetch_result;
+uint64_t gdpc_test_host_fetch(gdpc_test_host *host, const gdpc_test_fetch *request);
+// Copies at most `cap` bytes received, and the listing's entries (one per
+// line, "/" after a folder) NUL-terminated into `entries`. False for an
+// unknown id.
+bool gdpc_test_host_fetch_result(const gdpc_test_host *host, uint64_t fetch_id, gdpc_test_fetch_result *out,
+                                 uint8_t *data, size_t cap, char *entries, size_t entries_cap);
+// Resets the answering stream, as a host that no longer wants it.
+void gdpc_test_host_reset_fetch(gdpc_test_host *host, uint64_t fetch_id);
+// The viewer's latest FileList: an entry per line, "parent name", "/"
+// after a folder, "?" after an unlisted one. Returns the length (copies at
+// most cap - 1, NUL-terminated).
+size_t gdpc_test_host_client_file_list(const gdpc_test_host *host, uint64_t *list_id, char *out, size_t cap);
 void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 // Whether a keyframe was asked for (KeyframeRequest or a newly reported
 // loss) since the last call.

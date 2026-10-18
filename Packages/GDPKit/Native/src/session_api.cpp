@@ -13,6 +13,8 @@
 #include <string>
 #include <vector>
 
+#include <unistd.h>
+
 // gdpc_rect is handed out over gdp::RefineRect's own storage.
 static_assert(sizeof(gdpc_rect) == sizeof(gdp::RefineRect) && offsetof(gdpc_rect, height) == offsetof(gdp::RefineRect, height),
 	"gdpc_rect must match gdp::RefineRect");
@@ -182,6 +184,13 @@ struct gdpc_session {
 				callbacks.file_sending(callbacks.ctx, id, name.c_str(), size, modified, offset, file_size);
 			}
 		};
+		cb.file_serve = [this](uint64_t id, int fd, uint64_t offset, uint64_t size) {
+			if (callbacks.file_serve) {
+				callbacks.file_serve(callbacks.ctx, id, fd, offset, size);
+			} else {
+				::close(fd);
+			}
+		};
 		cb.file_data = [this](uint64_t id, const uint8_t *data, size_t len) {
 			if (callbacks.file_data) callbacks.file_data(callbacks.ctx, id, data, len);
 		};
@@ -236,6 +245,8 @@ bool gdpc_session_connect(gdpc_session *session, const gdpc_session_config *c, c
 
 int gdpc_session_notify_fd(const gdpc_session *session) { return session->client.notify_fd(); }
 void gdpc_session_dispatch(gdpc_session *session) { session->client.dispatch(); }
+int gdpc_session_worker_fd(const gdpc_session *session) { return session->client.worker_fd(); }
+void gdpc_session_dispatch_worker(gdpc_session *session) { session->client.dispatch_worker(); }
 void gdpc_session_close(gdpc_session *session) { session->client.close(); }
 bool gdpc_session_established(const gdpc_session *session) { return session->client.established(); }
 void gdpc_session_send_stats_report(gdpc_session *session) { session->client.send_stats_report(); }
@@ -291,6 +302,10 @@ uint64_t gdpc_session_request_file_range(gdpc_session *session, uint64_t list_id
 
 uint64_t gdpc_session_request_listing(gdpc_session *session, uint64_t list_id, uint32_t index) {
 	return session->client.request_listing(list_id, index);
+}
+
+void gdpc_session_set_copied_files(gdpc_session *session, const char *const *paths, size_t count) {
+	session->client.set_copied_files(strings(paths, count));
 }
 
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len) {
@@ -480,6 +495,52 @@ void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rt
 
 void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host) { host->host.send_diagnostics_request(); }
 
+uint64_t gdpc_test_host_fetch(gdpc_test_host *host, const gdpc_test_fetch *r) {
+	gdpcore::TestHost::FetchRequest request;
+	request.list_id = r->list_id;
+	request.index = r->index;
+	request.offset = r->offset;
+	request.length = r->length;
+	request.listing = r->listing;
+	request.share_id = r->share_id;
+	if (r->path) request.path = r->path;
+	return host->host.fetch(std::move(request));
+}
+
+bool gdpc_test_host_fetch_result(const gdpc_test_host *host, uint64_t fetch_id, gdpc_test_fetch_result *out,
+	uint8_t *data, size_t cap, char *entries, size_t entries_cap) {
+	gdpcore::TestHost::FetchResult r;
+	if (!host->host.fetch_result(fetch_id, &r)) return false;
+	if (out) {
+		*out = gdpc_test_fetch_result{};
+		out->state = static_cast<int32_t>(r.state);
+		out->finished = r.finished;
+		out->error = r.error;
+		copy_string(out->name, sizeof(out->name), r.name);
+		out->size = r.size;
+		out->offset = r.offset;
+		out->file_size = r.file_size;
+		out->modified_unix_ms = r.modified_unix_ms;
+		out->data_length = r.data.size();
+		out->first_index = r.first_index;
+	}
+	if (data && cap) std::memcpy(data, r.data.data(), std::min(cap, r.data.size()));
+	if (entries && entries_cap) {
+		std::string lines;
+		for (const auto &e : r.entries) lines += e + "\n";
+		copy_string(entries, entries_cap, lines);
+	}
+	return true;
+}
+
+void gdpc_test_host_reset_fetch(gdpc_test_host *host, uint64_t fetch_id) { host->host.reset_fetch(fetch_id); }
+
+size_t gdpc_test_host_client_file_list(const gdpc_test_host *host, uint64_t *list_id, char *out, size_t cap) {
+	std::string lines = host->host.client_file_list(list_id);
+	if (out && cap) copy_string(out, cap, lines);
+	return lines.size();
+}
+
 void gdpc_test_host_send_file_list(gdpc_test_host *host, const char *const *paths, size_t count) {
 	host->host.send_file_list(strings(paths, count));
 }
@@ -581,6 +642,8 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->file_requests_refused = o.file_requests_refused;
 	out->listings_requested = o.listings_requested;
 	out->listings_refused = o.listings_refused;
+	out->client_file_lists = o.client_file_lists;
+	out->fetch_answers = o.fetch_answers;
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 

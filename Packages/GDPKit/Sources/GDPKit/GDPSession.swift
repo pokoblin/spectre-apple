@@ -361,6 +361,14 @@ public final class GDPSession: @unchecked Sendable {
         /// in batches whose indices in the list run from `firstIndex` on; then
         /// ``fileFinished``, `.saved` once all have come.
         public var fileListing: (@Sendable (_ id: UInt64, _ firstIndex: UInt32, _ files: [FileListEntry]) -> Void)?
+        /// With ``Capability/fileClipboard``: the host reads one of this
+        /// side's copied files (``GDPSession/setCopiedFiles(_:)``). `file`
+        /// (open, read-only) is the handler's to close: send `size` bytes of
+        /// it from `offset` with ``GDPSession/sendFileData(_:_:)`` under id
+        /// `id`, paced by ``fileProgress``, as for an accepted offer. It ends
+        /// in ``fileFinished``: `.saved` once the host has every byte,
+        /// `.cancelledByHost` when it stops wanting them.
+        public var fileServe: (@Sendable (_ id: UInt64, _ file: Int32, _ offset: UInt64, _ size: UInt64) -> Void)?
 
         public init() {}
     }
@@ -411,6 +419,8 @@ public final class GDPSession: @unchecked Sendable {
     /// What ``setRefinePaused(_:)`` last said: handed to the native session as it is made. Queue only.
     private var refinePaused = false
     private var readSource: DispatchSourceRead?
+    /// The session's disk work, handed back (the host reading our files).
+    private var workerSource: DispatchSourceRead?
     private var statsTimer: DispatchSourceTimer?
     private var ended = false
     /// Signalled once the connection has closed (the close callback ran).
@@ -492,6 +502,13 @@ public final class GDPSession: @unchecked Sendable {
             callbacks.file_list = { ctx, listID, entries, count in
                 let files = UnsafeBufferPointer(start: entries, count: count).map(FileListEntry.init)
                 GDPSession.from(ctx).handlers.fileList?(listID, files)
+            }
+            callbacks.file_serve = { ctx, id, fd, offset, size in
+                if let serve = GDPSession.from(ctx).handlers.fileServe {
+                    serve(id, fd, offset, size)
+                } else {
+                    Darwin.close(fd)
+                }
             }
             callbacks.file_listing = { ctx, id, firstIndex, entries, count in
                 let files = UnsafeBufferPointer(start: entries, count: count).map(FileListEntry.init)
@@ -693,6 +710,15 @@ public final class GDPSession: @unchecked Sendable {
         }
     }
 
+    /// With ``Capability/fileClipboard``: what this side's user copied, for a
+    /// paste on the host (§7.12), listed with what is in its folders (made
+    /// off the session's queue); none takes it back. The host then reads
+    /// them through ``Handlers/fileServe``. Ignored without it in effect.
+    public func setCopiedFiles(_ files: [URL]) {
+        let paths = files.map { $0.path(percentEncoded: false) }
+        async { h in withCStrings(paths) { gdpc_session_set_copied_files(h, $0.baseAddress, $0.count) } }
+    }
+
     /// With ``Capability/fileClipboard``: what is in folder `index` of the
     /// host's list `listID`, through ``Handlers/fileListing`` and
     /// ``Handlers/fileFinished``. Nil before establishment or without it.
@@ -789,6 +815,13 @@ public final class GDPSession: @unchecked Sendable {
         read.setEventHandler { [weak self] in self?.pump() }
         read.resume()
         readSource = read
+        let worker = DispatchSource.makeReadSource(fileDescriptor: gdpc_session_worker_fd(h), queue: queue)
+        worker.setEventHandler { [weak self] in
+            guard let self, let handle = self.handle, !self.ended else { return }
+            gdpc_session_dispatch_worker(handle)
+        }
+        worker.resume()
+        workerSource = worker
         let timer = DispatchSource.makeTimerSource(queue: queue)
         timer.schedule(deadline: .now() + Self.statsInterval, repeating: Self.statsInterval, leeway: .milliseconds(5))
         timer.setEventHandler { [weak self] in
@@ -828,6 +861,7 @@ public final class GDPSession: @unchecked Sendable {
         ended = true
         // Stop pumping; the handle stays until teardown (we are inside its dispatch()).
         readSource?.cancel()
+        workerSource?.cancel()
         statsTimer?.cancel()
         handlers.closed?(ending)
         closedSignal.signal()
@@ -836,8 +870,10 @@ public final class GDPSession: @unchecked Sendable {
     private func teardown() {
         ended = true
         readSource?.cancel()
+        workerSource?.cancel()
         statsTimer?.cancel()
         readSource = nil
+        workerSource = nil
         statsTimer = nil
         if let handle {
             gdpc_session_destroy(handle)

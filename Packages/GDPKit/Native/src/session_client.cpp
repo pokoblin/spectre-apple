@@ -1,6 +1,7 @@
 #include "session_client.hpp"
 
 #include "keep_alive.hpp"
+#include "local_serve.hpp"
 
 #include "gdp/cert_fingerprint.hpp"
 #include "gdp/clipboard.hpp"
@@ -14,6 +15,7 @@
 #include "session.pb.h"
 
 #include <algorithm>
+#include <unistd.h>
 #include <cmath>
 
 namespace gdpcore {
@@ -148,6 +150,7 @@ void SessionClient::report_closed(uint64_t c, const std::string &reason, bool co
 	input_ = nullptr;
 	// Every transfer still going ends with the connection, reported first.
 	while (!files_.empty()) finish_file(files_.begin()->second.get(), FileOutcome::kLost);
+	copied_lists_.clear();
 	if (cb_.closed) cb_.closed(c, reason, certificate_rejected(), connection_lost);
 }
 
@@ -249,6 +252,9 @@ bool SessionClient::handle_envelope(const gdp::session::ControlEnvelope &env) {
 		cb_.file_list(env.file_list().list_id(), files);
 		break;
 	}
+	case E::kFileFetch:
+		handle_fetch(env.file_fetch());
+		break;
 	case E::kClipboard: {
 		const auto &c = env.clipboard();
 		// §7.9: text/plain only, never empty, never over the limit.
@@ -469,6 +475,7 @@ void SessionClient::send_stats_report() {
 	if (!accepted_ || !conn_) return;
 	// The same 250 ms tick serves the file offers' reply deadline.
 	expire_file_offers();
+	forget_copied_lists();
 	if (!accepted_) return;
 	gdp::session::ControlEnvelope env;
 	auto *report = env.mutable_stats();
@@ -1000,6 +1007,233 @@ void SessionClient::expire_file_offers() {
 		t->stream->reset(0);
 		finish_file(t, FileOutcome::kTimedOut);
 	}
+}
+
+// --- This side's files, read by the host (§7.12, file-clipboard) ---
+
+namespace {
+
+// The lists the host may read from, the latest included, and how long one
+// stays after it was replaced or last read (§7.12's reference host keeps
+// as many, as long).
+constexpr size_t kKeptLists = 5;
+constexpr uint64_t kKeptListUs = 10ull * 60 * 1000 * 1000;
+
+} // namespace
+
+void SessionClient::set_copied_files(const std::vector<std::string> &paths) {
+	if (!accepted_ || !file_clipboard_) return;
+	uint64_t generation = ++copied_generation_;
+	uint64_t list_id = next_list_id_++;
+	auto send = [this, list_id](gdp::LocalFileList list) {
+		uint64_t now = gdp::monotonic_us();
+		for (auto &[id, kept] : copied_lists_) {
+			if (!kept.replaced_us) kept.replaced_us = now;
+		}
+		gdp::session::ControlEnvelope env;
+		*env.mutable_file_list() = list.listing();
+		env.mutable_file_list()->set_list_id(list_id);
+		nfc_names(env.mutable_file_list());
+		if (list.size()) copied_lists_[list_id] = CopiedList{std::move(list), 0, now};
+		forget_copied_lists();
+		send_control(env);
+	};
+	if (paths.empty()) {
+		send(gdp::LocalFileList());
+		return;
+	}
+	// Reading the folders may take a while: off the session's thread.
+	worker_.run<std::shared_ptr<gdp::LocalFileList>>(
+		[paths, list_id] {
+			return std::make_shared<gdp::LocalFileList>(gdp::LocalFileList::build(list_id, paths, true));
+		},
+		[this, generation, send](std::shared_ptr<gdp::LocalFileList> list) {
+			if (generation != copied_generation_ || !accepted_) return; // copied over, or gone
+			send(std::move(*list));
+		});
+}
+
+void SessionClient::forget_copied_lists() {
+	uint64_t now = gdp::monotonic_us();
+	for (auto it = copied_lists_.begin(); it != copied_lists_.end();) {
+		const CopiedList &kept = it->second;
+		bool stale = kept.replaced_us && now - std::max(kept.replaced_us, kept.read_us) > kKeptListUs;
+		it = stale ? copied_lists_.erase(it) : std::next(it);
+	}
+	while (copied_lists_.size() > kKeptLists) {
+		// The one read from least recently goes, never the latest.
+		auto oldest = copied_lists_.end();
+		for (auto it = copied_lists_.begin(); it != copied_lists_.end(); ++it) {
+			if (it->second.replaced_us && (oldest == copied_lists_.end() || it->second.read_us < oldest->second.read_us)) {
+				oldest = it;
+			}
+		}
+		if (oldest == copied_lists_.end()) break;
+		copied_lists_.erase(oldest);
+	}
+}
+
+void SessionClient::handle_fetch(const gdp::session::FileFetch &fetch) {
+	// §6.7: nothing of a capability not in effect.
+	if (!file_clipboard_) return;
+	uint64_t fetch_id = fetch.fetch_id();
+	auto it = copied_lists_.find(fetch.list_id());
+	if (fetch.share_id() || it == copied_lists_.end() || fetch.index() >= it->second.list.size()) {
+		answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
+		return;
+	}
+	CopiedList &kept = it->second;
+	kept.read_us = gdp::monotonic_us();
+	uint32_t index = fetch.index();
+	uint64_t list_id = fetch.list_id();
+	std::string path = kept.list.path(index);
+	// Only what was copied may be reached through a symbolic link (§7.12).
+	bool top = kept.list.is_top_level(index);
+	if (fetch.listing()) {
+		if (!kept.list.is_directory(index)) {
+			answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
+			return;
+		}
+		if (kept.list.listed(index)) {
+			std::vector<gdp::session::FileListing> frames;
+			kept.list.list_folder(index, &frames);
+			answer_listing(fetch_id, std::move(frames));
+			return;
+		}
+		using Entries = std::optional<std::vector<gdp::LocalEntry>>;
+		worker_.run<Entries>(
+			[path, top]() -> Entries {
+				if (!top && !is_plain_folder(path)) return std::nullopt;
+				return gdp::read_local_folder(path);
+			},
+			[this, fetch_id, list_id, index](Entries entries) {
+				if (!accepted_) return;
+				auto it = copied_lists_.find(list_id);
+				std::vector<gdp::session::FileListing> frames;
+				if (!entries || it == copied_lists_.end() || !it->second.list.add_folder(index, *entries) ||
+					!it->second.list.list_folder(index, &frames)) {
+					answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
+					return;
+				}
+				answer_listing(fetch_id, std::move(frames));
+			});
+		return;
+	}
+	if (kept.list.is_directory(index)) {
+		answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
+		return;
+	}
+	std::string name = kept.list.listing().files(int(index)).name();
+	uint64_t offset = fetch.offset(), length = fetch.length();
+	worker_.run<OpenedFile>([path, top] { return open_regular(path, top); },
+		[this, fetch_id, offset, length, name](OpenedFile file) {
+			if (!accepted_) {
+				if (file.fd >= 0) ::close(file.fd);
+				return;
+			}
+			if (file.error) {
+				answer_refused(fetch_id, file.error);
+				return;
+			}
+			answer_bytes(fetch_id, file.fd, file.size, file.modified_unix_ms, offset, length, name);
+		});
+}
+
+std::unique_ptr<gdp::Stream> SessionClient::open_answer(uint64_t fetch_id, size_t *open_frame_len) {
+	if (!accepted_ || !conn_) return nullptr;
+	std::unique_ptr<gdp::Stream> stream = conn_->open_stream();
+	if (!stream) return nullptr;
+	gdp::session::FileOpen file_open;
+	file_open.mutable_answer()->set_fetch_id(fetch_id);
+	gdp::session::StreamOpen open;
+	open.set_kind(gdp::kStreamKindFile);
+	open.set_params(file_open.SerializeAsString());
+	std::vector<uint8_t> frame;
+	if (!gdp::encode_frame(open, &frame)) return nullptr;
+	stream->send(frame.data(), frame.size());
+	if (open_frame_len) *open_frame_len = frame.size();
+	return stream;
+}
+
+void SessionClient::answer_refused(uint64_t fetch_id, int32_t code) {
+	std::unique_ptr<gdp::Stream> stream = open_answer(fetch_id);
+	if (!stream) return;
+	gdp::session::FileReply reply;
+	reply.mutable_refused()->set_code(static_cast<gdp::session::FileErrorCode>(code));
+	stream->send_message(reply);
+	// Let go gracefully: the FIN goes out after the reply.
+	stream->send(nullptr, 0, true);
+}
+
+void SessionClient::answer_listing(uint64_t fetch_id, std::vector<gdp::session::FileListing> frames) {
+	std::unique_ptr<gdp::Stream> stream = open_answer(fetch_id);
+	if (!stream) return;
+	gdp::session::FileReply reply;
+	for (auto &frame : frames) {
+		nfc_names(&frame);
+		*reply.mutable_listing() = std::move(frame);
+		stream->send_message(reply);
+	}
+	stream->send(nullptr, 0, true);
+}
+
+void SessionClient::answer_bytes(uint64_t fetch_id, int fd, uint64_t file_size, int64_t modified_unix_ms,
+	uint64_t offset, uint64_t length, const std::string &name) {
+	// §7.12: from `offset` up to `offset + length`, cut short at the end; at
+	// or past the end, nothing, which is not an error.
+	uint64_t start = std::min(offset, file_size);
+	uint64_t size = file_size - start;
+	if (length) size = std::min(size, length);
+	size_t open_len = 0;
+	std::unique_ptr<gdp::Stream> stream = open_answer(fetch_id, &open_len);
+	if (!stream) {
+		::close(fd);
+		return;
+	}
+	gdp::session::FileReply reply;
+	auto *sending = reply.mutable_sending();
+	sending->set_name(nfc(name));
+	sending->set_size(size);
+	sending->set_modified_unix_ms(modified_unix_ms);
+	sending->set_offset(start);
+	sending->set_file_size(file_size);
+	std::vector<uint8_t> frame;
+	if (!gdp::encode_frame(reply, &frame)) {
+		::close(fd);
+		stream->reset(0);
+		return;
+	}
+	stream->send(frame.data(), frame.size(), size == 0);
+	if (size == 0 || !cb_.file_serve) {
+		::close(fd);
+		if (size) stream->reset(0);
+		return;
+	}
+	auto owned = std::make_unique<FileTransfer>();
+	FileTransfer *t = owned.get();
+	t->id = next_file_id_++;
+	t->stream = std::move(stream);
+	t->state = FileTransfer::State::kSending;
+	t->answer = true;
+	t->size = size;
+	t->name = name;
+	t->open_frame_len = open_len + frame.size();
+	t->offered_us = gdp::monotonic_us();
+	// The host sends nothing on it; it resets a stream it no longer wants.
+	t->stream->on_data = [t](const uint8_t *, size_t len) { t->stream->consume(len); };
+	t->stream->on_fin = [] {};
+	t->stream->on_reset = [this, t](uint64_t) { finish_file(t, FileOutcome::kCancelled); };
+	t->stream->on_acked = [this, t](uint64_t acked) {
+		uint64_t bytes = acked > t->open_frame_len ? std::min(acked - t->open_frame_len, t->size) : 0;
+		if (cb_.file_progress) cb_.file_progress(t->id, bytes);
+		if (bytes == t->size && t->state == FileTransfer::State::kSent && files_.count(t->id)) {
+			std::string served = t->name;
+			finish_file(t, FileOutcome::kSaved, 0, served);
+		}
+	};
+	uint64_t id = t->id;
+	files_[id] = std::move(owned);
+	cb_.file_serve(id, fd, start, size);
 }
 
 } // namespace gdpcore

@@ -205,6 +205,8 @@ public:
 		uint32_t file_requests_refused = 0;
 		uint32_t listings_requested = 0;  // FileListingRequest (file-clipboard)
 		uint32_t listings_refused = 0;
+		uint32_t client_file_lists = 0;   // FileLists from the viewer (file-clipboard)
+		uint32_t fetch_answers = 0;       // answering streams opened by the viewer
 
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;
@@ -260,6 +262,40 @@ public:
 	bool received_file(size_t index, ReceivedFile *out) const;
 	// The most recent microphone packet, past the log too; false before any.
 	bool latest_microphone_packet(MicrophonePacket *out) const;
+
+	// file-clipboard / file-share (§7.12): the host reads one of the
+	// viewer's files with FileFetch; its answer is kept by fetch id.
+	struct FetchRequest {
+		uint64_t list_id = 0;
+		uint32_t index = 0;
+		uint64_t offset = 0;
+		uint64_t length = 0;
+		bool listing = false;
+		uint64_t share_id = 0;
+		std::string path;
+	};
+	struct FetchResult {
+		enum class State { kPending, kSending, kListing, kRefused, kReset };
+		State state = State::kPending;
+		bool finished = false; // the viewer's FIN came
+		int32_t error = 0;     // refused
+		std::string name;      // sending
+		uint64_t size = 0;
+		uint64_t offset = 0;
+		uint64_t file_size = 0;
+		int64_t modified_unix_ms = 0;
+		std::vector<uint8_t> data;
+		uint32_t first_index = 0;          // listing
+		std::vector<std::string> entries;  // "name", "name/" for a folder
+	};
+	// Returns the fetch's id (0 without a viewer).
+	uint64_t fetch(FetchRequest request);
+	bool fetch_result(uint64_t fetch_id, FetchResult *out) const;
+	// Resets the answering stream, as a host that no longer wants it.
+	void reset_fetch(uint64_t fetch_id);
+	// The viewer's latest FileList (file-clipboard): its id, and an entry per
+	// line, "parent name", with "/" after a folder and "?" after an unlisted one.
+	std::string client_file_list(uint64_t *list_id) const;
 
 private:
 	struct Impl;

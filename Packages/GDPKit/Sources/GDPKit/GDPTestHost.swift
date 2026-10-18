@@ -139,6 +139,8 @@ public final class GDPTestHost: @unchecked Sendable {
         public var filesRequested, filesServed, fileRequestsRefused: UInt32
         /// Folder listings asked for (file-clipboard), and refused.
         public var listingsRequested, listingsRefused: UInt32
+        /// FileLists from the viewer, and the answering streams it opened.
+        public var clientFileLists, fetchAnswers: UInt32
     }
 
     /// A file the host saved (§7.12).
@@ -371,6 +373,89 @@ public final class GDPTestHost: @unchecked Sendable {
 
     /// Lists `files` as what the host's user copied (§7.12), replacing the
     /// last list; none says nothing is copied any more.
+    /// What the host reads of the viewer's files (file-clipboard, file-share).
+    public struct FetchRequest: Sendable {
+        public var listID: UInt64 = 0
+        public var index: UInt32 = 0
+        public var offset: UInt64 = 0
+        public var length: UInt64 = 0
+        public var listing = false
+        public var shareID: UInt64 = 0
+        public var path = ""
+
+        public init(listID: UInt64 = 0, index: UInt32 = 0, offset: UInt64 = 0, length: UInt64 = 0,
+                    listing: Bool = false, shareID: UInt64 = 0, path: String = "") {
+            self.listID = listID
+            self.index = index
+            self.offset = offset
+            self.length = length
+            self.listing = listing
+            self.shareID = shareID
+            self.path = path
+        }
+    }
+
+    /// How the viewer answered a ``FetchRequest``, so far.
+    public struct FetchResult: Sendable, Equatable {
+        public enum State: Int32, Sendable { case waiting, sending, listing, refused, reset }
+        public var state: State
+        /// The viewer finished its answer (FIN).
+        public var finished: Bool
+        public var error: GDPSession.FileError?
+        public var name: String
+        public var size, offset, fileSize: UInt64
+        public var modifiedUnixMilliseconds: Int64
+        public var data: [UInt8]
+        public var firstIndex: UInt32
+        /// A listing's names, "/" after a folder's.
+        public var entries: [String]
+    }
+
+    /// Asks the viewer for one of its files; returns the fetch's id.
+    @discardableResult
+    public func fetch(_ request: FetchRequest) -> UInt64 {
+        request.path.withCString { path in
+            var r = gdpc_test_fetch(list_id: request.listID, index: request.index, offset: request.offset,
+                                    length: request.length, listing: request.listing, share_id: request.shareID,
+                                    path: path)
+            return gdpc_test_host_fetch(handle, &r)
+        }
+    }
+
+    public func fetchResult(_ id: UInt64) -> FetchResult? {
+        var info = gdpc_test_fetch_result()
+        guard gdpc_test_host_fetch_result(handle, id, &info, nil, 0, nil, 0) else { return nil }
+        var data = [UInt8](repeating: 0, count: Int(info.data_length))
+        var entries = [CChar](repeating: 0, count: 1 << 20)
+        _ = data.withUnsafeMutableBufferPointer { d in
+            entries.withUnsafeMutableBufferPointer { e in
+                gdpc_test_host_fetch_result(handle, id, &info, d.baseAddress, d.count, e.baseAddress, e.count)
+            }
+        }
+        func s<T>(_ tuple: T) -> String {
+            withUnsafeBytes(of: tuple) { String(cString: $0.bindMemory(to: CChar.self).baseAddress!) }
+        }
+        let lines = text(entries).split(separator: "\n").map(String.init)
+        return FetchResult(state: FetchResult.State(rawValue: info.state) ?? .waiting, finished: info.finished,
+                           error: info.state == 3 ? GDPSession.FileError(code: info.error) : nil, name: s(info.name),
+                           size: info.size, offset: info.offset, fileSize: info.file_size,
+                           modifiedUnixMilliseconds: info.modified_unix_ms, data: Array(data.prefix(Int(info.data_length))),
+                           firstIndex: info.first_index, entries: lines)
+    }
+
+    /// Resets the viewer's answering stream, as a host that no longer wants it.
+    public func resetFetch(_ id: UInt64) { gdpc_test_host_reset_fetch(handle, id) }
+
+    /// The viewer's latest FileList: its id, and an entry per line, "parent
+    /// name", with "/" after a folder and "?" after an unlisted one.
+    public var clientFileList: (listID: UInt64, entries: [String]) {
+        var listID: UInt64 = 0
+        let length = gdpc_test_host_client_file_list(handle, &listID, nil, 0)
+        var out = [CChar](repeating: 0, count: length + 1)
+        _ = out.withUnsafeMutableBufferPointer { gdpc_test_host_client_file_list(handle, &listID, $0.baseAddress, $0.count) }
+        return (listID, text(out).split(separator: "\n").map(String.init))
+    }
+
     public func sendFileList(_ files: [URL]) {
         withCStrings(files.map { $0.path(percentEncoded: false) }) {
             gdpc_test_host_send_file_list(handle, $0.baseAddress, $0.count)
@@ -480,8 +565,13 @@ public final class GDPTestHost: @unchecked Sendable {
             lastFileName: s(o.last_file_name), fileListsSent: o.file_lists_sent, fileListID: o.file_list_id,
             filesRequested: o.files_requested, filesServed: o.files_served,
             fileRequestsRefused: o.file_requests_refused, listingsRequested: o.listings_requested,
-            listingsRefused: o.listings_refused)
+            listingsRefused: o.listings_refused, clientFileLists: o.client_file_lists, fetchAnswers: o.fetch_answers)
     }
+}
+
+/// A NUL-terminated buffer's text.
+private func text(_ buffer: [CChar]) -> String {
+    String(decoding: buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
 }
 
 func withOptionalCString<R>(_ s: String?, _ body: (UnsafePointer<CChar>?) -> R) -> R {
