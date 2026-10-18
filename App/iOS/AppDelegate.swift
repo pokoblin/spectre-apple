@@ -95,6 +95,7 @@ final class RootViewController: UIHostingController<ContentView>, PointerLockHos
     @objc func sessionSendClipboard(_ sender: Any?) { SessionCommands.shared.sendClipboard() }
     @objc func sessionSendFiles(_ sender: Any?) { SessionCommands.shared.sendFiles() }
     @objc func sessionDownloadCopiedFiles(_ sender: Any?) { SessionCommands.shared.downloadCopiedFiles() }
+    @objc func sessionShareFolder(_ sender: Any?) { SessionCommands.shared.shareFolder() }
     @objc func sessionDisconnect(_ sender: Any?) { SessionCommands.shared.disconnect() }
 
     override func canPerformAction(_ action: Selector, withSender sender: Any?) -> Bool {

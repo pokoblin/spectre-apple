@@ -53,7 +53,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Copiar y pegar archivos y carpetas en ambos sentidos en el Mac: copia en el Finder y pega en el escritorio remoto, o copia allí y pega en el Finder (hasta 100 MB cada vez; las copias más grandes se ofrecen para descargar).
 - Envía archivos al host: suéltalos sobre la imagen o usa **Enviar archivos…**. Se guardan en la carpeta de descargas del usuario del host, nunca encima de un archivo existente, y Spectre dice en qué carpeta.
 - Descarga archivos y carpetas copiados en el host: a Descargas en el Mac, y a la carpeta de Spectre en la app Archivos en iPad y iPhone.
-- Comparte una carpeta con el host desde el Mac, de solo lectura: aparece en el gestor de archivos del host con el nombre del Mac.
+- Comparte una carpeta con el host, de solo lectura: aparece en el gestor de archivos del host con el nombre del dispositivo.
 - Progreso, cancelación y resultados en una lista de transferencias. Hace falta un host con transferencia de archivos; consulta [Requisitos](#requisitos).
 
 **En el Mac**
@@ -72,7 +72,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 **Idiomas:** inglés, chino simplificado, chino tradicional, japonés y español.
 
-**Pendiente:** enviar tu micrófono al host (escrito, desactivado por ahora), pegar en el escritorio remoto archivos copiados en iPad y iPhone y compartir carpetas desde ellos, y comprobar en iOS los certificados emitidos por una autoridad de certificación.
+**Pendiente:** enviar tu micrófono al host (escrito, desactivado por ahora), pegar en el escritorio remoto archivos copiados en iPad y iPhone, y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
 ## Capturas de pantalla
 
@@ -102,7 +102,7 @@ En el Mac, cada sesión se abre en su propia ventana; al cerrarla se desconecta 
 - **Copiar y pegar** (Mac, con el portapapeles compartido): los archivos y carpetas copiados en el Finder se pegan en el escritorio remoto, que los lee del Mac mientras se pegan, así que deja Spectre abierto hasta que termine; la lista de transferencias lo muestra y permite detenerlo. Los archivos y carpetas copiados en el host pasan al portapapeles del Mac si suman 100 MB o menos, y **Pegar** en el Finder pega los archivos.
 - **Enviar archivos…**, o suelta archivos sobre la imagen: el host los guarda en la carpeta de descargas de su usuario (`~/Downloads`, o `[files] directory` en wraith.toml), como «nombre (1).ext» si el nombre ya existe. Las carpetas van con copiar y pegar.
 - **Descargar**: cuando el usuario del host copia archivos o carpetas, Spectre ofrece descargarlos, a Descargas en el Mac y a la carpeta de Spectre en la app Archivos en iPad y iPhone.
-- **Compartir carpeta…** (Mac): el host ve la carpeta, de solo lectura y sin archivos ocultos, hasta que dejes de compartirla (**Session › Dejar de compartir**, o la lista de transferencias) o cierres Spectre. Se vuelve a compartir cada vez que la sesión se reconecta, y **Session › Volver a compartir** recupera una que dejaste de compartir.
+- **Compartir carpeta…**: el host ve la carpeta, de solo lectura y sin archivos ocultos, hasta que dejes de compartirla (**Dejar de compartir**, en los mismos menús, o la lista de transferencias) o cierres Spectre. Se vuelve a compartir cada vez que la sesión se reconecta, y **Volver a compartir** recupera una que dejaste de compartir. En iPad y iPhone, elige una carpeta en la app Archivos: del dispositivo, de iCloud Drive o de otra app.
 
 **Teclado en el Mac.** Cmd se envía como Super, así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
 

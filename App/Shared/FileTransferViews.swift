@@ -171,16 +171,18 @@ private struct FileTransferRow: View {
             }
             #else
             if let url = item.localURL {
-                ShareLink(item: url) {
-                    Label("Share", systemImage: "square.and.arrow.up.circle.fill")
-                        .labelStyle(.iconOnly)
+                if !item.isFolder {
+                    ShareLink(item: url) {
+                        Label("Share", systemImage: "square.and.arrow.up.circle.fill")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
                 Button {
-                    // The Files app, at the folder the file is in.
-                    if let files = URL(string: "shareddocuments://"
-                        + url.deletingLastPathComponent().path(percentEncoded: true)) {
+                    // The Files app, at the folder the file is in (a folder: in it).
+                    let folder = item.isFolder ? url : url.deletingLastPathComponent()
+                    if let files = URL(string: "shareddocuments://" + folder.path(percentEncoded: true)) {
                         UIApplication.shared.open(files)
                     }
                 } label: {

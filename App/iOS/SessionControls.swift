@@ -62,6 +62,8 @@ struct SessionToolbar: View {
     @Binding var showsStatistics: Bool
     /// Opens the file picker (Send Files…).
     let sendFiles: () -> Void
+    /// Opens the folder picker (Share Folder…, §7.12).
+    let shareFolder: () -> Void
     let confirmLogOut: () -> Void
     @State private var toggleEdge: CGFloat = 0
     @State private var barEdge: CGFloat = 0
@@ -88,7 +90,7 @@ struct SessionToolbar: View {
     private var bar: some View {
         HStack(spacing: FloatingKeyBar.keySpacing) {
             SessionMoreMenu(model: model, keyBar: keyBar, showsStatistics: $showsStatistics,
-                            sendFiles: sendFiles, confirmLogOut: confirmLogOut)
+                            sendFiles: sendFiles, shareFolder: shareFolder, confirmLogOut: confirmLogOut)
             if let clipboard = model.clipboard, clipboard.isEnabled {
                 // The system's paste button reads the clipboard without the
                 // paste prompt; what it reads goes to the host's clipboard.
@@ -105,8 +107,9 @@ struct SessionToolbar: View {
                 KeyboardKey(input: input)
             }
             RegionAlertKey(regions: regions)
-            if !model.files.items.isEmpty {
-                TransfersKey(files: model.files, sendFiles: sendFiles)
+            if !model.files.items.isEmpty || !model.sharedFolders.folders.isEmpty {
+                TransfersKey(files: model.files, shared: model.sharedFolders, sendFiles: sendFiles,
+                             shareFolder: shareFolder)
             }
         }
         .padding(FloatingKeyBar.barPadding)
@@ -138,7 +141,9 @@ private struct KeyboardKey: View {
 /// popover.
 private struct TransfersKey: View {
     let files: FileTransfers
+    let shared: SharedFolders
     let sendFiles: () -> Void
+    let shareFolder: () -> Void
     @State private var showsList = false
 
     var body: some View {
@@ -150,6 +155,8 @@ private struct TransfersKey: View {
                     .progressViewStyle(.circular)
                     .controlSize(.small)
                     .tint(.white)
+            } else if files.items.isEmpty {
+                Image(systemName: "folder.badge.person.crop")
             } else {
                 Image(systemName: "list.bullet")
             }
@@ -157,15 +164,20 @@ private struct TransfersKey: View {
         .buttonStyle(KeyCapStyle(isLit: showsList))
         .accessibilityLabel("Transfers")
         .popover(isPresented: $showsList) {
-            FileTransferList(files: files) {
-                showsList = false
-                // The picker can't come up while the popover is still going away.
-                Task {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    sendFiles()
-                }
+            FileTransferList(files: files, shared: shared, shareFolder: { after(shareFolder) }) {
+                after(sendFiles)
             }
             .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    /// Closes the list, then opens a picker: it can't come up while the
+    /// popover is still going away.
+    private func after(_ open: @escaping () -> Void) {
+        showsList = false
+        Task {
+            try? await Task.sleep(for: .milliseconds(500))
+            open()
         }
     }
 }
@@ -179,6 +191,7 @@ struct SessionMoreMenu: View {
     @Bindable var keyBar: KeyBarModel
     @Binding var showsStatistics: Bool
     let sendFiles: () -> Void
+    let shareFolder: () -> Void
     let confirmLogOut: () -> Void
 
     var body: some View {
@@ -237,6 +250,12 @@ struct SessionMoreMenu: View {
                             Label("Download Copied Files", systemImage: "arrow.down.doc")
                         }
                     }
+                    if model.sharedFolders.isAvailable {
+                        Button(action: shareFolder) {
+                            Label("Share Folder…", systemImage: "folder.badge.person.crop")
+                        }
+                    }
+                    SharedFolderMenus(shared: model.sharedFolders)
                 }
             }
             if let voice = keyBar.voice {
@@ -273,6 +292,32 @@ struct SessionMoreMenu: View {
         .menuIndicator(.hidden)
         .tint(.primary)
         .accessibilityLabel("More")
+    }
+}
+
+/// Stop Sharing and Share Again, each a submenu of folders, when there are some.
+private struct SharedFolderMenus: View {
+    let shared: SharedFolders
+
+    var body: some View {
+        if !shared.folders.isEmpty {
+            Menu {
+                ForEach(shared.folders) { folder in
+                    Button { shared.stop(folder.id) } label: { Text(verbatim: folder.name) }
+                }
+            } label: {
+                Label("Stop Sharing", systemImage: "folder.badge.minus")
+            }
+        }
+        if shared.isAvailable, !shared.recent.isEmpty {
+            Menu {
+                ForEach(shared.recent, id: \.self) { url in
+                    Button { shared.share(url) } label: { Text(verbatim: SharedFolders.displayName(url)) }
+                }
+            } label: {
+                Label("Share Again", systemImage: "folder.badge.plus")
+            }
+        }
     }
 }
 

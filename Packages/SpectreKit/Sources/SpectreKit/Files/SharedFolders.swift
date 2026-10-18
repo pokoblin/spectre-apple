@@ -68,7 +68,7 @@ public final class SharedFolders {
         guard !folders.contains(where: { $0.url == url }) else { return }
         let id = UUID()
         if url.startAccessingSecurityScopedResource() { scoped.insert(id) }
-        var name = fileNameForHost(url.lastPathComponent) ?? "Folder"
+        var name = fileNameForHost(Self.displayName(url)) ?? "Folder"
         // Two shares of the same name: the host numbers them, but say which.
         if folders.contains(where: { $0.name == name }) { name = fileNameForHost("\(name) (\(folders.count + 1))") ?? name }
         var folder = Folder(id: id, url: url, name: name)
@@ -76,7 +76,7 @@ public final class SharedFolders {
             folder.shareID = share(url, as: name, with: sharer)
             if folder.shareID == nil {
                 if scoped.remove(id) != nil { url.stopAccessingSecurityScopedResource() }
-                lastFailure = url.lastPathComponent
+                lastFailure = Self.displayName(url)
                 return
             }
         }
@@ -99,6 +99,25 @@ public final class SharedFolders {
     }
 
     public func dismissFailure() { lastFailure = nil }
+
+    /// What the Finder or the Files app calls the folder: an app's
+    /// Documents shows as the app's name there, Desktop in the user's language.
+    public nonisolated static func displayName(_ url: URL) -> String {
+        #if os(iOS)
+        // This app's own Documents is "Spectre" in the Files app.
+        func path(_ url: URL) -> String {
+            var path = url.resolvingSymlinksInPath().path(percentEncoded: false)
+            while path.count > 1, path.hasSuffix("/") { path.removeLast() }
+            return path
+        }
+        if path(url) == path(URL.documentsDirectory),
+           let app = (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName")
+                ?? Bundle.main.object(forInfoDictionaryKey: "CFBundleName")) as? String {
+            return app
+        }
+        #endif
+        return (try? url.resourceValues(forKeys: [.localizedNameKey]).localizedName) ?? url.lastPathComponent
+    }
 
     private func share(_ url: URL, as name: String, with sharer: FolderSharer) -> UInt64? {
         sharer.shareFolder(url, name: name, includeHidden: false)

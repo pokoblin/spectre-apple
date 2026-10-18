@@ -53,7 +53,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Copy and paste files and folders both ways on the Mac: copy in the Finder and paste on the remote desktop, or copy there and paste in the Finder (up to 100 MB at a time; larger copies are offered for download).
 - Send files to the host: drop them on the picture, or use **Send Files…**. They land in the host user's download folder, never over an existing file, and Spectre says which folder.
 - Download files and folders copied on the host: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
-- Share a folder with the host from the Mac, read-only: it shows up in the host's file manager, labelled with the Mac's name.
+- Share a folder with the host, read-only: it shows up in the host's file manager, labelled with the device's name.
 - Progress, cancelling and the results in a list of transfers. Needs a host with file transfer; see [Requirements](#requirements).
 
 **On the Mac**
@@ -72,7 +72,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-**Not done yet:** sending your microphone to the host (written, turned off for now), pasting files copied on iPad and iPhone on the remote desktop and sharing folders from them, and checking CA-issued certificates on iOS.
+**Not done yet:** sending your microphone to the host (written, turned off for now), pasting files copied on iPad and iPhone on the remote desktop, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
@@ -102,7 +102,7 @@ On the Mac, each session opens in its own window; closing it disconnects and lea
 - **Copy and paste** (Mac, with the clipboard shared): files and folders copied in the Finder paste on the remote desktop, which reads them from the Mac as the paste goes, so keep Spectre open until it is done; the list of transfers shows it and can stop it. Files and folders copied on the host go onto the Mac's clipboard when they come to 100 MB or less, so **Paste** in the Finder pastes them.
 - **Send Files…**, or drop files on the picture: the host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. Folders go by copy and paste instead.
 - **Download**: when the host's user copies files or folders, Spectre offers to download them, to Downloads on the Mac and to Spectre's folder in the Files app on iPad and iPhone.
-- **Share Folder…** (Mac): the host sees the folder, read-only and without hidden files, until you stop sharing it (**Session › Stop Sharing**, or the list of transfers) or quit Spectre. It is shared again whenever the session reconnects, and **Session › Share Again** brings back one you stopped.
+- **Share Folder…**: the host sees the folder, read-only and without hidden files, until you stop sharing it (**Stop Sharing**, in the same menus, or the list of transfers) or quit Spectre. It is shared again whenever the session reconnects, and **Share Again** brings back one you stopped. On iPad and iPhone, pick a folder in the Files app: one on the device, in iCloud Drive or from another app.
 
 **Keyboard on the Mac.** Cmd is sent as Super, so copy and paste on the remote desktop stay Ctrl+C and Ctrl+V. Only these shortcuts stay local:
 

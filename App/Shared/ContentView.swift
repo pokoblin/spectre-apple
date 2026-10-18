@@ -103,7 +103,8 @@ struct SessionView: View {
             // The corners make way for the prompt panel, or choosing a
             // region, rather than show beside them.
             SessionToolbar(model: model, chrome: chrome, keyBar: keyBar, regions: regions,
-                           showsStatistics: $showStats, sendFiles: { choosingFiles = true }) {
+                           showsStatistics: $showStats, sendFiles: { choosingFiles = true },
+                           shareFolder: { choosingFolder = true }) {
                 confirmLogOut = true
             }
             .opacity(cornersHidden ? 0 : 1)
@@ -176,7 +177,9 @@ struct SessionView: View {
             keyBar.input = model.input
             keyBar.voice = voice
             voice.model = model
-            SessionCommands.shared.register(model, keyBar: keyBar, regions: regions) { choosingFiles = true }
+            SessionCommands.shared.register(model, keyBar: keyBar, regions: regions,
+                                            chooseFiles: { choosingFiles = true },
+                                            chooseFolder: { choosingFolder = true })
         }
         .onDisappear {
             voice.cancel()
@@ -202,6 +205,8 @@ struct SessionView: View {
         .focusedSceneValue(\.session, SessionActions(model: model, logOut: { confirmLogOut = true },
                                                       sendFiles: { choosingFiles = true },
                                                       shareFolder: { choosingFolder = true }))
+        .animation(.easeInOut(duration: 0.15), value: dropTargeted)
+        #endif
         // A folder to share with the host, read-only (§7.12): on a view of
         // its own, since a view takes one file importer.
         .background {
@@ -217,8 +222,6 @@ struct SessionView: View {
         } message: {
             Text(verbatim: model.sharedFolders.lastFailure ?? "")
         }
-        .animation(.easeInOut(duration: 0.15), value: dropTargeted)
-        #endif
         .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
                                                   set: { if !$0 { model.microphoneError = nil } })) {
             Button("OK", role: .cancel) {}

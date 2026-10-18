@@ -16,15 +16,17 @@ final class SessionCommands {
     private(set) weak var model: PlaybackModel?
     private(set) weak var keyBar: KeyBarModel?
     private(set) weak var regions: RegionAlertModel?
-    /// Opens the session's file picker (Send Files…).
+    /// Opens the session's file picker (Send Files…), and its folder picker (Share Folder…).
     private var chooseFiles: (() -> Void)?
+    private var chooseFolder: (() -> Void)?
 
     func register(_ model: PlaybackModel, keyBar: KeyBarModel, regions: RegionAlertModel,
-                  chooseFiles: @escaping () -> Void) {
+                  chooseFiles: @escaping () -> Void, chooseFolder: @escaping () -> Void) {
         self.model = model
         self.keyBar = keyBar
         self.regions = regions
         self.chooseFiles = chooseFiles
+        self.chooseFolder = chooseFolder
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -34,6 +36,7 @@ final class SessionCommands {
         keyBar = nil
         regions = nil
         chooseFiles = nil
+        chooseFolder = nil
         UIMenuSystem.main.setNeedsRevalidate()
     }
 
@@ -67,6 +70,8 @@ final class SessionCommands {
                         #selector(RootViewController.sessionSendFiles(_:))),
                 command(String(localized: "Download Copied Files"), "arrow.down.doc",
                         #selector(RootViewController.sessionDownloadCopiedFiles(_:))),
+                command(String(localized: "Share Folder…"), "folder.badge.person.crop",
+                        #selector(RootViewController.sessionShareFolder(_:))),
             ]),
             UIMenu(options: .displayInline, children: [
                 command(String(localized: "Disconnect"), "xmark.circle",
@@ -101,6 +106,7 @@ extension SessionCommands {
     func disconnect() { model?.disconnect() }
     func sendFiles() { chooseFiles?() }
     func downloadCopiedFiles() { model?.downloadCopiedFiles() }
+    func shareFolder() { chooseFolder?() }
 
     /// The iPad's clipboard to the host's, as the paste button does: on
     /// with clipboard sharing, or put there for pasting when it is off.
@@ -131,6 +137,8 @@ extension SessionCommands {
             return model?.files.isAvailable == true && keyBar?.isPromptOpen == false
         case #selector(RootViewController.sessionDownloadCopiedFiles(_:)):
             return model?.copiedFiles?.downloadable.isEmpty == false
+        case #selector(RootViewController.sessionShareFolder(_:)):
+            return model?.sharedFolders.isAvailable == true && keyBar?.isPromptOpen == false
         case #selector(RootViewController.sessionDisconnect(_:)):
             return model != nil
         default:

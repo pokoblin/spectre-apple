@@ -61,7 +61,7 @@ struct SessionMenu: Commands {
             Menu("Share Again") {
                 if let shared = model?.sharedFolders {
                     ForEach(shared.recent, id: \.self) { url in
-                        Button { shared.share(url) } label: { Text(verbatim: url.lastPathComponent) }
+                        Button { shared.share(url) } label: { Text(verbatim: SharedFolders.displayName(url)) }
                     }
                 }
             }
