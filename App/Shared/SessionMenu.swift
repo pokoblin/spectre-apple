@@ -58,6 +58,14 @@ struct SessionMenu: Commands {
                 }
             }
             .disabled(model?.sharedFolders.folders.isEmpty ?? true)
+            Menu("Share Again") {
+                if let shared = model?.sharedFolders {
+                    ForEach(shared.recent, id: \.self) { url in
+                        Button { shared.share(url) } label: { Text(verbatim: url.lastPathComponent) }
+                    }
+                }
+            }
+            .disabled(model?.sharedFolders.isAvailable != true || model?.sharedFolders.recent.isEmpty != false)
             Menu("Send Keys") {
                 if let typer = model?.input?.typer {
                     ForEach(KeyCombo.menu) { group in
