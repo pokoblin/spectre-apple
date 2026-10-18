@@ -51,8 +51,10 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - Two-way text clipboard, off until you switch it on.
 - Send files to the host: drop them on the picture, or use **Send Files…**. They land in the host user's download folder, never over an existing file, and Spectre says which folder.
-- Files copied on the host can be downloaded: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
-- On the Mac, with the clipboard shared, a copy of files on the host (up to 100 MB in all) goes straight onto the Mac's clipboard, so **Paste** in the Finder pastes the files themselves.
+- Files and folders copied on the host can be downloaded: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
+- On the Mac, with the clipboard shared, a copy of files or folders on the host (up to 100 MB in all) goes straight onto the Mac's clipboard, so **Paste** in the Finder pastes the files themselves.
+- On the Mac, files and folders copied in the Finder can be pasted on the remote desktop: the host reads them as the paste goes.
+- Share a folder with the host, read-only, from the Mac: it shows up in the host's file manager, labelled with the Mac's name.
 - Progress, cancelling and the results in a list of transfers. Needs a host with file transfer; see [Requirements](#requirements).
 
 **On the Mac**
@@ -83,7 +85,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - A Mac with Apple silicon on macOS 27, or an iPhone or iPad on iOS or iPadOS 27
 - A ghost host (ghostd and wraith); see [ghost](https://github.com/jsaiko/ghost) for setting one up
-- For file transfer, a wraith that offers it: until upstream takes it ([jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)), build the host from the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork's `feat/file-transfer` branch. Everything else works with upstream ghost.
+- For file transfer, a recent ghost (upstream `main` since October 2026). Pasting files copied here, and shared folders, also need a wraith built with libfuse3 3.12 or newer (`apt install libfuse3-dev` before building) on a host with `/dev/fuse` and `fusermount3`: the host mounts what Spectre offers. Without it, sending and downloading still work.
 - For PyroWave, a wraith built with libpyrowave (ghost's `packaging/build-pyrowave.sh`, which pins the revision both ends must share) and `pyrowave = true` under `[encode.codecs]` in `/etc/ghost/wraith.toml`.
 
 ## Install
@@ -96,7 +98,7 @@ Add a server with **+**: its address (`host` or `host:port`, port 4442 by defaul
 
 On the Mac, each session opens in its own window; closing it disconnects and leaves the desktop running on the host. On iPad and iPhone the session covers the home screen.
 
-**Files.** Drop files on the picture, or choose **Send Files…** (on the Mac in the toolbar and the Session menu, on iPad and iPhone under **More › Files**). The host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. When the host's user copies files, Spectre offers to download them; with the clipboard shared, small copies (up to 100 MB in all) go straight onto the Mac's clipboard instead. Folders can't be sent either way yet.
+**Files.** Drop files on the picture, or choose **Send Files…** (on the Mac in the toolbar and the Session menu, on iPad and iPhone under **More › Files**). The host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. When the host's user copies files or folders, Spectre offers to download them; with the clipboard shared, small copies (up to 100 MB in all) go straight onto the Mac's clipboard instead. On the Mac, with the clipboard shared, files and folders copied in the Finder can be pasted on the remote desktop, and **Session › Share Folder…** shares a folder with it, read-only and without hidden files, until you stop sharing it (**Session › Stop Sharing**, or the list of transfers) or quit Spectre. A shared folder is shared again whenever the session reconnects. Folders can't be sent with **Send Files…**.
 
 **Keyboard on the Mac.** Cmd is sent as Super, so copy and paste on the remote desktop stay Ctrl+C and Ctrl+V. Only these shortcuts stay local:
 
@@ -129,7 +131,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Set `VCPKG_ROOT` if vcpkg lives elsewhere.
 
-1. Clone with the ghost submodule, which points at the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork (upstream plus file transfer) until upstream takes the file transfer pull requests. In an existing clone, run `git submodule sync && git submodule update --init`.
+1. Clone with the ghost submodule, which follows the [pokoblin/ghost](https://github.com/pokoblin/ghost) fork's `main` (upstream's). In an existing clone, run `git submodule sync && git submodule update --init`.
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -194,7 +196,7 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 Also: `--codec h264|h265|av1|pyrowave` (AV1 plays a bundled stream, where it decodes in hardware; PyroWave's is encoded on the spot by its Metal port, at about 250 Mbit/s), `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
-For file transfer with the loopback host: `--send-file PATH` sends a file once the session starts, `--host-file PATH` has the test host's user copy one (both can be given more than once), `--download-copied` downloads every copy, and `--download-dir DIR` puts downloads in `DIR`.
+For file transfer with the loopback host: `--send-file PATH` sends a file once the session starts, `--host-file PATH` has the test host's user copy one, a folder too (both can be given more than once), `--download-copied` downloads every copy, and `--download-dir DIR` puts downloads in `DIR`. `--host-fetch-copied` has the test host read every file copied here, as a paste would, and `--share-folder DIR` shares a folder once the session starts; the test host prints what it got and lists each share.
 
 In the iOS simulator:
 
