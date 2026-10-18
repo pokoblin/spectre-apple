@@ -171,6 +171,8 @@ final class PlaybackModel {
     /// across reconnects. Usable while ``FileTransfers/isAvailable``: a
     /// session with `file` in effect.
     let files = FileTransfers()
+    /// Folders shared with the host, read-only (§7.12, file-share).
+    let sharedFolders = SharedFolders()
     /// Carries the current session's file events to `files` (the link changes with each session).
     @ObservationIgnored private let fileEvents = FileEventRelay()
     @ObservationIgnored private var fileBatchPrinted = 0
@@ -237,6 +239,10 @@ final class PlaybackModel {
     @ObservationIgnored private var hostFetchesCopied = false
     @ObservationIgnored private var hostClientListsSeen: UInt32 = 0
     @ObservationIgnored private var hostFetches: [UInt64: String] = [:]
+    /// `--share-folder` paths, shared once the session is accepted; the
+    /// loopback host lists each share's top folder as it comes.
+    @ObservationIgnored private var shareOnAccept: [URL] = []
+    @ObservationIgnored private var hostShareMessagesSeen: UInt32 = 0
     private var hostFileEndsPrinted: (UInt32, UInt32, UInt32) = (0, 0, 0) // refused, failed, cancelled
     private var hostClipboard: String?
     /// `--send-file` paths, sent at the first SessionAccept with `file`.
@@ -288,6 +294,8 @@ final class PlaybackModel {
             .map { URL(filePath: arguments[$0 + 1]) }
         downloadsCopiedFiles = arguments.contains("--download-copied")
         hostFetchesCopied = arguments.contains("--host-fetch-copied")
+        shareOnAccept = arguments.indices.dropLast().filter { arguments[$0] == "--share-folder" }
+            .map { URL(filePath: arguments[$0 + 1], directoryHint: .isDirectory) }
         #if os(iOS)
         // The app's Documents, which the Files app shows as On My iPad ›
         // Spectre (UIFileSharingEnabled).
@@ -713,6 +721,11 @@ final class PlaybackModel {
                 }
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
+                if accept.capabilities.contains(GDPSession.Capability.fileShare) {
+                    sharedFolders.attach(session)
+                    shareOnAccept.forEach(shareFolder)
+                    shareOnAccept = []
+                }
                 let folders = accept.capabilities.contains(GDPSession.Capability.fileClipboard)
                 fileEvents.connect(files.attach(session, fileClipboard: folders))
                 if !sendOnAccept.isEmpty {
@@ -1005,6 +1018,7 @@ final class PlaybackModel {
     private func endFiles() {
         fileEvents.connect(nil)
         files.detach()
+        sharedFolders.detach()
     }
 
     /// The files the host's user copied, to offer for download (§7.12): not
@@ -1025,6 +1039,12 @@ final class PlaybackModel {
     func downloadCopiedFiles() {
         print("files: downloading \(files.hostFiles?.downloadable.count ?? 0) copied file(s)")
         files.downloadCopiedFiles()
+    }
+
+    /// A folder the user picked, shared with the host read-only (§7.12).
+    func shareFolder(_ url: URL) {
+        print("files: sharing \(url.lastPathComponent.debugDescription)")
+        sharedFolders.share(url)
     }
 
     /// Files the user picked or dropped, for the host's download directory.
@@ -1215,11 +1235,20 @@ final class PlaybackModel {
                 }
             }
         }
+        // The viewer's shared folders (file-share), each listed at the top.
+        if observed.shareMessages != hostShareMessagesSeen {
+            hostShareMessagesSeen = observed.shareMessages
+            for (shareID, name) in host.clientShares.sorted(by: { $0.key < $1.key }) {
+                print("host share \(shareID): \(name.debugDescription)")
+                hostFetches[host.fetch(.init(listing: true, shareID: shareID, path: ""))] = "share \(name)"
+            }
+        }
         for (id, name) in hostFetches {
             guard let result = host.fetchResult(id), result.finished || result.state == .reset else { continue }
             hostFetches[id] = nil
             switch result.state {
             case .sending: print("host fetched: \(name.debugDescription) \(result.data.count) of \(result.size) bytes")
+            case .listing: print("host fetched: \(name.debugDescription) lists \(result.entries.joined(separator: ", "))")
             case .refused: print("host fetched: \(name.debugDescription) refused \(result.error.map { "\($0)" } ?? "?")")
             default: print("host fetched: \(name.debugDescription) \(result.state)")
             }

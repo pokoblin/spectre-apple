@@ -213,6 +213,10 @@ public final class RemoteSession: @unchecked Sendable {
         if offersFiles, !config.capabilities.contains(GDPSession.Capability.file) {
             config.capabilities.append(GDPSession.Capability.file)
         }
+        // Folders the user shares (§7.12): nothing goes until they pick one.
+        if offersFiles, !config.capabilities.contains(GDPSession.Capability.fileShare) {
+            config.capabilities.append(GDPSession.Capability.fileShare)
+        }
         // Copied folders' contents (§7.12), with the clipboard.
         if offersFiles, config.capabilities.contains(GDPSession.Capability.clipboard),
            !config.capabilities.contains(GDPSession.Capability.fileClipboard) {

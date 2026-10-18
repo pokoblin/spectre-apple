@@ -11,6 +11,8 @@ struct SessionActions {
     let logOut: () -> Void
     /// Opens the file picker, as the toolbar's Send Files… does.
     let sendFiles: () -> Void
+    /// Opens the folder picker, for a folder to share (§7.12).
+    let shareFolder: () -> Void
 }
 
 extension FocusedValues {
@@ -46,6 +48,16 @@ struct SessionMenu: Commands {
                 .disabled(model?.files.isAvailable != true)
             Button("Download Copied Files") { model?.downloadCopiedFiles() }
                 .disabled(model?.copiedFiles?.downloadable.isEmpty ?? true)
+            Button("Share Folder…") { session?.shareFolder() }
+                .disabled(model?.sharedFolders.isAvailable != true)
+            Menu("Stop Sharing") {
+                if let shared = model?.sharedFolders {
+                    ForEach(shared.folders) { folder in
+                        Button { shared.stop(folder.id) } label: { Text(verbatim: folder.name) }
+                    }
+                }
+            }
+            .disabled(model?.sharedFolders.folders.isEmpty ?? true)
             Menu("Send Keys") {
                 if let typer = model?.input?.typer {
                     ForEach(KeyCombo.menu) { group in

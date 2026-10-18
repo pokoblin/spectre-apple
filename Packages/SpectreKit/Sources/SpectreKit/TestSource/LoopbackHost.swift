@@ -47,6 +47,7 @@ public final class LoopbackHost: @unchecked Sendable {
         // viewer copies comes back on the next attach.
         config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
                                GDPSession.Capability.file, GDPSession.Capability.fileClipboard,
+                               GDPSession.Capability.fileShare,
                                GDPSession.Capability.refine]
         config.clipboard = clipboard
         config.hostFiles = copiedFiles

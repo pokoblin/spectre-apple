@@ -2022,34 +2022,6 @@
         }
       }
     },
-    "Folders can't be downloaded yet." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Todavía no se pueden descargar carpetas."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フォルダはまだダウンロードできません。"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂时无法下载文件夹。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暫時無法下載檔案夾。"
-          }
-        }
-      }
-    },
     "Folders can't be sent." : {
       "localizations" : {
         "es" : {
@@ -3786,6 +3758,34 @@
         }
       }
     },
+    "Pasting on the remote desktop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegando en el escritorio remoto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートデスクトップに貼り付け中"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在粘贴到远程桌面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在貼上到遠端桌面"
+          }
+        }
+      }
+    },
     "Performance" : {
       "localizations" : {
         "es" : {
@@ -5270,6 +5270,34 @@
         }
       }
     },
+    "Share Folder…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir carpeta…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダを共有…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享文件夹…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享檔案夾⋯"
+          }
+        }
+      }
+    },
     "Share the clipboard with the remote desktop: text copied on either side can be pasted on the other" : {
       "localizations" : {
         "es" : {
@@ -5294,6 +5322,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "與遠端桌面共享剪貼簿：在任一端拷貝的文字都可以在另一端貼上"
+          }
+        }
+      }
+    },
+    "Shared again once connected" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se volverá a compartir al conectar"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続すると再び共有されます"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接后会再次共享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連線後會再次共享"
+          }
+        }
+      }
+    },
+    "Shared with the remote desktop, read-only" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartida con el escritorio remoto, solo lectura"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートデスクトップと共有中（読み取り専用）"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已与远程桌面共享（只读）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已與遠端桌面共享（唯讀）"
           }
         }
       }
@@ -5550,6 +5634,34 @@
         }
       }
     },
+    "Some of the files in it didn't come." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algunos de sus archivos no llegaron."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のファイルを受け取れませんでした。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中部分文件没有传过来。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中部分檔案沒有傳過來。"
+          }
+        }
+      }
+    },
     "Someone else is viewing this session. Sign in again and choose to take it over." : {
       "localizations" : {
         "es" : {
@@ -5802,6 +5914,90 @@
         }
       }
     },
+    "Stop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detener"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止"
+          }
+        }
+      }
+    },
+    "Stop Sharing" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de compartir"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有を停止"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享"
+          }
+        }
+      }
+    },
+    "Stop sending the files being pasted" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja de enviar los archivos que se están pegando"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "貼り付け中のファイルの送信を停止します"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止发送正在粘贴的文件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止傳送正在貼上的檔案"
+          }
+        }
+      }
+    },
     "Stop sending your microphone" : {
       "localizations" : {
         "es" : {
@@ -5826,6 +6022,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "停止傳送麥克風"
+          }
+        }
+      }
+    },
+    "Stop sharing this folder" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deja de compartir esta carpeta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このフォルダの共有を停止します"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享此文件夹"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "停止共享此檔案夾"
           }
         }
       }
@@ -6246,6 +6470,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法讀取這個檔案。"
+          }
+        }
+      }
+    },
+    "The folder couldn't be shared" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo compartir la carpeta"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダを共有できませんでした"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法共享该文件夹"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法共享該檔案夾"
           }
         }
       }
@@ -6788,6 +7040,34 @@
         }
       }
     },
+    "There are too many files in it." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contiene demasiados archivos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "含まれるファイルが多すぎます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中的文件太多。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其中的檔案太多。"
+          }
+        }
+      }
+    },
     "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
       "localizations" : {
         "es" : {
@@ -6840,6 +7120,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這會結束桌面工作階段本身，而不只是中斷這個連線。"
+          }
+        }
+      }
+    },
+    "This host can't send folders." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este host no puede enviar carpetas."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このホストはフォルダを送れません。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此主机无法发送文件夹。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此主機無法傳送檔案夾。"
           }
         }
       }

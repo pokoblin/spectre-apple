@@ -24,6 +24,8 @@ struct SessionView: View {
     @State private var viewSize: CGSize = .zero
     /// The file picker (Send Files…), and files being dragged over the picture.
     @State private var choosingFiles = false
+    /// A folder to share with the host (§7.12, file-share).
+    @State private var choosingFolder = false
     @State private var dropTargeted = false
     @Environment(\.displayScale) private var displayScale
     #if os(iOS)
@@ -198,7 +200,23 @@ struct SessionView: View {
         }
         .navigationSubtitle(qualityText)
         .focusedSceneValue(\.session, SessionActions(model: model, logOut: { confirmLogOut = true },
-                                                      sendFiles: { choosingFiles = true }))
+                                                      sendFiles: { choosingFiles = true },
+                                                      shareFolder: { choosingFolder = true }))
+        // A folder to share with the host, read-only (§7.12): on a view of
+        // its own, since a view takes one file importer.
+        .background {
+            Color.clear
+                .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) {
+                    if case .success(let url) = $0 { model.shareFolder(url) }
+                }
+        }
+        .alert("The folder couldn't be shared", isPresented: Binding(
+            get: { model.sharedFolders.lastFailure != nil },
+            set: { if !$0 { model.sharedFolders.dismissFailure() } })) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(verbatim: model.sharedFolders.lastFailure ?? "")
+        }
         .animation(.easeInOut(duration: 0.15), value: dropTargeted)
         #endif
         .alert("Microphone", isPresented: Binding(get: { model.microphoneError != nil },
@@ -233,7 +251,8 @@ struct SessionView: View {
     /// floats its controls over the picture instead (App/iOS/SessionControls.swift).
     @ViewBuilder private var sessionButtons: some View {
         if model.files.isAvailable || !model.files.items.isEmpty {
-            FileControls(files: model.files, copied: model.copiedFiles, download: model.downloadCopiedFiles) {
+            FileControls(files: model.files, shared: model.sharedFolders, copied: model.copiedFiles,
+                         download: model.downloadCopiedFiles, shareFolder: { choosingFolder = true }) {
                 choosingFiles = true
             }
         }
@@ -373,9 +392,11 @@ struct SessionView: View {
 /// showing how far they have got.
 private struct FileControls: View {
     let files: FileTransfers
+    let shared: SharedFolders
     /// What the host's user copied, when it may be offered.
     let copied: FileTransfers.HostFiles?
     let download: () -> Void
+    let shareFolder: () -> Void
     let choose: () -> Void
     @State private var showsList = false
 
@@ -391,12 +412,14 @@ private struct FileControls: View {
             }
             .help("Download the files copied on the remote desktop to the Downloads folder")
         }
-        if !files.items.isEmpty || files.serving != nil {
+        if !files.items.isEmpty || files.serving != nil || !shared.folders.isEmpty {
             Button { showsList.toggle() } label: {
                 Label {
                     Text("Transfers")
                 } icon: {
-                    if let serving = files.serving, !files.hasActive {
+                    if !shared.folders.isEmpty, !files.hasActive, files.serving == nil {
+                        Image(systemName: "folder.badge.person.crop")
+                    } else if let serving = files.serving, !files.hasActive {
                         ProgressView(value: serving.size == 0 ? 0 : Double(serving.sent) / Double(serving.size))
                             .progressViewStyle(.circular)
                             .controlSize(.small)
@@ -411,7 +434,10 @@ private struct FileControls: View {
             }
             .help("Files sent to and downloaded from the remote desktop")
             .popover(isPresented: $showsList, arrowEdge: .bottom) {
-                FileTransferList(files: files) {
+                FileTransferList(files: files, shared: shared, shareFolder: {
+                    showsList = false
+                    shareFolder()
+                }) {
                     showsList = false
                     choose()
                 }

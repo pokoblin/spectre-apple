@@ -11,6 +11,9 @@ import UIKit
 /// actions. In a popover from the Mac's toolbar (docs/file-transfer.md).
 struct FileTransferList: View {
     let files: FileTransfers
+    /// The folders shared with the host, and the folder picker, where there is one.
+    var shared: SharedFolders?
+    var shareFolder: (() -> Void)?
     /// Opens the file picker, for more.
     let sendMore: () -> Void
 
@@ -18,6 +21,12 @@ struct FileTransferList: View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if let shared, !shared.folders.isEmpty {
+                        ForEach(shared.folders) { folder in
+                            SharedFolderRow(folder: folder) { shared.stop(folder.id) }
+                        }
+                        Divider()
+                    }
                     if let serving = files.serving {
                         ServingRow(serving: serving) { files.stopServing() }
                     }
@@ -32,6 +41,10 @@ struct FileTransferList: View {
             HStack {
                 Button("Send Files…", action: sendMore)
                     .disabled(!files.isAvailable)
+                if let shared, let shareFolder {
+                    Button("Share Folder…", action: shareFolder)
+                        .disabled(!shared.isAvailable)
+                }
                 Spacer()
                 if files.hasActive {
                     Button("Cancel All", role: .destructive) { files.cancelAll() }
@@ -42,6 +55,37 @@ struct FileTransferList: View {
             .padding(10)
         }
         .frame(width: 340)
+    }
+}
+
+/// A folder shared with the remote desktop (§7.12, file-share).
+private struct SharedFolderRow: View {
+    let folder: SharedFolders.Folder
+    let stop: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "folder.badge.person.crop")
+                .font(.title3)
+                .foregroundStyle(folder.isShared ? Color.accentColor : .secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: folder.name)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(folder.isShared ? "Shared with the remote desktop, read-only" : "Shared again once connected")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button(action: stop) {
+                Label("Stop Sharing", systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Stop sharing this folder")
+        }
     }
 }
 
