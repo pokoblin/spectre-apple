@@ -613,6 +613,7 @@ final class PlaybackModel {
         remote.onFileList = { fileEvents.fileList($0, $1) }
         remote.onFileSending = { fileEvents.fileSending($0, $1, $2, $3) }
         remote.onFileData = { fileEvents.fileData($0, $1) }
+        remote.onFileListing = { fileEvents.fileListing($0, $1, $2) }
         self.remote = remote
         // Created now, not at SessionAccept: the host's clipboard follows
         // the accept immediately (§7.9) and must find it there.
@@ -697,7 +698,8 @@ final class PlaybackModel {
                 #endif
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
-                fileEvents.connect(files.attach(session))
+                let folders = accept.capabilities.contains(GDPSession.Capability.fileClipboard)
+                fileEvents.connect(files.attach(session, foldersHaveContents: folders))
                 if !sendOnAccept.isEmpty {
                     sendFiles(sendOnAccept)
                     sendOnAccept = []

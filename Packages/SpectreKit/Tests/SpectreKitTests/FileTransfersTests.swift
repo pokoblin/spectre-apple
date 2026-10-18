@@ -47,12 +47,16 @@ private final class Harness {
     private(set) var link: FileTransfers.Link?
     private(set) var previousLink: FileTransfers.Link?
 
-    init(clipboard: CopiedFilesClipboard? = nil,
+    /// `file-clipboard` (with `clipboard`) in effect: copied folders come with their contents.
+    let fileClipboard: Bool
+
+    init(clipboard: CopiedFilesClipboard? = nil, fileClipboard: Bool = false,
          _ configure: (inout GDPTestHost.Configuration) -> Void = { _ in }) async throws {
+        self.fileClipboard = fileClipboard
         directory = FileManager.default.temporaryDirectory.appending(path: "spectrekit-files-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         var hc = GDPTestHost.Configuration()
-        hc.capabilities = [GDPSession.Capability.file]
+        hc.capabilities = fileClipboard ? Self.treeCapabilities : [GDPSession.Capability.file]
         hc.fileDirectory = directory
         configure(&hc)
         host = try GDPTestHost(hc)
@@ -73,14 +77,15 @@ private final class Harness {
         handlers.fileList = { relay.fileList($0, $1) }
         handlers.fileSending = { relay.fileSending($0, $1, $2, $3) }
         handlers.fileData = { relay.fileData($0, $1) }
+        handlers.fileListing = { relay.fileListing($0, $1, $2) }
         session = GDPSession(handlers: handlers)
         var config = host.sessionConfiguration(codecs: ["h264"])
-        config.capabilities = [GDPSession.Capability.file]
+        config.capabilities = fileClipboard ? Self.treeCapabilities : [GDPSession.Capability.file]
         config.takeOver = true
         try session.connect(config)
         #expect(await until { accepted.isSet })
         previousLink = link
-        let link = transfers.attach(session)
+        let link = transfers.attach(session, foldersHaveContents: fileClipboard)
         relay.connect(link)
         self.link = link
     }
@@ -95,6 +100,9 @@ private final class Harness {
     }
 
     var allFinished: Bool { transfers.items.allSatisfy(\.isFinished) }
+
+    static let treeCapabilities = [GDPSession.Capability.clipboard, GDPSession.Capability.file,
+                                   GDPSession.Capability.fileClipboard]
 
     func file(_ name: String, bytes: [UInt8]) throws -> URL {
         let url = FileManager.default.temporaryDirectory.appending(path: "spectrekit-source-\(UUID().uuidString)")
@@ -552,5 +560,128 @@ private final class FakeClipboard: CopiedFilesClipboard {
         changeCount += 1
         puts += 1
         return true
+    }
+}
+
+/// Copied folders, downloaded with what is in them (§7.12, file-clipboard).
+@Suite("Folder downloads (§7.12)", .serialized)
+@MainActor
+struct FolderDownloadTests {
+    /// A/x.txt, A/B/y.txt (and A/B/C/z.bin, 2 MiB) on the host, copied.
+    private func harness(budget: Int = 0, clipboard: CopiedFilesClipboard? = nil, extra: [URL] = [])
+        async throws -> (Harness, URL, URL) {
+        let copied = FileManager.default.temporaryDirectory.appending(path: "spectrekit-tree-\(UUID().uuidString)")
+        let a = copied.appending(path: "A")
+        try FileManager.default.createDirectory(at: a.appending(path: "B/C"), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: a.appending(path: "x.txt"))
+        try Data("yy".utf8).write(to: a.appending(path: "B/y.txt"))
+        try Data(bytes(2 << 20, seed: 5)).write(to: a.appending(path: "B/C/z.bin"))
+        let h = try await Harness(clipboard: clipboard, fileClipboard: true) {
+            $0.hostFiles = [a] + extra
+            $0.fileListBudget = budget
+        }
+        let target = FileManager.default.temporaryDirectory.appending(path: "spectrekit-dl-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: true)
+        h.transfers.downloadDirectory = target
+        #expect(await h.until { h.transfers.hostFiles != nil })
+        return (h, copied, target)
+    }
+
+    private func check(_ folder: URL) throws {
+        #expect(try Data(contentsOf: folder.appending(path: "x.txt")) == Data("x".utf8))
+        #expect(try Data(contentsOf: folder.appending(path: "B/y.txt")) == Data("yy".utf8))
+        #expect(try Data(contentsOf: folder.appending(path: "B/C/z.bin")) == Data(bytes(2 << 20, seed: 5)))
+    }
+
+    @Test func treeFromParents() {
+        let files = [
+            GDPSession.FileListEntry(name: "A", size: 0, modified: nil, isDirectory: true),
+            GDPSession.FileListEntry(name: "x.txt", size: 1, modified: nil, isDirectory: false, parent: 1),
+            GDPSession.FileListEntry(name: "B", size: 0, modified: nil, isDirectory: true, parent: 1, isUnlisted: true),
+            GDPSession.FileListEntry(name: "..", size: 5, modified: nil, isDirectory: false, parent: 1),
+        ]
+        var tree = HostFileTree(files)
+        #expect(tree.unlisted(under: 0) == [2])
+        #expect(tree.totalSize(under: 0) == 6)
+        tree.merge(folder: 2, firstIndex: 4, files: [GDPSession.FileListEntry(name: "y", size: 2, modified: nil,
+                                                                              isDirectory: false)])
+        #expect(tree.unlisted(under: 0).isEmpty)
+        let contents = tree.contents(of: 0)
+        #expect(contents.folders == [["B"]])
+        #expect(contents.files == [HostFileTree.File(index: 1, path: ["x.txt"], size: 1),
+                                   HostFileTree.File(index: 4, path: ["B", "y"], size: 2)])
+        #expect(contents.skipped == 1)
+    }
+
+    @Test func aFolderIsDownloadedWhole() async throws {
+        let (h, copied, target) = try await harness()
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.copied.map(\.name) == ["A"])
+        #expect(h.transfers.hostFiles?.downloadable.count == 1)
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        let items = h.transfers.items
+        #expect(items.count == 1 && items[0].isFolder)
+        #expect(items[0].state == .saved(name: "A"))
+        #expect(items[0].size == UInt64(3 + (2 << 20)) && items[0].sent == items[0].size)
+        #expect(items[0].localURL == target.appending(path: "A", directoryHint: .isDirectory))
+        try check(target.appending(path: "A"))
+        #expect(h.transfers.lastBatch?.downloaded == ["A"])
+        // Again: "A 2", beside the first.
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        #expect(h.transfers.items.last?.state == .saved(name: "A 2"))
+        try check(target.appending(path: "A 2"))
+    }
+
+    @Test func unlistedFoldersAreListedFirst() async throws {
+        let (h, copied, target) = try await harness(budget: 1)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.files.count == 1 && h.transfers.hostFiles?.files[0].isUnlisted == true)
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.allFinished })
+        #expect(h.transfers.items.first?.state == .saved(name: "A"))
+        try check(target.appending(path: "A"))
+        #expect(h.host.observed.listingsRequested == 3) // A, B, C
+    }
+
+    @Test func cancellingAFolderRemovesIt() async throws {
+        let (h, copied, target) = try await harness()
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        h.transfers.downloadCopiedFiles()
+        #expect(await h.until { h.transfers.items.first?.state == .sending })
+        h.transfers.cancel(h.transfers.items[0].id)
+        #expect(h.transfers.items.first?.state == .cancelled)
+        #expect(await h.until {
+            ((try? FileManager.default.contentsOfDirectory(atPath: target.path(percentEncoded: false))) ?? []).isEmpty
+        })
+    }
+
+    @Test func aFolderStopsWithTheSession() async throws {
+        let (h, copied, target) = try await harness(budget: 1)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        h.transfers.downloadCopiedFiles()
+        h.transfers.detach()
+        #expect(h.transfers.items.first?.state == .failed(.notSent))
+    }
+
+    @Test func aSmallFolderGoesOnTheClipboard() async throws {
+        let clipboard = FakeClipboard()
+        let (h, copied, target) = try await harness(clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.fitsClipboard == true)
+        #expect(await h.until { h.transfers.clipboardFetch?.state == .onClipboard })
+        #expect(clipboard.files.map(\.lastPathComponent) == ["A"])
+        try check(clipboard.files[0])
+        #expect(h.transfers.items.isEmpty && h.transfers.lastBatch == nil)
+    }
+
+    @Test func anUnlistedFolderIsOnlyOffered() async throws {
+        let clipboard = FakeClipboard()
+        let (h, copied, target) = try await harness(budget: 1, clipboard: clipboard)
+        defer { h.done(); try? FileManager.default.removeItem(at: copied); try? FileManager.default.removeItem(at: target) }
+        #expect(h.transfers.hostFiles?.fitsClipboard == false)
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.transfers.clipboardFetch == nil && clipboard.puts == 0)
     }
 }

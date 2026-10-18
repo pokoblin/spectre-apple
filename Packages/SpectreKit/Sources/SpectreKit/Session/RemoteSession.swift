@@ -45,6 +45,8 @@ public final class RemoteSession: @unchecked Sendable {
     public var onFileList: (@Sendable (UInt64, [GDPSession.FileListEntry]) -> Void)?
     public var onFileSending: (@Sendable (UInt64, String, UInt64, Date?) -> Void)?
     public var onFileData: (@Sendable (UInt64, UnsafeRawBufferPointer) -> Void)?
+    /// With `file-clipboard`: a copied folder's contents (``FileTransfers/Link/fileListing(_:_:_:)``).
+    public var onFileListing: (@Sendable (UInt64, UInt32, [GDPSession.FileListEntry]) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -208,6 +210,11 @@ public final class RemoteSession: @unchecked Sendable {
         if offersFiles, !config.capabilities.contains(GDPSession.Capability.file) {
             config.capabilities.append(GDPSession.Capability.file)
         }
+        // Copied folders' contents (§7.12), with the clipboard.
+        if offersFiles, config.capabilities.contains(GDPSession.Capability.clipboard),
+           !config.capabilities.contains(GDPSession.Capability.fileClipboard) {
+            config.capabilities.append(GDPSession.Capability.fileClipboard)
+        }
         if offersRefine, !config.capabilities.contains(GDPSession.Capability.refine) {
             config.capabilities.append(GDPSession.Capability.refine)
         }
@@ -233,6 +240,7 @@ public final class RemoteSession: @unchecked Sendable {
         h.fileList = { [weak self] listID, files in self?.onFileList?(listID, files) }
         h.fileSending = { [weak self] id, name, size, modified in self?.onFileSending?(id, name, size, modified) }
         h.fileData = { [weak self] id, bytes in self?.onFileData?(id, bytes) }
+        h.fileListing = { [weak self] id, first, files in self?.onFileListing?(id, first, files) }
         let session = GDPSession(handlers: h)
         if refinePaused.withLock({ $0 }) { session.setRefinePaused(true) }
         self.session = session

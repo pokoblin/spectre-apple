@@ -9,6 +9,7 @@ public protocol FileSender: AnyObject, Sendable {
     func sendFileData(_ id: UInt64, _ data: Data)
     func cancelFile(_ id: UInt64)
     func requestFile(listID: UInt64, index: UInt32) -> UInt64?
+    func requestListing(listID: UInt64, index: UInt32) -> UInt64?
     func consumeFileData(_ id: UInt64, _ count: Int)
     func linkStats() -> GDPSession.LinkStats?
 }
@@ -36,7 +37,10 @@ extension GDPSession: FileSender {}
 /// through a hidden temporary file there, renamed into place ("name 2.ext"
 /// when the name is taken) once every byte is down. A file's bytes are
 /// handed back to the session only once written, so a slow disk holds the
-/// host back.
+/// host back. With `file-clipboard` in effect a copied folder comes too: one
+/// item, whose folders are listed (asking the host for those its list had
+/// no room for), made here, and filled file by file; its files are not
+/// items of their own.
 ///
 /// With a ``clipboard`` to put them on, a list that is small enough
 /// (``HostFiles/fitsClipboard``) is fetched as soon as it comes, into a
@@ -86,6 +90,12 @@ public final class FileTransfers {
         public internal(set) var hostDirectory: String?
         /// Fetched for the clipboard (not shown, not part of a batch).
         var isForClipboard = false
+        /// A download of a copied folder, and all that is in it.
+        public internal(set) var isFolder = false
+        /// One file of a folder's download (or a listing of one of its
+        /// folders): the folder item's id. Not shown, not part of a batch.
+        var group: Int?
+        var isShown: Bool { !isForClipboard && group == nil }
 
         public var isFinished: Bool {
             switch state {
@@ -97,7 +107,8 @@ public final class FileTransfers {
     }
 
     public enum Failure: Sendable, Equatable {
-        /// A folder (not sent in this version).
+        /// A folder: not sent in this version, and not fetched from a host
+        /// without `file-clipboard`.
         case folder
         /// It couldn't be read.
         case unreadable
@@ -114,23 +125,51 @@ public final class FileTransfers {
         case notSent
         /// A download: it couldn't be written here.
         case couldntSave
+        /// A folder's download: some of what is in it didn't come.
+        case incomplete
+        /// A folder's download: more in it than a list may hold.
+        case tooMany
     }
 
     /// What the host's user copied (§7.12), to download.
     public struct HostFiles: Sendable, Equatable {
         public var listID: UInt64
+        /// The whole list: what was copied and, with `file-clipboard`, what
+        /// is in its folders (``GDPSession/FileListEntry/parent``).
         public var files: [GDPSession.FileListEntry]
-        /// Those that can be downloaded (not folders).
-        public var downloadable: [GDPSession.FileListEntry] { files.filter { !$0.isDirectory } }
+        /// `file-clipboard` is in effect: a folder's contents can be had.
+        public var foldersHaveContents = false
+
+        public init(listID: UInt64, files: [GDPSession.FileListEntry], foldersHaveContents: Bool = false) {
+            self.listID = listID
+            self.files = files
+            self.foldersHaveContents = foldersHaveContents
+        }
+
+        /// What the host's user copied, in order.
+        public var copied: [GDPSession.FileListEntry] { files.filter { $0.parent == 0 } }
+        /// Those that can be downloaded: files, and folders with `file-clipboard`.
+        public var downloadable: [GDPSession.FileListEntry] {
+            copied.filter { !$0.isDirectory || foldersHaveContents }
+        }
         /// Whether they are fetched for the clipboard as soon as they are
-        /// listed: files only, ``FileTransfers/clipboardLimit`` at most in all.
+        /// listed: ``FileTransfers/clipboardLimit`` at most in all, folders
+        /// only with all of their contents in the list.
         public var fitsClipboard: Bool {
+            let tree = HostFileTree(files)
             var total: UInt64 = 0
-            for file in files {
-                guard !file.isDirectory, file.size <= FileTransfers.clipboardLimit else { return false }
-                total += file.size
+            var any = false
+            for (i, file) in files.enumerated() where file.parent == 0 {
+                any = true
+                if file.isDirectory {
+                    guard foldersHaveContents, tree.unlisted(under: UInt32(i)).isEmpty else { return false }
+                    total += tree.totalSize(under: UInt32(i))
+                } else {
+                    total += file.size
+                }
+                if total > FileTransfers.clipboardLimit { return false }
             }
-            return !files.isEmpty && total <= FileTransfers.clipboardLimit
+            return any
         }
     }
 
@@ -165,8 +204,19 @@ public final class FileTransfers {
     }
 
     /// What the user sent and downloaded, oldest first.
-    public var items: [Item] { allItems.filter { !$0.isForClipboard } }
+    public var items: [Item] { allItems.filter(\.isShown) }
     private var allItems: [Item] = []
+    /// The files of folders being downloaded, and listings of their folders,
+    /// by id: kept apart, since a folder may hold thousands.
+    @ObservationIgnored private var subs: [Int: Item] = [:]
+    /// Folders being downloaded, by their item's id.
+    @ObservationIgnored private var folders: [Int: FolderJob] = [:]
+    /// The listing request behind each listing's session id.
+    @ObservationIgnored private var listingWires: [UInt64: (folder: Int, index: UInt32)] = [:]
+    /// Whether the session attached has `file-clipboard` in effect.
+    @ObservationIgnored private var foldersHaveContents = false
+    /// The most a folder's download lists (gdp-spec.md §7.12).
+    nonisolated static let maxFolderEntries = 100_000
     /// The host's copied files, while it has some (nil: none, or no session).
     public private(set) var hostFiles: HostFiles?
     /// Where downloads go: the user's Downloads folder unless set.
@@ -207,6 +257,26 @@ public final class FileTransfers {
         case upload(FileSource)
         /// Into `directory`, or (nil) ``downloadDirectory``.
         case download(listID: UInt64, index: UInt32, directory: URL?)
+        /// What is in folder `index`, for the download of folder item `folder`.
+        case listing(listID: UInt64, index: UInt32, folder: Int)
+    }
+
+    /// A copied folder on its way here.
+    private struct FolderJob {
+        var listID: UInt64
+        var root: UInt32
+        var tree: HostFileTree
+        /// Where it goes, and (once all of it is listed) the folder made there.
+        var base: URL
+        var localURL: URL?
+        /// Listings going, by item id: the folder each lists.
+        var listings: [Int: UInt32] = [:]
+        /// Its files' items, how many of them are done, how those that
+        /// didn't come failed, and how many entries had unusable names.
+        var children: [Int] = []
+        var done = 0
+        var failures: [Failure] = []
+        var skipped = 0
     }
     /// Items waiting to go, oldest first.
     @ObservationIgnored private var queue: [(id: Int, job: Job)] = []
@@ -250,9 +320,12 @@ public final class FileTransfers {
         public func fileFinished(_ wire: UInt64, _ outcome: GDPSession.FileOutcome) {
             transfers?.finished(wire, outcome, generation)
         }
-        /// GDPSession.Handlers.fileList, fileSending and fileData.
+        /// GDPSession.Handlers.fileList, fileSending, fileData and fileListing.
         public func fileList(_ listID: UInt64, _ files: [GDPSession.FileListEntry]) {
             transfers?.listed(listID, files, generation)
+        }
+        public func fileListing(_ wire: UInt64, _ firstIndex: UInt32, _ files: [GDPSession.FileListEntry]) {
+            transfers?.folderListed(wire, firstIndex, files, generation)
         }
         public func fileSending(_ wire: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) {
             transfers?.sending(wire, name, size, modified, generation)
@@ -277,13 +350,15 @@ public final class FileTransfers {
         try? FileManager.default.removeItem(at: clipboardCacheRoot)
     }()
 
-    /// Sends through `sender` from now on: a session with `file` in effect.
-    /// Its file events go to the link returned.
+    /// Sends through `sender` from now on: a session with `file` in effect,
+    /// and `foldersHaveContents` if `file-clipboard` is too. Its file events
+    /// go to the link returned.
     @discardableResult
-    public func attach(_ sender: FileSender) -> Link {
+    public func attach(_ sender: FileSender, foldersHaveContents: Bool = false) -> Link {
         detach()
         generation += 1
         self.sender = sender
+        self.foldersHaveContents = foldersHaveContents
         budget = UploadBudget { [weak sender] in sender?.linkStats()?.rttMicroseconds }
         isAvailable = true
         startNext()
@@ -302,6 +377,7 @@ public final class FileTransfers {
         isAvailable = false
         dropClipboardFetch()
         clipboardFetch = nil
+        for id in Array(folders.keys) { failFolder(id, .notSent) }
         let gone = pumps.withLock { pumps in
             defer { pumps = [:] }
             return Array(pumps.values)
@@ -321,7 +397,13 @@ public final class FileTransfers {
         for (id, job) in queue {
             if case .download = job { fail(id, .notSent) }
         }
-        queue.removeAll { if case .download = $0.job { true } else { false } }
+        queue.removeAll {
+            switch $0.job {
+            case .upload: false
+            case .download, .listing: true
+            }
+        }
+        listingWires = [:]
         // Uploads still opening: again, first, next time.
         let queued = Set(queue.map(\.id))
         let reopening = allItems.filter { $0.direction == .upload && $0.state == .waiting && !queued.contains($0.id) }
@@ -361,16 +443,21 @@ public final class FileTransfers {
         finishBatchIfDone()
     }
 
-    /// Downloads every file of ``hostFiles`` into ``downloadDirectory``; a
-    /// folder shows up as failed right away.
+    /// Downloads everything of ``hostFiles`` into ``downloadDirectory``; a
+    /// folder shows up as failed right away, unless `file-clipboard` is in
+    /// effect and it comes with what is in it.
     public func downloadCopiedFiles() {
         guard let hostFiles else { return }
-        for (index, file) in hostFiles.files.enumerated() {
+        let tree = HostFileTree(hostFiles.files)
+        for (index, file) in hostFiles.files.enumerated() where file.parent == 0 {
             nextID += 1
-            allItems.append(Item(id: nextID, direction: .download, name: file.name, size: file.size))
-            if file.isDirectory {
+            allItems.append(Item(id: nextID, direction: .download, name: file.name, size: file.size,
+                                 isFolder: file.isDirectory))
+            if file.isDirectory, !hostFiles.foldersHaveContents {
                 update(nextID) { $0.state = .failed(.folder) }
                 batchFailed.append(file.name)
+            } else if file.isDirectory {
+                startFolder(nextID, listID: hostFiles.listID, index: UInt32(index), tree: tree, into: downloadDirectory)
             } else {
                 queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index), directory: nil)))
             }
@@ -381,6 +468,10 @@ public final class FileTransfers {
 
     public func cancel(_ id: Int) {
         guard let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
+        if let job = folders.removeValue(forKey: id) {
+            for sub in Array(job.listings.keys) + job.children { stopSub(sub) }
+            if let made = job.localURL { try? FileManager.default.removeItem(at: made) }
+        }
         queue.removeAll { $0.id == id }
         if let wire = wireIDs[id] {
             sender?.cancelFile(wire)
@@ -435,8 +526,19 @@ public final class FileTransfers {
     nonisolated fileprivate func listed(_ listID: UInt64, _ files: [GDPSession.FileListEntry], _ generation: Int) {
         Task { @MainActor in
             guard generation == self.generation else { return }
-            self.hostFiles = files.isEmpty ? nil : HostFiles(listID: listID, files: files)
+            self.hostFiles = files.isEmpty ? nil : HostFiles(listID: listID, files: files,
+                                                             foldersHaveContents: self.foldersHaveContents)
             self.fetchForClipboard()
+        }
+    }
+
+    nonisolated fileprivate func folderListed(_ wire: UInt64, _ firstIndex: UInt32, _ files: [GDPSession.FileListEntry],
+                                              _ generation: Int) {
+        Task { @MainActor in
+            guard generation == self.generation, let listing = self.listingWires[wire],
+                  var job = self.folders[listing.folder] else { return }
+            job.tree.merge(folder: listing.index, firstIndex: firstIndex, files: files)
+            self.folders[listing.folder] = job
         }
     }
 
@@ -464,6 +566,8 @@ public final class FileTransfers {
             guard case .upload(let source) = job else {
                 if case .download(let listID, let index, let directory) = job {
                     startDownload(id, listID: listID, index: index, into: directory ?? downloadDirectory, sender)
+                } else if case .listing(let listID, let index, let folder) = job {
+                    startListing(id, listID: listID, index: index, folder: folder, sender)
                 }
                 continue
             }
@@ -481,7 +585,7 @@ public final class FileTransfers {
     }
 
     private func startDownload(_ id: Int, listID: UInt64, index: UInt32, into directory: URL, _ sender: FileSender) {
-        guard let item = allItems.first(where: { $0.id == id }) else { return }
+        guard let item = item(id) else { return }
         guard let wire = sender.requestFile(listID: listID, index: index) else {
             fail(id, .notSent)
             return
@@ -528,7 +632,7 @@ public final class FileTransfers {
             startNext()
         }
         // Cancelled while being written out: left as the user said.
-        guard let id = found, let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
+        guard let id = found, let item = item(id), !item.isFinished else { return }
         switch result {
         case .success(let url):
             update(id) {
@@ -536,7 +640,7 @@ public final class FileTransfers {
                 $0.state = .saved(name: url.lastPathComponent)
                 $0.localURL = url
             }
-            if !item.isForClipboard { batchDownloaded.append(url.lastPathComponent) }
+            if item.isShown { batchDownloaded.append(url.lastPathComponent) }
             finishBatchIfDone()
         case .failure:
             fail(id, .couldntSave)
@@ -604,6 +708,15 @@ public final class FileTransfers {
         guard generation == self.generation, let id = itemIDs[wire] else { return }
         finish(wire)
         busy.remove(id)
+        if let listing = listingWires.removeValue(forKey: wire) {
+            if case .saved = outcome {
+                listingEnded(id, folder: listing.folder, failure: nil)
+            } else {
+                listingEnded(id, folder: listing.folder, failure: Self.failure(outcome) ?? .notSent)
+            }
+            startNext()
+            return
+        }
         switch outcome {
         case .saved(let name, let directory):
             update(id) {
@@ -636,11 +749,25 @@ public final class FileTransfers {
 
     private func fail(_ id: Int, _ failure: Failure) {
         sources[id] = nil
-        guard let item = allItems.first(where: { $0.id == id }), !item.isFinished else { return }
+        guard let item = item(id), !item.isFinished else { return }
         update(id) { $0.state = .failed(failure) }
-        if !item.isForClipboard { batchFailed.append(item.name) }
+        if item.isShown { batchFailed.append(item.name) }
         finishBatchIfDone()
     }
+
+    /// How a transfer that didn't end saved failed.
+    private static func failure(_ outcome: GDPSession.FileOutcome) -> Failure? {
+        switch outcome {
+        case .saved: nil
+        case .refused(let error): .refused(error)
+        case .failed(let error): .hostFailed(error)
+        case .cancelledByHost: .cancelledByHost
+        case .timedOut: .timedOut
+        case .connectionEnded: .notSent
+        }
+    }
+
+    private func item(_ id: Int) -> Item? { subs[id] ?? allItems.first { $0.id == id } }
 
     /// Nothing left going: what the batch came to, for a notice.
     private func finishBatchIfDone() {
@@ -661,9 +788,165 @@ public final class FileTransfers {
     }
 
     private func update(_ id: Int, _ change: (inout Item) -> Void) {
+        if let before = subs[id] {
+            var sub = before
+            change(&sub)
+            subs[id] = sub
+            if let folder = sub.group { subChanged(sub, from: before, of: folder) }
+            return
+        }
         guard let index = allItems.firstIndex(where: { $0.id == id }) else { return }
         change(&allItems[index])
         if allItems[index].isForClipboard, allItems[index].isFinished { clipboardFetchProgressed() }
+    }
+
+    // MARK: - Folders
+
+    /// Item `id` downloads folder `index` of list `listID` into `base`.
+    private func startFolder(_ id: Int, listID: UInt64, index: UInt32, tree: HostFileTree, into base: URL) {
+        folders[id] = FolderJob(listID: listID, root: index, tree: tree, base: base)
+        update(id) { $0.state = .offered }
+        continueFolder(id)
+    }
+
+    /// Asks for the contents of every folder in it not listed yet; once
+    /// none is left, makes its folders and queues its files.
+    private func continueFolder(_ id: Int) {
+        guard var job = folders[id] else { return }
+        guard job.tree.count <= Self.maxFolderEntries else { return failFolder(id, .tooMany) }
+        let asked = Set(job.listings.values)
+        for index in job.tree.unlisted(under: job.root) where !asked.contains(index) {
+            nextID += 1
+            subs[nextID] = Item(id: nextID, direction: .download, name: "", size: 0, group: id)
+            job.listings[nextID] = index
+            queue.append((nextID, .listing(listID: job.listID, index: index, folder: id)))
+        }
+        folders[id] = job
+        if job.listings.isEmpty { fill(id) } else { startNext() }
+    }
+
+    private func startListing(_ id: Int, listID: UInt64, index: UInt32, folder: Int, _ sender: FileSender) {
+        guard let wire = sender.requestListing(listID: listID, index: index) else {
+            listingEnded(id, folder: folder, failure: .notSent)
+            return
+        }
+        busy.insert(id)
+        wireIDs[id] = wire
+        itemIDs[wire] = id
+        listingWires[wire] = (folder, index)
+    }
+
+    private func listingEnded(_ id: Int, folder: Int, failure: Failure?) {
+        subs[id] = nil
+        guard var job = folders[folder] else { return }
+        job.listings[id] = nil
+        folders[folder] = job
+        if let failure { return failFolder(folder, failure) }
+        continueFolder(folder)
+    }
+
+    /// Everything in it is listed: its folders are made (the top one named
+    /// as the host's, "name 2" when that is taken), and its files queued.
+    private func fill(_ id: Int) {
+        guard var job = folders[id], job.localURL == nil, let entry = job.tree.entries[job.root] else { return }
+        let (inner, files, skipped) = job.tree.contents(of: job.root)
+        guard let top = Self.makeFolder(named: fileNameForHost(entry.name) ?? "Folder", in: job.base) else {
+            return failFolder(id, .couldntSave)
+        }
+        job.localURL = top
+        for path in inner {
+            let url = path.reduce(top) { $0.appending(path: $1, directoryHint: .isDirectory) }
+            guard (try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)) != nil else {
+                folders[id] = job
+                return failFolder(id, .couldntSave)
+            }
+        }
+        job.skipped = skipped
+        for file in files {
+            nextID += 1
+            subs[nextID] = Item(id: nextID, direction: .download, name: file.path.last ?? "", size: file.size,
+                                group: id)
+            job.children.append(nextID)
+            let directory = file.path.dropLast().reduce(top) { $0.appending(path: $1, directoryHint: .isDirectory) }
+            queue.append((nextID, .download(listID: job.listID, index: file.index, directory: directory)))
+        }
+        folders[id] = job
+        update(id) {
+            $0.size = files.reduce(0) { $0 + $1.size }
+            $0.localURL = top
+            $0.state = .sending
+        }
+        folderDoneIfComplete(id)
+        startNext()
+    }
+
+    /// A file of folder `folder` moved on: its progress, and whether it is done.
+    private func subChanged(_ sub: Item, from before: Item, of folder: Int) {
+        guard var job = folders[folder] else { return }
+        if sub.sent > before.sent {
+            let delta = sub.sent - before.sent
+            update(folder) { $0.sent += delta }
+        }
+        guard sub.isFinished, !before.isFinished, job.children.contains(sub.id) else { return }
+        job.done += 1
+        if case .failed(let failure) = sub.state { job.failures.append(failure) }
+        folders[folder] = job
+        folderDoneIfComplete(folder)
+    }
+
+    /// Every file of it done: saved if all came, failed if any didn't.
+    private func folderDoneIfComplete(_ id: Int) {
+        guard let job = folders[id], let made = job.localURL, job.listings.isEmpty,
+              job.done == job.children.count else { return }
+        folders[id] = nil
+        for child in job.children { subs[child] = nil }
+        if job.failures.isEmpty, job.skipped == 0 {
+            update(id) {
+                $0.sent = $0.size
+                $0.state = .saved(name: made.lastPathComponent)
+            }
+            if item(id)?.isShown == true { batchDownloaded.append(made.lastPathComponent) }
+            finishBatchIfDone()
+        } else {
+            let lost = !job.failures.isEmpty && job.failures.allSatisfy { $0 == .notSent }
+            fail(id, lost ? .notSent : .incomplete)
+        }
+    }
+
+    /// It can't go on: what of it is going stops; what came is kept.
+    private func failFolder(_ id: Int, _ failure: Failure) {
+        guard let job = folders.removeValue(forKey: id) else { return }
+        for sub in Array(job.listings.keys) + job.children { stopSub(sub) }
+        fail(id, failure)
+    }
+
+    /// Stops one of a folder's files or listings, and forgets it.
+    private func stopSub(_ id: Int) {
+        queue.removeAll { $0.id == id }
+        if let wire = wireIDs[id] {
+            sender?.cancelFile(wire)
+            sinks.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.abort()
+            listingWires[wire] = nil
+            finish(wire)
+        }
+        busy.remove(id)
+        subs[id] = nil
+    }
+
+    /// A new folder called `name` in `directory`, or "name 2", "name 3"...
+    private static func makeFolder(named name: String, in directory: URL) -> URL? {
+        for n in 1...10_000 {
+            let url = directory.appending(path: n == 1 ? name : "\(name) \(n)", directoryHint: .isDirectory)
+            do {
+                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
+                return url
+            } catch CocoaError.fileWriteFileExists {
+                continue
+            } catch {
+                return nil
+            }
+        }
+        return nil
     }
 
     // MARK: - Fetching for the clipboard
@@ -680,15 +963,24 @@ public final class FileTransfers {
             return
         }
         var ids: [Int] = []
-        for (index, file) in hostFiles.files.enumerated() {
+        var copiedFolders: [(id: Int, index: UInt32)] = []
+        for (index, file) in hostFiles.files.enumerated() where file.parent == 0 {
             nextID += 1
             allItems.append(Item(id: nextID, direction: .download, name: file.name, size: file.size,
-                                 isForClipboard: true))
-            queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index), directory: directory)))
+                                 isForClipboard: true, isFolder: file.isDirectory))
+            if file.isDirectory {
+                copiedFolders.append((nextID, UInt32(index)))
+            } else {
+                queue.append((nextID, .download(listID: hostFiles.listID, index: UInt32(index), directory: directory)))
+            }
             ids.append(nextID)
         }
         pendingFetch = (hostFiles.listID, mark, directory, ids)
         clipboardFetch = ClipboardFetch(listID: hostFiles.listID, state: .fetching)
+        let tree = HostFileTree(hostFiles.files)
+        for folder in copiedFolders {
+            startFolder(folder.id, listID: hostFiles.listID, index: folder.index, tree: tree, into: directory)
+        }
         startNext()
     }
 
@@ -860,6 +1152,9 @@ public final class FileEventRelay: Sendable {
         link?.fileSending(wire, name, size, modified)
     }
     public func fileData(_ wire: UInt64, _ bytes: UnsafeRawBufferPointer) { link?.fileData(wire, bytes) }
+    public func fileListing(_ wire: UInt64, _ firstIndex: UInt32, _ files: [GDPSession.FileListEntry]) {
+        link?.fileListing(wire, firstIndex, files)
+    }
     public func fileList(_ listID: UInt64, _ files: [GDPSession.FileListEntry]) {
         let link: FileTransfers.Link? = state.withLock {
             if $0.link == nil { $0.pendingList = (listID, files) }

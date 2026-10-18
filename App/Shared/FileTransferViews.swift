@@ -116,7 +116,8 @@ private struct FileTransferRow: View {
 
     private var symbol: String {
         switch item.state {
-        case .waiting, .offered, .sending: item.direction == .download ? "arrow.down.doc" : "arrow.up.doc"
+        case .waiting, .offered, .sending:
+            item.isFolder ? "folder" : item.direction == .download ? "arrow.down.doc" : "arrow.up.doc"
         case .saved: "checkmark.circle.fill"
         case .failed: "exclamationmark.triangle.fill"
         case .cancelled: "xmark.circle"
@@ -149,7 +150,7 @@ private struct FileTransferRow: View {
             return name == item.name ? String(localized: "Sent · \(size)")
                 : String(localized: "Sent as “\(name)” · \(size)")
         case .failed(.folder) where item.direction == .download:
-            return String(localized: "Folders can't be downloaded yet.")
+            return String(localized: "This host can't send folders.")
         case .failed(let failure): return failure.explanation
         case .cancelled: return String(localized: "Cancelled")
         }
@@ -188,6 +189,8 @@ extension FileTransfers.Failure {
         case .timedOut: String(localized: "The host didn't answer.")
         case .notSent: String(localized: "The connection ended before it was sent.")
         case .couldntSave: String(localized: "It couldn't be saved on this device.")
+        case .incomplete: String(localized: "Some of the files in it didn't come.")
+        case .tooMany: String(localized: "There are too many files in it.")
         }
     }
 }
@@ -255,11 +258,11 @@ struct CopiedFilesBanner: View {
     var body: some View {
         HStack(spacing: 12) {
             Label {
-                if files.files.count == 1 {
-                    Text("“\(files.files[0].name)” was copied on the host")
+                if files.copied.count == 1 {
+                    Text("“\(files.copied[0].name)” was copied on the host")
                 } else {
                     // Two or more: no singular form needed.
-                    Text("\(files.files.count) files were copied on the host")
+                    Text("\(files.copied.count) files were copied on the host")
                 }
             } icon: {
                 Image(systemName: "doc.on.doc")

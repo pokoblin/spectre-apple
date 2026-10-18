@@ -46,7 +46,8 @@ public final class LoopbackHost: @unchecked Sendable {
         // gamepads (§8.5), files (§7.12), and keep a clipboard: what the
         // viewer copies comes back on the next attach.
         config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
-                               GDPSession.Capability.file, GDPSession.Capability.refine]
+                               GDPSession.Capability.file, GDPSession.Capability.fileClipboard,
+                               GDPSession.Capability.refine]
         config.clipboard = clipboard
         config.hostFiles = copiedFiles
         fileDirectory = FileManager.default.temporaryDirectory.appending(path: "Loopback Files", directoryHint: .isDirectory)
