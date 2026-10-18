@@ -1462,34 +1462,6 @@
         }
       }
     },
-    "Download the files copied on the remote desktop to the Downloads folder" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descarga los archivos copiados en el escritorio remoto en la carpeta Descargas"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リモートデスクトップでコピーされたファイルを「ダウンロード」フォルダにダウンロードします"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "把远程桌面上复制的文件下载到“下载”文件夹"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將遠端桌面上複製的檔案下載到「下載項目」檔案夾"
-          }
-        }
-      }
-    },
     "Download them to Spectre's folder in the Files app" : {
       "localizations" : {
         "es" : {
@@ -1542,6 +1514,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "下載到「下載項目」檔案夾"
+          }
+        }
+      }
+    },
+    "Download “%@”" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar «%@»"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「%@」をダウンロード"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下载“%@”"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "下載「%@」"
           }
         }
       }
@@ -4738,30 +4738,58 @@
         }
       }
     },
-    "Send files to the remote desktop's download folder (or drop them on the picture)" : {
+    "Send files to the remote desktop, download what was copied there, or share a folder" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Envía archivos a la carpeta de descargas del escritorio remoto (o suéltalos en la imagen)"
+            "value" : "Envía archivos al escritorio remoto, descarga lo que se copió allí o comparte una carpeta"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "リモートデスクトップのダウンロードフォルダにファイルを送信します（画面にドロップしても送れます）"
+            "value" : "リモートデスクトップにファイルを送信、そこでコピーされたものをダウンロード、またはフォルダを共有します"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "把文件发送到远程桌面的下载文件夹（也可以拖到画面上）"
+            "value" : "把文件发送到远程桌面、下载在那里复制的内容，或共享文件夹"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將檔案傳送到遠端桌面的下載項目檔案夾（也可以拖到畫面上）"
+            "value" : "將檔案傳送到遠端桌面、下載在那裡複製的內容，或共享檔案夾"
+          }
+        }
+      }
+    },
+    "Send files to the remote desktop, or share a folder with it" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Envía archivos al escritorio remoto o comparte una carpeta con él"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートデスクトップにファイルを送信、またはフォルダを共有します"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "把文件发送到远程桌面，或与它共享文件夹"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將檔案傳送到遠端桌面，或與它共享檔案夾"
           }
         }
       }

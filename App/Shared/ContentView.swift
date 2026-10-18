@@ -401,17 +401,45 @@ private struct FileControls: View {
     @State private var showsList = false
 
     var body: some View {
-        Button(action: choose) {
-            Label("Send Files…", systemImage: "arrow.up.doc")
-        }
-        .disabled(!files.isAvailable)
-        .help("Send files to the remote desktop's download folder (or drop them on the picture)")
-        if let copied, !copied.downloadable.isEmpty {
-            Button(action: download) {
-                Label("Download Copied Files", systemImage: "arrow.down.doc")
+        // One menu for what goes to and comes from the host: a dot on it
+        // while the host has copied files to download.
+        Menu {
+            Button(action: choose) {
+                Label("Send Files…", systemImage: "arrow.up.doc")
             }
-            .help("Download the files copied on the remote desktop to the Downloads folder")
+            .disabled(!files.isAvailable)
+            if let copied, !copied.downloadable.isEmpty {
+                Button(action: download) {
+                    if copied.downloadable.count == 1 {
+                        Label("Download “\(copied.downloadable[0].name)”", systemImage: "arrow.down.doc")
+                    } else {
+                        Label("Download Copied Files", systemImage: "arrow.down.doc")
+                    }
+                }
+            }
+            Divider()
+            Button(action: shareFolder) {
+                Label("Share Folder…", systemImage: "folder.badge.person.crop")
+            }
+            .disabled(!shared.isAvailable)
+        } label: {
+            Label {
+                Text("Files")
+            } icon: {
+                Image(systemName: "doc.on.doc")
+                    .overlay(alignment: .topTrailing) {
+                        if let copied, !copied.downloadable.isEmpty {
+                            Circle()
+                                .fill(Color.accentColor)
+                                .frame(width: 7, height: 7)
+                                .offset(x: 3, y: -3)
+                        }
+                    }
+            }
         }
+        .help(copied?.downloadable.isEmpty == false
+            ? "Send files to the remote desktop, download what was copied there, or share a folder"
+            : "Send files to the remote desktop, or share a folder with it")
         if !files.items.isEmpty || files.serving != nil || !shared.folders.isEmpty {
             Button { showsList.toggle() } label: {
                 Label {
