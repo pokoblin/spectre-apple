@@ -78,6 +78,7 @@ private final class Harness {
         handlers.fileSending = { relay.fileSending($0, $1, $2, $3) }
         handlers.fileData = { relay.fileData($0, $1) }
         handlers.fileListing = { relay.fileListing($0, $1, $2) }
+        handlers.fileServe = { relay.fileServe($0, $1, $2, $3) }
         session = GDPSession(handlers: handlers)
         var config = host.sessionConfiguration(codecs: ["h264"])
         config.capabilities = fileClipboard ? Self.treeCapabilities : [GDPSession.Capability.file]
@@ -85,7 +86,7 @@ private final class Harness {
         try session.connect(config)
         #expect(await until { accepted.isSet })
         previousLink = link
-        let link = transfers.attach(session, foldersHaveContents: fileClipboard)
+        let link = transfers.attach(session, fileClipboard: fileClipboard)
         relay.connect(link)
         self.link = link
     }
@@ -683,5 +684,54 @@ struct FolderDownloadTests {
         #expect(h.transfers.hostFiles?.fitsClipboard == false)
         try await Task.sleep(for: .milliseconds(200))
         #expect(h.transfers.clipboardFetch == nil && clipboard.puts == 0)
+    }
+}
+
+/// The host reading files copied here (§7.12, file-clipboard).
+@Suite("Files read by the host (§7.12)", .serialized)
+@MainActor
+struct ServedFileTests {
+    @Test func aCopiedFileIsSentAsTheHostReadsIt() async throws {
+        let h = try await Harness(fileClipboard: true)
+        defer { h.done() }
+        let content = bytes(1 << 20, seed: 7)
+        let url = try h.file("served.bin", bytes: content)
+        h.session.setCopiedFiles([url])
+        #expect(await h.until { h.host.observed.clientFileLists == 1 })
+        let id = h.host.fetch(.init(listID: h.host.clientFileList.listID, index: 0))
+        #expect(await h.until { h.transfers.serving != nil || h.host.fetchResult(id)?.finished == true })
+        #expect(await h.until { h.host.fetchResult(id)?.finished == true })
+        #expect(h.host.fetchResult(id)?.data == content)
+        #expect(await h.until { h.transfers.serving == nil })
+        // Not one of the user's transfers.
+        #expect(h.transfers.items.isEmpty)
+    }
+
+    @Test func oneStreamStaysFreeForTheHost() async throws {
+        let h = try await Harness(fileClipboard: true) { $0.fileIgnoreOffers = true }
+        defer { h.done() }
+        h.transfers.send((0..<5).map { MemorySource(name: "up\($0)", bytes: [UInt8($0)]) })
+        #expect(await h.until { h.host.observed.filesOffered == 3 })
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(h.host.observed.filesOffered == 3)
+        let url = try h.file("small.txt", bytes: Array("hi".utf8))
+        h.session.setCopiedFiles([url])
+        #expect(await h.until { h.host.observed.clientFileLists == 1 })
+        let id = h.host.fetch(.init(listID: h.host.clientFileList.listID, index: 0))
+        #expect(await h.until(.seconds(3)) { h.host.fetchResult(id)?.finished == true })
+        #expect(h.host.fetchResult(id)?.data == Array("hi".utf8))
+    }
+
+    @Test func stoppingResetsWhatTheHostReads() async throws {
+        let h = try await Harness(fileClipboard: true)
+        defer { h.done() }
+        let url = try h.file("big.bin", bytes: bytes(8 << 20, seed: 3))
+        h.session.setCopiedFiles([url])
+        #expect(await h.until { h.host.observed.clientFileLists == 1 })
+        let id = h.host.fetch(.init(listID: h.host.clientFileList.listID, index: 0))
+        #expect(await h.until { h.transfers.serving != nil })
+        h.transfers.stopServing()
+        #expect(h.transfers.serving == nil)
+        #expect(await h.until { h.host.fetchResult(id)?.state == .reset })
     }
 }

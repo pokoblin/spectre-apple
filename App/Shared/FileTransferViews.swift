@@ -18,6 +18,9 @@ struct FileTransferList: View {
         VStack(alignment: .leading, spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
+                    if let serving = files.serving {
+                        ServingRow(serving: serving) { files.stopServing() }
+                    }
                     ForEach(files.items.reversed()) { item in
                         FileTransferRow(item: item) { files.cancel(item.id) }
                     }
@@ -39,6 +42,39 @@ struct FileTransferList: View {
             .padding(10)
         }
         .frame(width: 340)
+    }
+}
+
+/// Files copied here being pasted on the remote desktop (§7.12,
+/// file-clipboard): the host reads them as the paste goes.
+private struct ServingRow: View {
+    let serving: FileTransfers.Serving
+    let stop: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "doc.on.clipboard")
+                .font(.title3)
+                .foregroundStyle(.secondary)
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Pasting on the remote desktop")
+                    .lineLimit(1)
+                ProgressView(value: serving.size == 0 ? 0 : Double(serving.sent) / Double(serving.size))
+                    .progressViewStyle(.linear)
+                Text("\(serving.sent.formatted(.byteCount(style: .file))) of \(serving.size.formatted(.byteCount(style: .file)))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            Button(action: stop) {
+                Label("Stop", systemImage: "xmark.circle.fill")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Stop sending the files being pasted")
+        }
     }
 }
 

@@ -213,10 +213,31 @@ public final class FileTransfers {
     @ObservationIgnored private var folders: [Int: FolderJob] = [:]
     /// The listing request behind each listing's session id.
     @ObservationIgnored private var listingWires: [UInt64: (folder: Int, index: UInt32)] = [:]
-    /// Whether the session attached has `file-clipboard` in effect.
-    @ObservationIgnored private var foldersHaveContents = false
+    /// Whether the session attached has `file-clipboard` in effect: copied
+    /// folders come with their contents, and the host reads this side's
+    /// copied files (one stream is kept free for that).
+    @ObservationIgnored private var fileClipboard = false
     /// The most a folder's download lists (gdp-spec.md §7.12).
     nonisolated static let maxFolderEntries = 100_000
+
+    /// The host reading this side's copied files (`file-clipboard`), while
+    /// it does: how many, and how far they have got together.
+    public struct Serving: Sendable, Equatable {
+        public var files: Int
+        public var size: UInt64
+        public var sent: UInt64
+    }
+    public private(set) var serving: Serving?
+    /// Each file the host is reading, by the session's id: its size and how much it has.
+    @ObservationIgnored private var serves: [UInt64: (size: UInt64, sent: UInt64)] = [:]
+    /// What a file the host reads is sent through, reached from the session's
+    /// queue: its pump starts there, before any event about it can come.
+    private struct Plumbing {
+        var generation = 0
+        var sender: FileSender?
+        var budget: UploadBudget?
+    }
+    @ObservationIgnored nonisolated private let plumbing = Mutex(Plumbing())
     /// The host's copied files, while it has some (nil: none, or no session).
     public private(set) var hostFiles: HostFiles?
     /// Where downloads go: the user's Downloads folder unless set.
@@ -327,6 +348,15 @@ public final class FileTransfers {
         public func fileListing(_ wire: UInt64, _ firstIndex: UInt32, _ files: [GDPSession.FileListEntry]) {
             transfers?.folderListed(wire, firstIndex, files, generation)
         }
+        /// GDPSession.Handlers.fileServe: the host reads one of this side's
+        /// copied files. The descriptor is closed here, whatever happens.
+        public func fileServe(_ wire: UInt64, _ descriptor: Int32, _ offset: UInt64, _ size: UInt64) {
+            guard let transfers else {
+                Darwin.close(descriptor)
+                return
+            }
+            transfers.serve(wire, descriptor, offset, size, generation)
+        }
         public func fileSending(_ wire: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) {
             transfers?.sending(wire, name, size, modified, generation)
         }
@@ -340,8 +370,9 @@ public final class FileTransfers {
     }
 
     /// Where windows keep files fetched for the clipboard: in the app's
-    /// own caches (a sandboxed app's are its own anyway).
-    private nonisolated static let clipboardCacheRoot = FileManager.default.urls(for: .cachesDirectory,
+    /// own caches (a sandboxed app's are its own anyway). What is in it is
+    /// never offered back to the host as a copy of this side's.
+    public nonisolated static let clipboardCacheRoot = FileManager.default.urls(for: .cachesDirectory,
                                                                                  in: .userDomainMask)[0]
         .appending(path: Bundle.main.bundleIdentifier ?? "SpectreKit", directoryHint: .isDirectory)
         .appending(path: "Copied Files", directoryHint: .isDirectory)
@@ -351,15 +382,17 @@ public final class FileTransfers {
     }()
 
     /// Sends through `sender` from now on: a session with `file` in effect,
-    /// and `foldersHaveContents` if `file-clipboard` is too. Its file events
-    /// go to the link returned.
+    /// and `fileClipboard` if `file-clipboard` is too. Its file events go to
+    /// the link returned.
     @discardableResult
-    public func attach(_ sender: FileSender, foldersHaveContents: Bool = false) -> Link {
+    public func attach(_ sender: FileSender, fileClipboard: Bool = false) -> Link {
         detach()
         generation += 1
         self.sender = sender
-        self.foldersHaveContents = foldersHaveContents
-        budget = UploadBudget { [weak sender] in sender?.linkStats()?.rttMicroseconds }
+        self.fileClipboard = fileClipboard
+        let budget = UploadBudget { [weak sender] in sender?.linkStats()?.rttMicroseconds }
+        self.budget = budget
+        plumbing.withLock { $0 = Plumbing(generation: generation, sender: sender, budget: budget) }
         isAvailable = true
         startNext()
         return Link(generation: generation, transfers: self)
@@ -374,6 +407,9 @@ public final class FileTransfers {
         generation += 1
         sender = nil
         budget = nil
+        plumbing.withLock { $0 = Plumbing(generation: generation) }
+        serves = [:]
+        serving = nil
         isAvailable = false
         dropClipboardFetch()
         clipboardFetch = nil
@@ -527,7 +563,7 @@ public final class FileTransfers {
         Task { @MainActor in
             guard generation == self.generation else { return }
             self.hostFiles = files.isEmpty ? nil : HostFiles(listID: listID, files: files,
-                                                             foldersHaveContents: self.foldersHaveContents)
+                                                             foldersHaveContents: self.fileClipboard)
             self.fetchForClipboard()
         }
     }
@@ -561,7 +597,10 @@ public final class FileTransfers {
     // MARK: - Internals
 
     private func startNext() {
-        while let sender, busy.count < GDPSession.fileStreamsAtOnce, !queue.isEmpty {
+        // With file-clipboard one stream stays free: the host's reads of this
+        // side's files are answered on streams of ours, and wait 30 s at most.
+        let streams = GDPSession.fileStreamsAtOnce - (fileClipboard ? 1 : 0)
+        while let sender, busy.count < streams, !queue.isEmpty {
             let (id, job) = queue.removeFirst()
             guard case .upload(let source) = job else {
                 if case .download(let listID, let index, let directory) = job {
@@ -700,12 +739,23 @@ public final class FileTransfers {
     }
 
     private func progress(_ wire: UInt64, _ acknowledged: UInt64, of generation: Int) {
-        guard generation == self.generation, let id = itemIDs[wire] else { return }
+        guard generation == self.generation else { return }
+        if serves[wire] != nil {
+            serves[wire]?.sent = acknowledged
+            servingChanged()
+            return
+        }
+        guard let id = itemIDs[wire] else { return }
         update(id) { $0.sent = max($0.sent, acknowledged) }
     }
 
     private func finished(_ wire: UInt64, _ outcome: GDPSession.FileOutcome, of generation: Int) {
-        guard generation == self.generation, let id = itemIDs[wire] else { return }
+        guard generation == self.generation else { return }
+        if serves.removeValue(forKey: wire) != nil {
+            servingChanged()
+            return
+        }
+        guard let id = itemIDs[wire] else { return }
         finish(wire)
         busy.remove(id)
         if let listing = listingWires.removeValue(forKey: wire) {
@@ -798,6 +848,53 @@ public final class FileTransfers {
         guard let index = allItems.firstIndex(where: { $0.id == id }) else { return }
         change(&allItems[index])
         if allItems[index].isForClipboard, allItems[index].isFinished { clipboardFetchProgressed() }
+    }
+
+    // MARK: - The host reading this side's files
+
+    /// Starts sending what the host asked for, from the session's queue.
+    nonisolated fileprivate func serve(_ wire: UInt64, _ descriptor: Int32, _ offset: UInt64, _ size: UInt64,
+                                       _ generation: Int) {
+        let plumbing = plumbing.withLock { $0 }
+        guard plumbing.generation == generation, let sender = plumbing.sender, let budget = plumbing.budget else {
+            Darwin.close(descriptor)
+            return
+        }
+        let reader = DescriptorReader(descriptor: descriptor, offset: offset, size: size)
+        let pump = FilePump(wire: wire, size: size, reader: reader, sender: sender, budget: budget) { [weak self] in
+            // It changed under us: the host gets a reset, not a mixture.
+            sender.cancelFile(wire)
+            Task { @MainActor in self?.serveEnded(wire, of: generation) }
+        }
+        pumps.withLock { $0[PumpKey(generation: generation, wire: wire)] = pump }
+        pump.start()
+        Task { @MainActor in
+            guard generation == self.generation else { return }
+            self.serves[wire] = (size, 0)
+            self.servingChanged()
+        }
+    }
+
+    /// Stops sending the host every file it is reading (it gets resets).
+    public func stopServing() {
+        for wire in serves.keys {
+            sender?.cancelFile(wire)
+            pumps.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.close()
+        }
+        serves = [:]
+        servingChanged()
+    }
+
+    private func serveEnded(_ wire: UInt64, of generation: Int) {
+        guard generation == self.generation else { return }
+        pumps.withLock { $0.removeValue(forKey: PumpKey(generation: generation, wire: wire)) }?.close()
+        serves[wire] = nil
+        servingChanged()
+    }
+
+    private func servingChanged() {
+        serving = serves.isEmpty ? nil : Serving(files: serves.count, size: serves.values.reduce(0) { $0 + $1.size },
+                                                 sent: serves.values.reduce(0) { $0 + min($1.sent, $1.size) })
     }
 
     // MARK: - Folders
@@ -1154,6 +1251,13 @@ public final class FileEventRelay: Sendable {
     public func fileData(_ wire: UInt64, _ bytes: UnsafeRawBufferPointer) { link?.fileData(wire, bytes) }
     public func fileListing(_ wire: UInt64, _ firstIndex: UInt32, _ files: [GDPSession.FileListEntry]) {
         link?.fileListing(wire, firstIndex, files)
+    }
+    public func fileServe(_ wire: UInt64, _ descriptor: Int32, _ offset: UInt64, _ size: UInt64) {
+        guard let link else {
+            Darwin.close(descriptor)
+            return
+        }
+        link.fileServe(wire, descriptor, offset, size)
     }
     public func fileList(_ listID: UInt64, _ files: [GDPSession.FileListEntry]) {
         let link: FileTransfers.Link? = state.withLock {

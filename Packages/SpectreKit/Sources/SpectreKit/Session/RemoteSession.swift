@@ -47,6 +47,9 @@ public final class RemoteSession: @unchecked Sendable {
     public var onFileData: (@Sendable (UInt64, UnsafeRawBufferPointer) -> Void)?
     /// With `file-clipboard`: a copied folder's contents (``FileTransfers/Link/fileListing(_:_:_:)``).
     public var onFileListing: (@Sendable (UInt64, UInt32, [GDPSession.FileListEntry]) -> Void)?
+    /// With `file-clipboard`: the host reads one of this side's copied files
+    /// (``FileTransfers/Link/fileServe(_:_:_:_:)``); the descriptor is the callee's.
+    public var onFileServe: (@Sendable (UInt64, Int32, UInt64, UInt64) -> Void)?
 
     public private(set) var session: GDPSession?
     private let onFrame: @Sendable () -> Void
@@ -241,6 +244,9 @@ public final class RemoteSession: @unchecked Sendable {
         h.fileSending = { [weak self] id, name, size, modified in self?.onFileSending?(id, name, size, modified) }
         h.fileData = { [weak self] id, bytes in self?.onFileData?(id, bytes) }
         h.fileListing = { [weak self] id, first, files in self?.onFileListing?(id, first, files) }
+        h.fileServe = { [weak self] id, fd, offset, size in
+            if let serve = self?.onFileServe { serve(id, fd, offset, size) } else { Darwin.close(fd) }
+        }
         let session = GDPSession(handlers: h)
         if refinePaused.withLock({ $0 }) { session.setRefinePaused(true) }
         self.session = session

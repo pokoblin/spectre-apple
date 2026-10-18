@@ -232,6 +232,11 @@ final class PlaybackModel {
     private var hostClipboardPrinted: UInt32 = 0
     /// Loopback: files the test host saved and its other file outcomes, as printed so far.
     private var hostFilesPrinted = 0
+    /// `--host-fetch-copied`: the loopback host reads every file the viewer
+    /// copies (file-clipboard), as a paste there would; the fetches going.
+    @ObservationIgnored private var hostFetchesCopied = false
+    @ObservationIgnored private var hostClientListsSeen: UInt32 = 0
+    @ObservationIgnored private var hostFetches: [UInt64: String] = [:]
     private var hostFileEndsPrinted: (UInt32, UInt32, UInt32) = (0, 0, 0) // refused, failed, cancelled
     private var hostClipboard: String?
     /// `--send-file` paths, sent at the first SessionAccept with `file`.
@@ -282,6 +287,7 @@ final class PlaybackModel {
         hostCopiedFiles = arguments.indices.dropLast().filter { arguments[$0] == "--host-file" }
             .map { URL(filePath: arguments[$0 + 1]) }
         downloadsCopiedFiles = arguments.contains("--download-copied")
+        hostFetchesCopied = arguments.contains("--host-fetch-copied")
         #if os(iOS)
         // The app's Documents, which the Files app shows as On My iPad ›
         // Spectre (UIFileSharingEnabled).
@@ -614,6 +620,7 @@ final class PlaybackModel {
         remote.onFileSending = { fileEvents.fileSending($0, $1, $2, $3) }
         remote.onFileData = { fileEvents.fileData($0, $1) }
         remote.onFileListing = { fileEvents.fileListing($0, $1, $2) }
+        remote.onFileServe = { fileEvents.fileServe($0, $1, $2, $3) }
         self.remote = remote
         // Created now, not at SessionAccept: the host's clipboard follows
         // the accept immediately (§7.9) and must find it there.
@@ -696,10 +703,18 @@ final class PlaybackModel {
                 // The host's copied files, fetched, go on the clipboard (§7.12).
                 files.clipboard = clipboardSync
                 #endif
+                // Files copied here go to the host as files, to paste there (§7.12).
+                if accept.capabilities.contains(GDPSession.Capability.fileClipboard), let session = remote.session {
+                    clipboardSync?.ownFiles = FileTransfers.clipboardCacheRoot
+                    clipboardSync?.sendFiles = { [weak session] urls in
+                        print("clipboard: copied files \(urls.map(\.lastPathComponent))")
+                        session?.setCopiedFiles(urls)
+                    }
+                }
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
                 let folders = accept.capabilities.contains(GDPSession.Capability.fileClipboard)
-                fileEvents.connect(files.attach(session, foldersHaveContents: folders))
+                fileEvents.connect(files.attach(session, fileClipboard: folders))
                 if !sendOnAccept.isEmpty {
                     sendFiles(sendOnAccept)
                     sendOnAccept = []
@@ -1185,6 +1200,28 @@ final class PlaybackModel {
             for f in files {
                 let renamed = f.savedName == f.name ? "" : " as \(f.savedName.debugDescription)"
                 print("host file: saved \(f.name.debugDescription)\(renamed) (\(f.size) bytes)")
+            }
+        }
+        // The viewer's copied files (file-clipboard): listed, and with
+        // --host-fetch-copied read as a paste would.
+        if observed.clientFileLists != hostClientListsSeen {
+            hostClientListsSeen = observed.clientFileLists
+            let (listID, entries) = host.clientFileList
+            print("host copied list \(listID): \(entries.joined(separator: " | "))")
+            if hostFetchesCopied {
+                for (index, entry) in entries.enumerated() where !entry.hasSuffix("/") && !entry.hasSuffix("/?") {
+                    let id = host.fetch(.init(listID: listID, index: UInt32(index)))
+                    hostFetches[id] = String(entry.drop { $0 != " " }.dropFirst())
+                }
+            }
+        }
+        for (id, name) in hostFetches {
+            guard let result = host.fetchResult(id), result.finished || result.state == .reset else { continue }
+            hostFetches[id] = nil
+            switch result.state {
+            case .sending: print("host fetched: \(name.debugDescription) \(result.data.count) of \(result.size) bytes")
+            case .refused: print("host fetched: \(name.debugDescription) refused \(result.error.map { "\($0)" } ?? "?")")
+            default: print("host fetched: \(name.debugDescription) \(result.state)")
             }
         }
         let ends = (observed.filesRefused, observed.filesFailed, observed.filesCancelled)

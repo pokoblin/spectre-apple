@@ -126,3 +126,43 @@ public func fileNameForHost(_ name: String) -> String? {
     }
     return GDPSession.isValidFileName(cleaned) ? cleaned : nil
 }
+
+/// `size` bytes of an open file from `offset`, for the host reading one of
+/// this side's files (gdp-spec.md §7.12, `file-clipboard`): the descriptor
+/// GDPKit opened, checked and handed over. Its size is that of the range,
+/// smaller only if the file shrank into it meanwhile.
+final class DescriptorReader: FileReader, @unchecked Sendable {
+    private var handle: FileHandle?
+    private let offset: UInt64
+    private let size: UInt64
+
+    init(descriptor: Int32, offset: UInt64, size: UInt64) {
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+        try? handle.seek(toOffset: offset)
+        self.handle = handle
+        self.offset = offset
+        self.size = size
+    }
+
+    func read(upTo count: Int) throws -> Data {
+        guard let handle else { throw CocoaError(.fileReadUnknown) }
+        var data = Data()
+        while data.count < count, let more = try handle.read(upToCount: count - data.count), !more.isEmpty {
+            data.append(more)
+        }
+        return data
+    }
+
+    func currentSize() throws -> UInt64 {
+        guard let handle else { throw CocoaError(.fileReadUnknown) }
+        var info = stat()
+        guard fstat(handle.fileDescriptor, &info) == 0 else { throw CocoaError(.fileReadUnknown) }
+        let length = UInt64(max(0, info.st_size))
+        return min(length > offset ? length - offset : 0, size)
+    }
+
+    func close() {
+        try? handle?.close()
+        handle = nil
+    }
+}

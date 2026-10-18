@@ -63,6 +63,9 @@ public protocol LocalPasteboard: AnyObject {
     func writeText(_ text: String)
     /// Replaces the contents with these files (the host's copied files, fetched).
     func writeFiles(_ urls: [URL])
+    /// The files copied in another app (the Finder), if that is what the
+    /// clipboard holds; nil otherwise.
+    func readFileURLs() -> [URL]?
 }
 
 /// One session's clipboard sync (gdp-spec.md §7.9, capability `clipboard`).
@@ -75,6 +78,11 @@ public protocol LocalPasteboard: AnyObject {
 /// an explicit ``send(_:)`` from a paste button. What was on the clipboard
 /// before the session (or before the user turned syncing on) is never sent:
 /// connecting must not overwrite the desktop's clipboard (§7.9).
+///
+/// With ``sendFiles`` (`file-clipboard`, §7.12), files copied here go to the
+/// host as a list of copied files, to paste there, instead of their names
+/// as text; the host reads them as the paste wants them. When the clipboard
+/// stops holding them the list is taken back.
 @MainActor
 @Observable
 public final class ClipboardSync: CopiedFilesClipboard {
@@ -88,9 +96,19 @@ public final class ClipboardSync: CopiedFilesClipboard {
         didSet {
             guard isEnabled != oldValue else { return }
             defaults.set(isEnabled, forKey: Self.enabledKey)
+            if !isEnabled { takeBackFiles() }
             rebaseline()
         }
     }
+
+    /// Where copied files go to the host (`file-clipboard` in effect); nil:
+    /// they don't, and their names go as text as before. An empty list takes
+    /// the last one back.
+    @ObservationIgnored public var sendFiles: (([URL]) -> Void)?
+    /// Files in here are never offered: the host's own, fetched for the clipboard.
+    @ObservationIgnored public var ownFiles: URL?
+    /// Whether the host holds a list of files copied here.
+    @ObservationIgnored private var filesShared = false
 
     /// Whether local changes are found and sent without the user asking.
     /// Always on the Mac; on iOS a choice, off by default (the paste prompt).
@@ -138,6 +156,7 @@ public final class ClipboardSync: CopiedFilesClipboard {
     /// The host's clipboard changed (or, right after SessionAccept, what it was).
     public func hostChanged(_ text: String) {
         guard isEnabled, filter.shouldApply(text) else { return }
+        takeBackFiles()
         pasteboard.writeText(text)
         // Our own write is not a local copy.
         seenChangeCount = pasteboard.changeCount
@@ -151,9 +170,32 @@ public final class ClipboardSync: CopiedFilesClipboard {
         let count = pasteboard.changeCount
         guard count != seenChangeCount else { return }
         seenChangeCount = count
+        if let sendFiles, let urls = pasteboard.readFileURLs(), !urls.isEmpty {
+            let own = ownFiles.map { $0.resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false) }
+            let theirs = urls.filter { url in
+                guard let own else { return true }
+                return !url.resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false).hasPrefix(own)
+            }
+            // The host's files fetched here: nothing new to tell it.
+            guard !theirs.isEmpty else { return }
+            sendFiles(theirs)
+            filesShared = true
+            // Not also their names as text (§7.12).
+            filter.reset()
+            noteTransfer(.toHost)
+            return
+        }
+        takeBackFiles()
         guard pasteboard.hasText, let text = pasteboard.readText(), filter.shouldSend(text) else { return }
         sendText(text)
         noteTransfer(.toHost)
+    }
+
+    /// The clipboard no longer holds the files the host was told about.
+    private func takeBackFiles() {
+        guard filesShared else { return }
+        filesShared = false
+        sendFiles?([])
     }
 
     /// Text the user explicitly sent (a paste button).
@@ -184,6 +226,7 @@ public final class ClipboardSync: CopiedFilesClipboard {
     /// the host is, unless something was copied here since `mark` (§7.12).
     public func putCopiedFiles(_ urls: [URL], ifUnchangedSince mark: Int) -> Bool {
         guard isWatching, isEnabled, !urls.isEmpty, pasteboard.changeCount == mark else { return false }
+        takeBackFiles()
         pasteboard.writeFiles(urls)
         // Our own write is not a local copy.
         seenChangeCount = pasteboard.changeCount
@@ -231,6 +274,9 @@ public final class ClipboardSync: CopiedFilesClipboard {
 
     public func stop() {
         isWatching = false
+        // The session's lists go with it.
+        filesShared = false
+        sendFiles = nil
         pollTimer?.invalidate()
         pollTimer = nil
         observers.forEach(NotificationCenter.default.removeObserver)
@@ -277,6 +323,13 @@ public final class SystemPasteboard: LocalPasteboard {
         pasteboard.clearContents()
         pasteboard.writeObjects(urls as [NSURL])
     }
+
+    public func readFileURLs() -> [URL]? {
+        if let types = pasteboard.types, !Self.privateTypes.isDisjoint(with: types) { return nil }
+        guard pasteboard.availableType(from: [.fileURL]) != nil else { return nil }
+        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true])
+        return (urls as? [URL]).flatMap { $0.isEmpty ? nil : $0 }
+    }
 }
 #else
 /// `UIPasteboard.general`. Reading text another app copied shows the
@@ -292,5 +345,7 @@ public final class SystemPasteboard: LocalPasteboard {
     public func readText() -> String? { pasteboard.string }
     public func writeText(_ text: String) { pasteboard.string = text }
     public func writeFiles(_ urls: [URL]) { pasteboard.urls = urls }
+    /// Not yet on iOS: what the Files app copies comes as item providers.
+    public func readFileURLs() -> [URL]? { nil }
 }
 #endif

@@ -21,11 +21,21 @@ final class FakePasteboard: LocalPasteboard {
     func writeFiles(_ urls: [URL]) {
         text = nil
         files = urls
+        copiedFiles = nil
+        changeCount += 1
+    }
+    /// Files copied in the Finder: with their names as text, as it puts them.
+    var copiedFiles: [URL]?
+    func readFileURLs() -> [URL]? { copiedFiles }
+    func copyFiles(_ urls: [URL]) {
+        copiedFiles = urls
+        text = urls.map(\.lastPathComponent).joined(separator: "\r")
         changeCount += 1
     }
     /// A copy in some app.
     func copy(_ text: String?) {
         self.text = text
+        copiedFiles = nil
         changeCount += 1
     }
 }
@@ -237,6 +247,72 @@ struct ClipboardSyncTests {
 
         sync.isEnabled = false
         #expect(sync.markForCopiedFiles() == nil)
+    }
+
+    // MARK: Files copied here (§7.12, file-clipboard)
+
+    @Test func copiedFilesGoAsFilesNotText() {
+        let pb = FakePasteboard()
+        let (sync, sent) = make(pb)
+        var lists: [[URL]] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        let files = [URL(filePath: "/Users/me/a.pdf"), URL(filePath: "/Users/me/B")]
+        pb.copyFiles(files)
+        sync.checkLocal()
+        #expect(lists == [files] && sent().isEmpty)
+        #expect(sync.lastTransfer?.direction == .toHost)
+        // Copying text after: the list is taken back, then the text goes.
+        pb.copy("words")
+        sync.checkLocal()
+        #expect(lists == [files, []] && sent() == ["words"])
+        // Another text: nothing more to take back.
+        pb.copy("more")
+        sync.checkLocal()
+        #expect(lists.count == 2 && sent() == ["words", "more"])
+    }
+
+    @Test func withoutFileClipboardTheNamesGoAsBefore() {
+        let pb = FakePasteboard()
+        let (sync, sent) = make(pb)
+        sync.start()
+        pb.copyFiles([URL(filePath: "/Users/me/a.pdf")])
+        sync.checkLocal()
+        #expect(sent() == ["a.pdf"])
+    }
+
+    @Test func theHostsOwnFilesAreNotOfferedBack() {
+        let pb = FakePasteboard()
+        let (sync, sent) = make(pb)
+        var lists: [[URL]] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        sync.ownFiles = URL(filePath: "/tmp/spectre-cache", directoryHint: .isDirectory)
+        pb.copyFiles([URL(filePath: "/tmp/spectre-cache/123/notes.txt")])
+        sync.checkLocal()
+        #expect(lists.isEmpty && sent().isEmpty)
+    }
+
+    @Test func theHostsCopyOrTextTakesTheListBack() {
+        let pb = FakePasteboard()
+        let (sync, _) = make(pb)
+        var lists: [[URL]] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        pb.copyFiles([URL(filePath: "/Users/me/a.pdf")])
+        sync.checkLocal()
+        sync.hostChanged("from the host")
+        #expect(lists.count == 2 && lists[1].isEmpty)
+        pb.copyFiles([URL(filePath: "/Users/me/b.pdf")])
+        sync.checkLocal()
+        let mark = try! #require(sync.markForCopiedFiles())
+        #expect(sync.putCopiedFiles([URL(filePath: "/tmp/x")], ifUnchangedSince: mark))
+        #expect(lists.count == 4 && lists[3].isEmpty)
+        // Turning sharing off takes it back too.
+        pb.copyFiles([URL(filePath: "/Users/me/c.pdf")])
+        sync.checkLocal()
+        sync.isEnabled = false
+        #expect(lists.count == 6 && lists[5].isEmpty)
     }
 }
 

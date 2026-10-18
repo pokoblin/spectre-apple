@@ -391,12 +391,16 @@ private struct FileControls: View {
             }
             .help("Download the files copied on the remote desktop to the Downloads folder")
         }
-        if !files.items.isEmpty {
+        if !files.items.isEmpty || files.serving != nil {
             Button { showsList.toggle() } label: {
                 Label {
                     Text("Transfers")
                 } icon: {
-                    if files.hasActive {
+                    if let serving = files.serving, !files.hasActive {
+                        ProgressView(value: serving.size == 0 ? 0 : Double(serving.sent) / Double(serving.size))
+                            .progressViewStyle(.circular)
+                            .controlSize(.small)
+                    } else if files.hasActive {
                         ProgressView(value: files.activeFraction)
                             .progressViewStyle(.circular)
                             .controlSize(.small)
