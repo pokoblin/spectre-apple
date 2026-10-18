@@ -49,7 +49,8 @@ struct CopiedFilesTests {
         let f = try files()
         defer { try? FileManager.default.removeItem(at: f.dir) }
         let (host, _, session) = try await setUp()
-        session.setCopiedFiles([f.file, f.folder])
+        // A folder's URL as the Finder puts it on the pasteboard: ending in '/'.
+        session.setCopiedFiles([f.file, URL(filePath: f.folder.path(percentEncoded: false), directoryHint: .isDirectory)])
         #expect(await eventually { host.observed.clientFileLists == 1 })
         let (listID, entries) = host.clientFileList
         #expect(listID != 0)

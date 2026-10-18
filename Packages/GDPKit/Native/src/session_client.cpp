@@ -1025,8 +1025,14 @@ constexpr uint64_t kKeptListUs = 10ull * 60 * 1000 * 1000;
 
 } // namespace
 
-void SessionClient::set_copied_files(const std::vector<std::string> &paths) {
+void SessionClient::set_copied_files(const std::vector<std::string> &copied) {
 	if (!accepted_ || !file_clipboard_) return;
+	// A folder's URL ends in '/' (the Finder's do): its name is the last part
+	// before it, not the empty one after.
+	std::vector<std::string> paths = copied;
+	for (std::string &path : paths) {
+		while (path.size() > 1 && path.back() == '/') path.pop_back();
+	}
 	uint64_t generation = ++copied_generation_;
 	uint64_t list_id = next_list_id_++;
 	auto send = [this, list_id](gdp::LocalFileList list) {
