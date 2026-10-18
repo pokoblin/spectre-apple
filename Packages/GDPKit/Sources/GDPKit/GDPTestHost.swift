@@ -47,6 +47,13 @@ public final class GDPTestHost: @unchecked Sendable {
         /// Files "copied" on the host (§7.12): listed right after SessionAccept
         /// when `file` is in effect, and sent when the viewer asks.
         public var hostFiles: [URL] = []
+        /// With `file-clipboard`: how many bytes of copied folders' contents
+        /// the list carries (0: the spec's 512 KiB); and whether to ignore
+        /// ranges, like a host from before them.
+        public var fileListBudget = 0
+        public var fileIgnoreRanges = false
+        /// How many of its latest lists it answers from (0: only the latest).
+        public var fileKeptLists: UInt32 = 0
         public var scratchDirectory = FileManager.default.temporaryDirectory
 
         public init() {}
@@ -130,6 +137,8 @@ public final class GDPTestHost: @unchecked Sendable {
         public var fileListsSent: UInt32
         public var fileListID: UInt64
         public var filesRequested, filesServed, fileRequestsRefused: UInt32
+        /// Folder listings asked for (file-clipboard), and refused.
+        public var listingsRequested, listingsRefused: UInt32
     }
 
     /// A file the host saved (§7.12).
@@ -252,6 +261,9 @@ public final class GDPTestHost: @unchecked Sendable {
                                 c.file_directory = fileDirectory
                                 c.host_files = hostFiles.baseAddress
                                 c.host_file_count = hostFiles.count
+                                c.file_list_budget = config.fileListBudget
+                                c.file_ignore_ranges = config.fileIgnoreRanges
+                                c.file_kept_lists = config.fileKeptLists
                                 return gdpc_test_host_create(&c, &error, error.count)
                             }
                             }
@@ -467,7 +479,8 @@ public final class GDPTestHost: @unchecked Sendable {
             filesFailed: o.files_failed, filesCancelled: o.files_cancelled, fileStreamsOpen: o.file_streams_open,
             lastFileName: s(o.last_file_name), fileListsSent: o.file_lists_sent, fileListID: o.file_list_id,
             filesRequested: o.files_requested, filesServed: o.files_served,
-            fileRequestsRefused: o.file_requests_refused)
+            fileRequestsRefused: o.file_requests_refused, listingsRequested: o.listings_requested,
+            listingsRefused: o.listings_refused)
     }
 }
 

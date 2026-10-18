@@ -232,12 +232,19 @@ bool SessionClient::handle_envelope(const gdp::session::ControlEnvelope &env) {
 		if (cb_.diagnostics_requested) cb_.diagnostics_requested();
 		break;
 	case E::kFileList: {
-		// §7.12: only with `file` in effect; at most the limit's entries.
+		// §7.12: only with `file` in effect; at most the limit's entries of
+		// what was copied, and with file-clipboard, what is in its folders.
 		if (!file_ || !cb_.file_list) break;
 		std::vector<FileListEntry> files;
+		size_t copied = 0;
 		for (const auto &f : env.file_list().files()) {
-			if (files.size() == gdp::kMaxFileListEntries) break;
-			files.push_back({f.name(), f.size(), f.modified_unix_ms(), f.directory()});
+			uint32_t parent = file_clipboard_ ? f.parent() : 0;
+			if (parent == 0 && ++copied > gdp::kMaxFileListEntries) break;
+			if (files.size() == gdp::kMaxFileListTotal) break;
+			// A parent is a folder before it, or the list means nothing.
+			if (parent > files.size() || (parent && !files[parent - 1].directory)) break;
+			files.push_back({f.name(), f.size(), f.modified_unix_ms(), f.directory(), parent,
+				file_clipboard_ && f.directory() && f.unlisted()});
 		}
 		cb_.file_list(env.file_list().list_id(), files);
 		break;
@@ -303,6 +310,9 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	clipboard_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityClipboard) != capabilities_.end();
 	gamepad_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityGamepad) != capabilities_.end();
 	file_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFile) != capabilities_.end();
+	// §7.12: only with what it builds on, whatever the host lists.
+	file_clipboard_ = file_ && clipboard_ &&
+		std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFileClipboard) != capabilities_.end();
 	refine_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityRefine) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
@@ -712,33 +722,97 @@ void SessionClient::cancel_file(uint64_t id) {
 	files_.erase(it);
 }
 
-uint64_t SessionClient::request_file(uint64_t list_id, uint32_t index) {
+uint64_t SessionClient::request_file(uint64_t list_id, uint32_t index, uint64_t offset, uint64_t length) {
 	if (!accepted_ || !file_ || !conn_) return 0;
-	std::unique_ptr<gdp::Stream> stream = conn_->open_stream();
-	if (!stream) return 0;
 	gdp::session::FileOpen file_open;
-	file_open.mutable_request()->set_list_id(list_id);
-	file_open.mutable_request()->set_index(index);
+	auto *request = file_open.mutable_request();
+	request->set_list_id(list_id);
+	request->set_index(index);
+	request->set_offset(offset);
+	request->set_length(length);
+	FileTransfer *t = open_fetch(file_open, FileTransfer::State::kRequested);
+	if (!t) return 0;
+	t->want_offset = offset;
+	t->want_length = length;
+	return t->id;
+}
+
+uint64_t SessionClient::request_listing(uint64_t list_id, uint32_t index) {
+	if (!accepted_ || !file_clipboard_ || !conn_) return 0;
+	gdp::session::FileOpen file_open;
+	file_open.mutable_listing()->set_list_id(list_id);
+	file_open.mutable_listing()->set_index(index);
+	FileTransfer *t = open_fetch(file_open, FileTransfer::State::kListing);
+	return t ? t->id : 0;
+}
+
+SessionClient::FileTransfer *SessionClient::open_fetch(const gdp::session::FileOpen &file_open,
+	FileTransfer::State state) {
+	std::unique_ptr<gdp::Stream> stream = conn_->open_stream();
+	if (!stream) return nullptr;
 	gdp::session::StreamOpen open;
 	open.set_kind(gdp::kStreamKindFile);
 	open.set_params(file_open.SerializeAsString());
 	std::vector<uint8_t> frame;
-	if (!gdp::encode_frame(open, &frame)) return 0;
+	if (!gdp::encode_frame(open, &frame)) return nullptr;
 
 	auto owned = std::make_unique<FileTransfer>();
 	FileTransfer *t = owned.get();
 	t->id = next_file_id_++;
 	t->stream = std::move(stream);
-	t->state = FileTransfer::State::kRequested;
-	t->fetch_reader = std::make_unique<gdp::FrameThenRawReader>(gdp::kMaxFileOpenFrameSize);
+	t->state = state;
 	t->offered_us = gdp::monotonic_us();
-	t->stream->on_data = [this, t](const uint8_t *data, size_t len) { handle_fetch_data(t, data, len); };
-	t->stream->on_fin = [this, t] { handle_fetch_fin(t); };
+	if (state == FileTransfer::State::kListing) {
+		// §7.12: FileReply{listing} frames, each within the list budget.
+		t->stream->on_data = [this, t](const uint8_t *data, size_t len) { handle_listing_data(t, data, len); };
+		t->stream->on_fin = [this, t] {
+			if (t->state == FileTransfer::State::kReceiving) {
+				finish_file(t, FileOutcome::kSaved);
+			} else {
+				finish_file(t, FileOutcome::kFailed, gdp::session::FILE_ERROR_UNSPECIFIED);
+			}
+		};
+	} else {
+		t->fetch_reader = std::make_unique<gdp::FrameThenRawReader>(gdp::kMaxFileOpenFrameSize);
+		t->stream->on_data = [this, t](const uint8_t *data, size_t len) { handle_fetch_data(t, data, len); };
+		t->stream->on_fin = [this, t] { handle_fetch_fin(t); };
+	}
 	t->stream->on_reset = [this, t](uint64_t) { finish_file(t, FileOutcome::kCancelled); };
 	// The request is all this side sends.
 	t->stream->send(frame.data(), frame.size(), true);
 	files_[t->id] = std::move(owned);
-	return t->id;
+	return t;
+}
+
+void SessionClient::handle_listing_data(FileTransfer *t, const uint8_t *data, size_t len) {
+	if (local_close_ || closed_reported_) return;
+	// Nothing of a listing is the application's to store.
+	t->stream->consume(len);
+	gdp::session::FileReply reply;
+	bool ok = t->reader.feed_and_drain(data, len, &reply, [&] {
+		if (local_close_ || closed_reported_) return false;
+		if (reply.has_refused() && t->state == FileTransfer::State::kListing) {
+			finish_file(t, FileOutcome::kRefused, reply.refused().code());
+			return false;
+		}
+		if (!reply.has_listing()) {
+			fail(code(gdp::ErrorCode::kMalformedFrame), "the host's listing came out of order");
+			return false;
+		}
+		t->state = FileTransfer::State::kReceiving;
+		std::vector<FileListEntry> files;
+		files.reserve(size_t(reply.listing().files_size()));
+		for (const auto &f : reply.listing().files()) {
+			files.push_back({f.name(), f.size(), f.modified_unix_ms(), f.directory(), 0, f.directory() && f.unlisted()});
+		}
+		if (cb_.file_listing) cb_.file_listing(t->id, reply.listing().first_index(), files);
+		return files_.count(t->id) > 0;
+	});
+	if (!ok) {
+		fail(t->reader.error_code(), t->reader.last_result() == gdp::FrameReader::Result::kTooLarge
+				? "the host sent an oversized listing"
+				: "the host sent a malformed listing");
+	}
 }
 
 void SessionClient::consume_file_data(uint64_t id, size_t len) {
@@ -777,14 +851,62 @@ void SessionClient::handle_fetch_data(FileTransfer *t, const uint8_t *data, size
 		fail(code(gdp::ErrorCode::kMalformedFrame), "the host's file reply came out of order");
 		return;
 	}
-	t->name = reply.sending().name();
-	t->size = reply.sending().size();
+	const auto &sending = reply.sending();
+	t->name = sending.name();
+	t->size = sending.size();
+	uint64_t offset = sending.offset();
+	// §7.12: a host that predates ranges sends the whole file from 0;
+	// what comes before the asked-for offset is dropped, and anything past
+	// the asked-for length is not waited for.
+	if (offset > t->want_offset) {
+		t->stream->reset(0);
+		finish_file(t, FileOutcome::kFailed, gdp::session::FILE_ERROR_UNSPECIFIED);
+		return;
+	}
+	if (offset < t->want_offset) {
+		t->skip = std::min(t->want_offset - offset, t->size);
+		t->size -= t->skip;
+		offset += t->skip;
+		if (t->want_length && t->size > t->want_length) {
+			t->size = t->want_length;
+			t->cut = true;
+		}
+	}
 	t->state = FileTransfer::State::kReceiving;
-	if (cb_.file_sending) cb_.file_sending(t->id, t->name, t->size, reply.sending().modified_unix_ms());
+	uint64_t file_size = sending.file_size() ? sending.file_size() : offset + t->size;
+	if (cb_.file_sending) cb_.file_sending(t->id, t->name, t->size, sending.modified_unix_ms(), offset, file_size);
+	if (!files_.count(t->id)) return;
+	if (t->cut && t->size == 0) {
+		t->stream->reset(0);
+		std::string name = t->name;
+		finish_file(t, FileOutcome::kSaved, 0, name);
+		return;
+	}
 	if (!rest.empty() && files_.count(t->id)) receive_file_bytes(t, rest.data(), rest.size());
 }
 
 void SessionClient::receive_file_bytes(FileTransfer *t, const uint8_t *data, size_t len) {
+	if (t->skip) {
+		size_t n = size_t(std::min<uint64_t>(t->skip, len));
+		t->skip -= n;
+		t->stream->consume(n); // never the application's
+		data += n;
+		len -= n;
+		if (len == 0) return;
+	}
+	if (t->cut && len >= t->size - t->received) {
+		// All that was asked for: the rest isn't wanted.
+		size_t n = size_t(t->size - t->received);
+		t->received += n;
+		if (cb_.file_data && n) cb_.file_data(t->id, data, n);
+		auto it = files_.find(t->id);
+		if (it == files_.end()) return;
+		t->stream->consume(len - n);
+		t->stream->reset(0);
+		std::string name = t->name;
+		finish_file(t, FileOutcome::kSaved, 0, name);
+		return;
+	}
 	if (len > t->size - t->received) {
 		// More than the host said: not this file.
 		t->stream->reset(0);
@@ -870,7 +992,8 @@ void SessionClient::expire_file_offers() {
 	uint64_t now = gdp::monotonic_us();
 	std::vector<FileTransfer *> expired;
 	for (auto &[id, t] : files_) {
-		bool waiting = t->state == FileTransfer::State::kOffered || t->state == FileTransfer::State::kRequested;
+		bool waiting = t->state == FileTransfer::State::kOffered || t->state == FileTransfer::State::kRequested ||
+			t->state == FileTransfer::State::kListing;
 		if (waiting && now - t->offered_us > timeout_us) expired.push_back(t.get());
 	}
 	for (FileTransfer *t : expired) {

@@ -6,6 +6,7 @@
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
+#include "gdp/file_list.hpp"
 #include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
 #include "gdp/negotiation.hpp"
@@ -16,6 +17,7 @@
 #include <algorithm>
 #include <cerrno>
 #include <list>
+#include <map>
 #include <set>
 
 #include <fcntl.h>
@@ -48,6 +50,7 @@ struct TestHost::Impl {
 		bool microphone = false; // negotiated (§10.1)
 		bool clipboard = false; // `clipboard` in effect
 		bool file = false;      // `file` in effect
+		bool file_clipboard = false; // `file-clipboard` in effect (with `file` and `clipboard`)
 		bool refine = false;    // `refine` in effect: every payload a container (§9.5)
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
@@ -82,10 +85,10 @@ struct TestHost::Impl {
 	};
 	std::list<std::unique_ptr<Incoming>> incoming;
 	std::set<std::string> saved_names;
-	// The latest FileList's id and paths (§7.12); loop thread.
+	// The FileLists it still answers from, by id, with the paths behind
+	// them (§7.12); loop thread.
 	uint64_t list_id = 0;
-	std::vector<std::string> list_paths;
-	std::vector<bool> list_directories;
+	std::map<uint64_t, gdp::LocalFileList> lists;
 
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
 	Observed obs;
@@ -273,7 +276,9 @@ struct TestHost::Impl {
 			if (c == gdp::kCapabilityClipboard) p.clipboard = true;
 			if (c == gdp::kCapabilityFile) p.file = true;
 			if (c == gdp::kCapabilityRefine) p.refine = true;
+			if (c == gdp::kCapabilityFileClipboard) p.file_clipboard = true;
 		}
+		p.file_clipboard = p.file_clipboard && p.file && p.clipboard;
 		if (p.microphone) {
 			auto *m = accept->mutable_microphone();
 			m->set_sample_rate_hz(cfg.microphone_sample_rate_hz);
@@ -533,6 +538,10 @@ struct TestHost::Impl {
 			serve_file(f, open.request());
 			return;
 		}
+		if (open.has_listing()) {
+			serve_listing(f, open.listing());
+			return;
+		}
 		f->name = open.offer().name();
 		f->size = open.offer().size();
 		f->modified_unix_ms = open.offer().modified_unix_ms();
@@ -608,44 +617,39 @@ struct TestHost::Impl {
 
 	void list_files(const std::vector<std::string> &paths) {
 		list_id++;
-		list_paths.clear();
-		list_directories.clear();
+		bool tree = viewer && viewer->file_clipboard;
+		size_t budget = cfg.file_list_budget ? cfg.file_list_budget : gdp::kFileListBudgetBytes;
+		gdp::LocalFileList list = gdp::LocalFileList::build(list_id, paths, tree, budget);
 		gdp::session::ControlEnvelope env;
-		auto *list = env.mutable_file_list();
-		list->set_list_id(list_id);
-		for (const std::string &path : paths) {
-			struct stat st;
-			if (::stat(path.c_str(), &st) != 0) continue;
-			auto *entry = list->add_files();
-			entry->set_name(path.substr(path.find_last_of('/') + 1));
-			entry->set_size(S_ISDIR(st.st_mode) ? 0 : uint64_t(st.st_size));
-			entry->set_modified_unix_ms(int64_t(st.st_mtimespec.tv_sec) * 1000 + st.st_mtimespec.tv_nsec / 1000000);
-			entry->set_directory(S_ISDIR(st.st_mode));
-			list_paths.push_back(path);
-			list_directories.push_back(S_ISDIR(st.st_mode));
-		}
+		*env.mutable_file_list() = list.listing();
+		lists[list_id] = std::move(list);
+		while (lists.size() > std::max<size_t>(1, cfg.file_kept_lists)) lists.erase(lists.begin());
 		if (viewer && viewer->accepted && viewer->file) send(*viewer, env);
 		std::lock_guard lock(mu);
 		obs.file_lists_sent++;
 		obs.file_list_id = list_id;
 	}
 
-	// Sends file `request.index()` of the latest list whole: reply, bytes, FIN.
+	// Answers a FileRequest from a list sent: reply, the bytes asked for
+	// (§7.12's range rules), FIN.
 	void serve_file(Incoming *f, const gdp::session::FileRequest &request) {
 		{
 			std::lock_guard lock(mu);
 			obs.files_requested++;
 		}
+		auto it = lists.find(request.list_id());
 		uint32_t index = request.index();
-		std::string data;
-		bool ok = request.list_id() == list_id && index < list_paths.size() && !list_directories[index];
-		if (ok) {
-			std::ifstream in(list_paths[index], std::ios::binary);
-			ok = bool(in);
-			if (ok) data.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+		int fd = -1;
+		struct stat st = {};
+		if (it != lists.end() && index < it->second.size() && !it->second.is_directory(index)) {
+			fd = ::open(it->second.path(index).c_str(), O_RDONLY | O_CLOEXEC);
+			if (fd >= 0 && (::fstat(fd, &st) != 0 || !S_ISREG(st.st_mode))) {
+				::close(fd);
+				fd = -1;
+			}
 		}
 		gdp::session::FileReply reply;
-		if (!ok) {
+		if (fd < 0) {
 			reply.mutable_refused()->set_code(gdp::session::FILE_ERROR_GONE);
 			f->stream->send_message(reply);
 			f->stream->send(nullptr, 0, true);
@@ -656,13 +660,22 @@ struct TestHost::Impl {
 			drop_file(f);
 			return;
 		}
-		const std::string &path = list_paths[index];
+		uint64_t file_size = uint64_t(st.st_size);
+		uint64_t offset = cfg.file_ignore_ranges ? 0 : std::min<uint64_t>(request.offset(), file_size);
+		uint64_t size = file_size - offset;
+		if (!cfg.file_ignore_ranges && request.length()) size = std::min(size, request.length());
+		std::string data(size_t(size), '\0');
+		ssize_t n = ::pread(fd, data.data(), data.size(), off_t(offset));
+		::close(fd);
+		data.resize(n > 0 ? size_t(n) : 0);
+		const std::string &path = it->second.path(index);
 		auto *sending = reply.mutable_sending();
 		sending->set_name(path.substr(path.find_last_of('/') + 1));
 		sending->set_size(data.size());
-		struct stat st;
-		if (::stat(path.c_str(), &st) == 0) {
-			sending->set_modified_unix_ms(int64_t(st.st_mtimespec.tv_sec) * 1000 + st.st_mtimespec.tv_nsec / 1000000);
+		sending->set_modified_unix_ms(int64_t(st.st_mtimespec.tv_sec) * 1000 + st.st_mtimespec.tv_nsec / 1000000);
+		if (!cfg.file_ignore_ranges) {
+			sending->set_offset(offset);
+			sending->set_file_size(file_size);
 		}
 		f->stream->send_message(reply);
 		f->stream->send(reinterpret_cast<const uint8_t *>(data.data()), data.size(), true);
@@ -671,6 +684,32 @@ struct TestHost::Impl {
 			obs.files_served++;
 		}
 		// Let go gracefully: our FIN is queued behind the bytes.
+		drop_file(f);
+	}
+
+	// Answers a FileListingRequest (file-clipboard): FileReply{listing}
+	// frames, then FIN; or refused GONE.
+	void serve_listing(Incoming *f, const gdp::session::FileListingRequest &request) {
+		auto it = lists.find(request.list_id());
+		std::vector<gdp::session::FileListing> frames;
+		size_t budget = cfg.file_list_budget ? cfg.file_list_budget : gdp::kFileListBudgetBytes;
+		bool ok = f->peer->file_clipboard && it != lists.end() &&
+			it->second.list_folder(request.index(), &frames, budget);
+		{
+			std::lock_guard lock(mu);
+			obs.listings_requested++;
+			if (!ok) obs.listings_refused++;
+		}
+		gdp::session::FileReply reply;
+		if (!ok) {
+			reply.mutable_refused()->set_code(gdp::session::FILE_ERROR_GONE);
+			f->stream->send_message(reply);
+		}
+		for (auto &frame : frames) {
+			*reply.mutable_listing() = std::move(frame);
+			f->stream->send_message(reply);
+		}
+		f->stream->send(nullptr, 0, true);
 		drop_file(f);
 	}
 

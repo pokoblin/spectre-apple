@@ -69,6 +69,14 @@ public:
 		// Copied files (§7.12): listed to the viewer right after
 		// SessionAccept when `file` is in effect, and sent when it asks.
 		std::vector<std::string> host_files;
+		// With `file-clipboard` negotiated, copied folders' contents go in the
+		// list while it stays within this many bytes (0: the spec's 512 KiB).
+		size_t file_list_budget = 0;
+		// Answer every request with the whole file from 0, like a host from
+		// before ranges.
+		bool file_ignore_ranges = false;
+		// How many of its latest lists it answers from (0: only the latest).
+		uint32_t file_kept_lists = 0;
 	};
 
 	// One input event as received (§8.2, §8.3, §8.5), in order.
@@ -195,6 +203,8 @@ public:
 		uint32_t files_requested = 0;
 		uint32_t files_served = 0;    // sent whole
 		uint32_t file_requests_refused = 0;
+		uint32_t listings_requested = 0;  // FileListingRequest (file-clipboard)
+		uint32_t listings_refused = 0;
 
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;

@@ -31,6 +31,7 @@ class Stream;
 
 namespace gdp::session {
 class ControlEnvelope;
+class FileOpen;
 class FileReply;
 class InputEnvelope;
 class OutputDescriptor;
@@ -119,6 +120,10 @@ struct FileListEntry {
 	uint64_t size = 0;
 	int64_t modified_unix_ms = 0;
 	bool directory = false;
+	// file-clipboard: 0 for what was copied, else 1 + the index of the
+	// folder it is in; a folder whose contents aren't listed yet.
+	uint32_t parent = 0;
+	bool unlisted = false;
 };
 
 class SessionClient : public gdp::ClientConnection {
@@ -188,9 +193,17 @@ public:
 		// in file_finished: kSaved (every byte arrived; the name is the
 		// host's), kRefused, kFailed (short), kCancelled, kTimedOut or kLost.
 		std::function<void(uint64_t list_id, const std::vector<FileListEntry> &files)> file_list;
-		std::function<void(uint64_t id, const std::string &name, uint64_t size, int64_t modified_unix_ms)>
+		// `size` bytes follow, from `offset` of a file `file_size` long:
+		// what was asked for, also from a host that ignores ranges.
+		std::function<void(uint64_t id, const std::string &name, uint64_t size, int64_t modified_unix_ms,
+			uint64_t offset, uint64_t file_size)>
 			file_sending;
 		std::function<void(uint64_t id, const uint8_t *data, size_t len)> file_data;
+		// file-clipboard: per request_listing() id, a folder's entries (one
+		// or more batches, indices from `first_index` on), then
+		// file_finished: kSaved once all have come, or kRefused (GONE).
+		std::function<void(uint64_t id, uint32_t first_index, const std::vector<FileListEntry> &files)>
+			file_listing;
 	};
 
 	struct LinkStats {
@@ -271,7 +284,11 @@ public:
 	// Fetches file `index` of FileList `list_id` (§7.12) on a stream of its
 	// own, and returns its id; 0 before establishment or without `file`.
 	// The same limit of streams at once as offer_file().
-	uint64_t request_file(uint64_t list_id, uint32_t index);
+	// `offset` and `length` ask for a range (0, 0: the whole file).
+	uint64_t request_file(uint64_t list_id, uint32_t index, uint64_t offset = 0, uint64_t length = 0);
+	// file-clipboard: what is in folder `index` of list `list_id`, through
+	// file_listing; 0 without file-clipboard in effect.
+	uint64_t request_listing(uint64_t list_id, uint32_t index);
 	// `len` bytes of a fetched file's file_data are stored: the host may
 	// send that much more.
 	void consume_file_data(uint64_t id, size_t len);
@@ -293,8 +310,9 @@ private:
 	void handle_datagram(const uint8_t *data, size_t len, uint64_t arrival_us);
 
 	struct FileTransfer {
-		// An offer: kOffered, kSending, kSent. A request: kRequested, kReceiving.
-		enum class State { kOffered, kSending, kSent, kRequested, kReceiving };
+		// An offer: kOffered, kSending, kSent. A request: kRequested,
+		// kReceiving. A listing request: kListing.
+		enum class State { kOffered, kSending, kSent, kRequested, kReceiving, kListing };
 		uint64_t id = 0;
 		std::unique_ptr<gdp::Stream> stream;
 		gdp::FrameReader reader;
@@ -307,10 +325,21 @@ private:
 		uint64_t sent = 0;
 		size_t open_frame_len = 0; // acks count the StreamOpen frame too
 		uint64_t offered_us = 0;
+		// A range request: what was asked for, and, from a host that sent
+		// from earlier on, how much to drop before it.
+		uint64_t want_offset = 0;
+		uint64_t want_length = 0;
+		uint64_t skip = 0;
+		// The host sends more than was asked for (it ignores ranges): stop
+		// once `size` bytes have come.
+		bool cut = false;
 	};
 	void handle_file_data(FileTransfer *t, const uint8_t *data, size_t len);
 	void handle_fetch_data(FileTransfer *t, const uint8_t *data, size_t len);
 	void handle_fetch_fin(FileTransfer *t);
+	void handle_listing_data(FileTransfer *t, const uint8_t *data, size_t len);
+	// Opens a file stream for a request or listing request.
+	FileTransfer *open_fetch(const gdp::session::FileOpen &file_open, FileTransfer::State state);
 	// A fetched file's bytes, past its reply.
 	void receive_file_bytes(FileTransfer *t, const uint8_t *data, size_t len);
 	// Returns false once `t` is gone (or the connection is being closed).
@@ -350,6 +379,7 @@ private:
 	bool clipboard_ = false;                // `clipboard` among them
 	bool gamepad_ = false;                  // `gamepad` among them
 	bool file_ = false;                     // `file` among them
+	bool file_clipboard_ = false;           // `file-clipboard` among them (with `file` and `clipboard`)
 	bool refine_ = false;                   // `refine` among them
 	bool refine_paused_ = false;            // what the user wants, across connections
 	// The latest frame's layer, reused frame to frame.

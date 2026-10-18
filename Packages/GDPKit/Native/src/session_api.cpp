@@ -49,6 +49,11 @@ gdpc_output to_c(const gdpcore::Output &o) {
 	return c;
 }
 
+// Valid while `f` is.
+gdpc_file_list_entry entry(const gdpcore::FileListEntry &f) {
+	return {f.name.c_str(), f.size, f.modified_unix_ms, f.directory, f.parent, f.unlisted};
+}
+
 std::vector<gdpc_output> to_c(const std::vector<gdpcore::Output> &outputs) {
 	std::vector<gdpc_output> out;
 	for (const auto &o : outputs) out.push_back(to_c(o));
@@ -161,11 +166,21 @@ struct gdpc_session {
 			if (!callbacks.file_list) return;
 			std::vector<gdpc_file_list_entry> c;
 			c.reserve(files.size());
-			for (const auto &f : files) c.push_back({f.name.c_str(), f.size, f.modified_unix_ms, f.directory});
+			for (const auto &f : files) c.push_back(entry(f));
 			callbacks.file_list(callbacks.ctx, list_id, c.data(), c.size());
 		};
-		cb.file_sending = [this](uint64_t id, const std::string &name, uint64_t size, int64_t modified) {
-			if (callbacks.file_sending) callbacks.file_sending(callbacks.ctx, id, name.c_str(), size, modified);
+		cb.file_listing = [this](uint64_t id, uint32_t first_index, const std::vector<gdpcore::FileListEntry> &files) {
+			if (!callbacks.file_listing) return;
+			std::vector<gdpc_file_list_entry> c;
+			c.reserve(files.size());
+			for (const auto &f : files) c.push_back(entry(f));
+			callbacks.file_listing(callbacks.ctx, id, first_index, c.data(), c.size());
+		};
+		cb.file_sending = [this](uint64_t id, const std::string &name, uint64_t size, int64_t modified, uint64_t offset,
+							  uint64_t file_size) {
+			if (callbacks.file_sending) {
+				callbacks.file_sending(callbacks.ctx, id, name.c_str(), size, modified, offset, file_size);
+			}
 		};
 		cb.file_data = [this](uint64_t id, const uint8_t *data, size_t len) {
 			if (callbacks.file_data) callbacks.file_data(callbacks.ctx, id, data, len);
@@ -269,6 +284,15 @@ uint64_t gdpc_session_request_file(gdpc_session *session, uint64_t list_id, uint
 	return session->client.request_file(list_id, index);
 }
 
+uint64_t gdpc_session_request_file_range(gdpc_session *session, uint64_t list_id, uint32_t index, uint64_t offset,
+	uint64_t length) {
+	return session->client.request_file(list_id, index, offset, length);
+}
+
+uint64_t gdpc_session_request_listing(gdpc_session *session, uint64_t list_id, uint32_t index) {
+	return session->client.request_listing(list_id, index);
+}
+
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len) {
 	session->client.consume_file_data(id, len);
 }
@@ -365,6 +389,9 @@ gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *c, char *erro
 	config.file_ignore_offers = c->file_ignore_offers;
 	if (c->file_directory) config.file_directory = c->file_directory;
 	config.host_files = strings(c->host_files, c->host_file_count);
+	config.file_list_budget = c->file_list_budget;
+	config.file_ignore_ranges = c->file_ignore_ranges;
+	config.file_kept_lists = c->file_kept_lists;
 
 	auto *h = new gdpc_test_host;
 	std::string err;
@@ -552,6 +579,8 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->files_requested = o.files_requested;
 	out->files_served = o.files_served;
 	out->file_requests_refused = o.file_requests_refused;
+	out->listings_requested = o.listings_requested;
+	out->listings_refused = o.listings_refused;
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 

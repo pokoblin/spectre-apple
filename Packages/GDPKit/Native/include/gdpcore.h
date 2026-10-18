@@ -287,7 +287,12 @@ typedef struct gdpc_file_list_entry {
     const char *name;
     uint64_t size;
     int64_t modified_unix_ms;
-    bool directory;          // a folder: can't be fetched in this version
+    bool directory;          // a folder: its own bytes can't be fetched
+    // file-clipboard: 0 for what was copied, else 1 + the index of the
+    // folder it is in (parents come first); a folder whose contents aren't
+    // in the list yet (gdpc_session_request_listing).
+    uint32_t parent;
+    bool unlisted;
 } gdpc_file_list_entry;
 
 typedef struct {
@@ -331,8 +336,17 @@ typedef struct {
     // fetch ends in file_finished: GDPC_FILE_SAVED when every byte arrived
     // (`saved_name` is the host's name for it).
     void (*file_list)(void *ctx, uint64_t list_id, const gdpc_file_list_entry *files, size_t count);
-    void (*file_sending)(void *ctx, uint64_t id, const char *name, uint64_t size, int64_t modified_unix_ms);
+    // `size` bytes follow, from `offset` of a file `file_size` long: what was
+    // asked for, also from a host that ignores ranges.
+    void (*file_sending)(void *ctx, uint64_t id, const char *name, uint64_t size, int64_t modified_unix_ms,
+                         uint64_t offset, uint64_t file_size);
     void (*file_data)(void *ctx, uint64_t id, const uint8_t *data, size_t len);
+    // file-clipboard: per gdpc_session_request_listing() id, a folder's
+    // entries, in one or more batches whose indices in the list run from
+    // `first_index` on; then file_finished, GDPC_FILE_SAVED once all came
+    // (GDPC_FILE_REFUSED with GONE: not a folder, or the list is gone).
+    void (*file_listing)(void *ctx, uint64_t id, uint32_t first_index, const gdpc_file_list_entry *files,
+                         size_t count);
 } gdpc_session_callbacks;
 
 typedef enum {
@@ -440,6 +454,12 @@ void gdpc_session_cancel_file(gdpc_session *session, uint64_t id);
 // establishment or without `file` in effect. Counts against the same
 // GDPC_FILE_STREAMS_AT_ONCE as offers.
 uint64_t gdpc_session_request_file(gdpc_session *session, uint64_t list_id, uint32_t index);
+// The same for `length` bytes from `offset` (0: to the end of the file).
+uint64_t gdpc_session_request_file_range(gdpc_session *session, uint64_t list_id, uint32_t index, uint64_t offset,
+                                         uint64_t length);
+// file-clipboard: the contents of folder `index` of FileList `list_id`
+// (file_listing), and its id; 0 without file-clipboard in effect.
+uint64_t gdpc_session_request_listing(gdpc_session *session, uint64_t list_id, uint32_t index);
 // `len` bytes of a fetch's file_data are stored: the host may send more.
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len);
 // §7.12's name rules: valid UTF-8, 1-255 bytes, no '/', '\\' or control
@@ -502,6 +522,13 @@ typedef struct {
     // `file` is in effect, and sent when the viewer asks (§7.12).
     const char *const *host_files;
     size_t host_file_count;
+    // With `file-clipboard` negotiated: copied folders' contents go in the
+    // list while it stays within this many bytes (0: the spec's 512 KiB).
+    size_t file_list_budget;
+    // Answer every request with the whole file from 0 (a host from before ranges).
+    bool file_ignore_ranges;
+    // How many of its latest lists it answers from (0: only the latest).
+    uint32_t file_kept_lists;
 } gdpc_test_host_config;
 
 // A file the test host saved (§7.12).
@@ -632,6 +659,8 @@ typedef struct {
     uint32_t files_requested;
     uint32_t files_served;           // sent whole
     uint32_t file_requests_refused;
+    uint32_t listings_requested;     // FileListingRequest (file-clipboard)
+    uint32_t listings_refused;
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);

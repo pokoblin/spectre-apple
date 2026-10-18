@@ -41,6 +41,9 @@ final class Recorder: Sendable {
         var fileLists: [(UInt64, [GDPSession.FileListEntry])] = []
         var fetchHeaders: [UInt64: (name: String, size: UInt64)] = [:]
         var fetched: [UInt64: [UInt8]] = [:]
+        var fetchRanges: [UInt64: (offset: UInt64, fileSize: UInt64)] = [:]
+        /// file-clipboard: each listing request's batches.
+        var listings: [UInt64: [(firstIndex: UInt32, files: [GDPSession.FileListEntry])]] = [:]
     }
 
     let state = Mutex(State())
@@ -73,6 +76,8 @@ final class Recorder: Sendable {
         h.fileProgress = { id, acked in self.state.withLock { $0.fileProgress[id, default: []].append(acked) } }
         h.fileList = { listID, files in self.state.withLock { $0.fileLists.append((listID, files)) } }
         h.fileSending = { id, name, size, _ in self.state.withLock { $0.fetchHeaders[id] = (name, size) } }
+        h.fileRange = { id, offset, size in self.state.withLock { $0.fetchRanges[id] = (offset, size) } }
+        h.fileListing = { id, first, files in self.state.withLock { $0.listings[id, default: []].append((first, files)) } }
         h.fileData = { id, bytes in
             let copy = Array(bytes)
             self.state.withLock { $0.fetched[id, default: []] += copy }

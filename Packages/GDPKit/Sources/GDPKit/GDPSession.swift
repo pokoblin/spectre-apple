@@ -170,14 +170,30 @@ public final class GDPSession: @unchecked Sendable {
         public var name: String
         public var size: UInt64
         public var modified: Date?
-        /// A folder: can't be fetched in this version.
+        /// A folder: its own bytes can't be fetched; with
+        /// ``Capability/fileClipboard``, what is in it can.
         public var isDirectory: Bool
+        /// With ``Capability/fileClipboard``: 0 for what was copied, else 1 +
+        /// the index of the folder it is in (folders come before their contents).
+        public var parent: UInt32
+        /// A folder whose contents aren't in the list yet: ask with
+        /// ``GDPSession/requestListing(listID:index:)``.
+        public var isUnlisted: Bool
 
-        public init(name: String, size: UInt64, modified: Date?, isDirectory: Bool) {
+        public init(name: String, size: UInt64, modified: Date?, isDirectory: Bool, parent: UInt32 = 0,
+                    isUnlisted: Bool = false) {
             self.name = name
             self.size = size
             self.modified = modified
             self.isDirectory = isDirectory
+            self.parent = parent
+            self.isUnlisted = isUnlisted
+        }
+
+        init(_ c: gdpc_file_list_entry) {
+            self.init(name: c.name.map { String(cString: $0) } ?? "", size: c.size,
+                      modified: GDPSession.date(unixMilliseconds: c.modified_unix_ms), isDirectory: c.directory,
+                      parent: c.parent, isUnlisted: c.unlisted)
         }
     }
 
@@ -337,6 +353,14 @@ public final class GDPSession: @unchecked Sendable {
         public var fileList: (@Sendable (_ listID: UInt64, _ files: [FileListEntry]) -> Void)?
         public var fileSending: (@Sendable (_ id: UInt64, _ name: String, _ size: UInt64, _ modified: Date?) -> Void)?
         public var fileData: (@Sendable (_ id: UInt64, _ bytes: UnsafeRawBufferPointer) -> Void)?
+        /// Right before ``fileSending``: where in the file its bytes start,
+        /// and how long the whole file is (for a range request).
+        public var fileRange: (@Sendable (_ id: UInt64, _ offset: UInt64, _ fileSize: UInt64) -> Void)?
+        /// With ``Capability/fileClipboard``, per
+        /// ``GDPSession/requestListing(listID:index:)`` id: a folder's entries,
+        /// in batches whose indices in the list run from `firstIndex` on; then
+        /// ``fileFinished``, `.saved` once all have come.
+        public var fileListing: (@Sendable (_ id: UInt64, _ firstIndex: UInt32, _ files: [FileListEntry]) -> Void)?
 
         public init() {}
     }
@@ -352,6 +376,11 @@ public final class GDPSession: @unchecked Sendable {
         public static let clipboard = "clipboard"
         public static let gamepad = "gamepad"
         public static let file = "file"
+        /// Copied folders' contents, and the client's own copied files for a
+        /// paste on the host (§7.12). Only with ``file`` and ``clipboard``.
+        public static let fileClipboard = "file-clipboard"
+        /// Folders the client shares with the host, read-only (§7.12). Only with ``file``.
+        public static let fileShare = "file-share"
         /// Lossless refinement (§7.8): a layer over the video that makes still regions exact.
         public static let refine = "refine"
     }
@@ -461,16 +490,18 @@ public final class GDPSession: @unchecked Sendable {
                 GDPSession.from(ctx).handlers.fileFinished?(id, result)
             }
             callbacks.file_list = { ctx, listID, entries, count in
-                let files = UnsafeBufferPointer(start: entries, count: count).map {
-                    FileListEntry(name: $0.name.map { String(cString: $0) } ?? "", size: $0.size,
-                                  modified: GDPSession.date(unixMilliseconds: $0.modified_unix_ms),
-                                  isDirectory: $0.directory)
-                }
+                let files = UnsafeBufferPointer(start: entries, count: count).map(FileListEntry.init)
                 GDPSession.from(ctx).handlers.fileList?(listID, files)
             }
-            callbacks.file_sending = { ctx, id, name, size, modified in
-                GDPSession.from(ctx).handlers.fileSending?(id, name.map { String(cString: $0) } ?? "", size,
-                                                           GDPSession.date(unixMilliseconds: modified))
+            callbacks.file_listing = { ctx, id, firstIndex, entries, count in
+                let files = UnsafeBufferPointer(start: entries, count: count).map(FileListEntry.init)
+                GDPSession.from(ctx).handlers.fileListing?(id, firstIndex, files)
+            }
+            callbacks.file_sending = { ctx, id, name, size, modified, offset, fileSize in
+                let handlers = GDPSession.from(ctx).handlers
+                handlers.fileRange?(id, offset, fileSize)
+                handlers.fileSending?(id, name.map { String(cString: $0) } ?? "", size,
+                                      GDPSession.date(unixMilliseconds: modified))
             }
             callbacks.file_data = { ctx, id, data, len in
                 GDPSession.from(ctx).handlers.fileData?(id, UnsafeRawBufferPointer(start: data, count: len))
@@ -648,9 +679,28 @@ public final class GDPSession: @unchecked Sendable {
     /// establishment or without ``Capability/file``. Counts against
     /// ``fileStreamsAtOnce`` with the offers.
     public func requestFile(listID: UInt64, index: UInt32) -> UInt64? {
+        requestFile(listID: listID, index: index, offset: 0, length: 0)
+    }
+
+    /// `length` bytes from `offset` (0: to the end) of file `index`: a
+    /// range. A host that ignores ranges is handled here; ``Handlers/fileRange``
+    /// says where the bytes start.
+    public func requestFile(listID: UInt64, index: UInt32, offset: UInt64, length: UInt64 = 0) -> UInt64? {
         onQueue {
             guard let handle, !ended else { return nil }
-            let id = gdpc_session_request_file(handle, listID, index)
+            let id = gdpc_session_request_file_range(handle, listID, index, offset, length)
+            return id == 0 ? nil : id
+        }
+    }
+
+    /// With ``Capability/fileClipboard``: what is in folder `index` of the
+    /// host's list `listID`, through ``Handlers/fileListing`` and
+    /// ``Handlers/fileFinished``. Nil before establishment or without it.
+    /// Counts against ``fileStreamsAtOnce`` like a fetch.
+    public func requestListing(listID: UInt64, index: UInt32) -> UInt64? {
+        onQueue {
+            guard let handle, !ended else { return nil }
+            let id = gdpc_session_request_listing(handle, listID, index)
             return id == 0 ? nil : id
         }
     }
