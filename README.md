@@ -50,18 +50,17 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 **Clipboard and files**
 
 - Two-way text clipboard, off until you switch it on.
+- Copy and paste files and folders both ways on the Mac: copy in the Finder and paste on the remote desktop, or copy there and paste in the Finder (up to 100 MB at a time; larger copies are offered for download).
 - Send files to the host: drop them on the picture, or use **Send Files…**. They land in the host user's download folder, never over an existing file, and Spectre says which folder.
-- Files and folders copied on the host can be downloaded: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
-- On the Mac, with the clipboard shared, a copy of files or folders on the host (up to 100 MB in all) goes straight onto the Mac's clipboard, so **Paste** in the Finder pastes the files themselves.
-- On the Mac, files and folders copied in the Finder can be pasted on the remote desktop: the host reads them as the paste goes.
-- Share a folder with the host, read-only, from the Mac: it shows up in the host's file manager, labelled with the Mac's name.
+- Download files and folders copied on the host: to Downloads on the Mac, and to Spectre's folder in the Files app on iPad and iPhone.
+- Share a folder with the host from the Mac, read-only: it shows up in the host's file manager, labelled with the Mac's name.
 - Progress, cancelling and the results in a list of transfers. Needs a host with file transfer; see [Requirements](#requirements).
 
 **On the Mac**
 
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
-- A toolbar for files, clipboard, mouse capture and mute, with the round trip and frame rate in its subtitle.
-- A **Session** menu for files, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
+- A toolbar with a **Files** menu, the list of transfers, clipboard sharing, mouse capture and mute, with the round trip and frame rate in its subtitle.
+- A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
 
 **On iPad and iPhone**
 
@@ -73,7 +72,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 **Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
 
-**Not done yet:** sending your microphone to the host (written, turned off for now), sending folders, and checking CA-issued certificates on iOS.
+**Not done yet:** sending your microphone to the host (written, turned off for now), pasting files copied on iPad and iPhone on the remote desktop and sharing folders from them, and checking CA-issued certificates on iOS.
 
 ## Screenshots
 
@@ -98,7 +97,12 @@ Add a server with **+**: its address (`host` or `host:port`, port 4442 by defaul
 
 On the Mac, each session opens in its own window; closing it disconnects and leaves the desktop running on the host. On iPad and iPhone the session covers the home screen.
 
-**Files.** Drop files on the picture, or choose **Send Files…** (on the Mac in the toolbar's **Files** menu and the Session menu, on iPad and iPhone under **More › Files**). The host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. When the host's user copies files or folders, Spectre offers to download them; with the clipboard shared, small copies (up to 100 MB in all) go straight onto the Mac's clipboard instead. On the Mac, with the clipboard shared, files and folders copied in the Finder can be pasted on the remote desktop, and **Share Folder…** (in the **Files** menu and the Session menu) shares a folder with it, read-only and without hidden files, until you stop sharing it (**Session › Stop Sharing**, or the list of transfers) or quit Spectre. A shared folder is shared again whenever the session reconnects. Folders can't be sent with **Send Files…**.
+**Files.** On the Mac, everything is in the toolbar's **Files** menu and the **Session** menu; on iPad and iPhone, under **More › Files**.
+
+- **Copy and paste** (Mac, with the clipboard shared): files and folders copied in the Finder paste on the remote desktop, which reads them from the Mac as the paste goes, so keep Spectre open until it is done; the list of transfers shows it and can stop it. Files and folders copied on the host go onto the Mac's clipboard when they come to 100 MB or less, so **Paste** in the Finder pastes them.
+- **Send Files…**, or drop files on the picture: the host saves them in its user's download folder (`~/Downloads`, or `[files] directory` in wraith.toml), as "name (1).ext" when the name is taken. Folders go by copy and paste instead.
+- **Download**: when the host's user copies files or folders, Spectre offers to download them, to Downloads on the Mac and to Spectre's folder in the Files app on iPad and iPhone.
+- **Share Folder…** (Mac): the host sees the folder, read-only and without hidden files, until you stop sharing it (**Session › Stop Sharing**, or the list of transfers) or quit Spectre. It is shared again whenever the session reconnects, and **Session › Share Again** brings back one you stopped.
 
 **Keyboard on the Mac.** Cmd is sent as Super, so copy and paste on the remote desktop stay Ctrl+C and Ctrl+V. Only these shortcuts stay local:
 
@@ -223,7 +227,7 @@ The simulator decodes in software, so its timings aren't comparable with a devic
 | `Packages/GDPKit/` | The C bridge to libgdp and its Swift wrapper |
 | `Packages/SpectreKit/` | Session, decoding, Metal presentation, input, clipboard, file transfers, login |
 | `scripts/` | Builds the dependencies and the xcframeworks |
-| `third_party/ghost/` | ghost as a submodule (pokoblin/ghost fork); only libgdp is built |
+| `third_party/ghost/` | ghost as a submodule (the pokoblin/ghost fork's `main`, which follows upstream); only libgdp is built |
 | `third_party/pyrowave/` | PyroWave as a submodule; only its Metal port (`metal/`) is built |
 
 ## Contributing

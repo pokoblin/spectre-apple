@@ -50,16 +50,17 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 **Portapapeles y archivos**
 
 - Portapapeles de texto en ambos sentidos, desactivado hasta que lo actives.
-- Envía archivos al host: suéltalos sobre la imagen o usa **Enviar archivos…**. Se guardan en la carpeta de descargas del usuario del host, nunca encima de un archivo existente, y Spectre te dice en qué carpeta.
-- Los archivos copiados en el host se pueden descargar: en Descargas en el Mac, y en la carpeta de Spectre de la app Archivos en iPad y iPhone.
-- En el Mac, con el portapapeles compartido, lo que copies en el host (hasta 100 MB en total) pasa directamente al portapapeles del Mac, así que **Pegar** en el Finder pega los propios archivos.
+- Copiar y pegar archivos y carpetas en ambos sentidos en el Mac: copia en el Finder y pega en el escritorio remoto, o copia allí y pega en el Finder (hasta 100 MB cada vez; las copias más grandes se ofrecen para descargar).
+- Envía archivos al host: suéltalos sobre la imagen o usa **Enviar archivos…**. Se guardan en la carpeta de descargas del usuario del host, nunca encima de un archivo existente, y Spectre dice en qué carpeta.
+- Descarga archivos y carpetas copiados en el host: a Descargas en el Mac, y a la carpeta de Spectre en la app Archivos en iPad y iPhone.
+- Comparte una carpeta con el host desde el Mac, de solo lectura: aparece en el gestor de archivos del host con el nombre del Mac.
 - Progreso, cancelación y resultados en una lista de transferencias. Hace falta un host con transferencia de archivos; consulta [Requisitos](#requisitos).
 
 **En el Mac**
 
 - Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
-- Una barra de herramientas para los archivos, el portapapeles, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en su subtítulo.
-- Un menú **Session** para los archivos, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se reserva. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
+- Una barra de herramientas con el menú **Archivos**, la lista de transferencias, el portapapeles compartido, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en el subtítulo.
+- Un menú **Session** para los archivos, las carpetas compartidas, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se queda. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
 
 **En iPad y iPhone**
 
@@ -71,7 +72,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 **Idiomas:** inglés, chino simplificado, chino tradicional, japonés y español.
 
-**Pendiente:** enviar tu micrófono al host (escrito, desactivado por ahora), enviar carpetas y comprobar en iOS los certificados emitidos por una autoridad de certificación.
+**Pendiente:** enviar tu micrófono al host (escrito, desactivado por ahora), pegar en el escritorio remoto archivos copiados en iPad y iPhone y compartir carpetas desde ellos, y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
 ## Capturas de pantalla
 
@@ -83,7 +84,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 - Un Mac con Apple silicon y macOS 27, o un iPhone o iPad con iOS o iPadOS 27
 - Un host ghost (ghostd y wraith); consulta el proyecto [ghost](https://github.com/jsaiko/ghost) para montar uno
-- Para transferir archivos, un wraith que lo ofrezca: hasta que el proyecto original lo incorpore ([jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)), compila el host desde la rama `feat/file-transfer` del fork [pokoblin/ghost](https://github.com/pokoblin/ghost). Todo lo demás funciona con el ghost original.
+- Para transferir archivos, un ghost reciente (el `main` del proyecto original desde octubre de 2026). Pegar archivos copiados aquí y compartir carpetas requiere además un wraith compilado con libfuse3 3.12 o posterior (`apt install libfuse3-dev` antes de compilar) en un host con `/dev/fuse` y `fusermount3`: el host monta lo que Spectre ofrece. Sin ello, enviar y descargar siguen funcionando.
 - Para PyroWave, un wraith compilado con libpyrowave (`packaging/build-pyrowave.sh` de ghost, que fija la revisión que ambos extremos deben compartir) y `pyrowave = true` en `[encode.codecs]` de `/etc/ghost/wraith.toml`.
 
 ## Instalación
@@ -96,7 +97,12 @@ Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por
 
 En el Mac, cada sesión se abre en su propia ventana; al cerrarla se desconecta y el escritorio sigue abierto en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
 
-**Archivos.** Suelta archivos sobre la imagen o elige **Enviar archivos…** (en el Mac, en la barra de herramientas y el menú Session; en iPad y iPhone, en **Más › Archivos**). El host los guarda en la carpeta de descargas de su usuario (`~/Downloads`, o `[files] directory` en wraith.toml), como «nombre (1).ext» si el nombre ya existe. Cuando el usuario del host copia archivos, Spectre ofrece descargarlos; con el portapapeles compartido, las copias pequeñas (hasta 100 MB en total) pasan directamente al portapapeles del Mac. Todavía no se pueden enviar carpetas en ningún sentido.
+**Archivos.** En el Mac, todo está en el menú **Archivos** de la barra de herramientas y en el menú **Session**; en iPad y iPhone, en **Más › Archivos**.
+
+- **Copiar y pegar** (Mac, con el portapapeles compartido): los archivos y carpetas copiados en el Finder se pegan en el escritorio remoto, que los lee del Mac mientras se pegan, así que deja Spectre abierto hasta que termine; la lista de transferencias lo muestra y permite detenerlo. Los archivos y carpetas copiados en el host pasan al portapapeles del Mac si suman 100 MB o menos, y **Pegar** en el Finder pega los archivos.
+- **Enviar archivos…**, o suelta archivos sobre la imagen: el host los guarda en la carpeta de descargas de su usuario (`~/Downloads`, o `[files] directory` en wraith.toml), como «nombre (1).ext» si el nombre ya existe. Las carpetas van con copiar y pegar.
+- **Descargar**: cuando el usuario del host copia archivos o carpetas, Spectre ofrece descargarlos, a Descargas en el Mac y a la carpeta de Spectre en la app Archivos en iPad y iPhone.
+- **Compartir carpeta…** (Mac): el host ve la carpeta, de solo lectura y sin archivos ocultos, hasta que dejes de compartirla (**Session › Dejar de compartir**, o la lista de transferencias) o cierres Spectre. Se vuelve a compartir cada vez que la sesión se reconecta, y **Session › Volver a compartir** recupera una que dejaste de compartir.
 
 **Teclado en el Mac.** Cmd se envía como Super, así que copiar y pegar en el escritorio remoto siguen siendo Ctrl+C y Ctrl+V. Solo estos atajos se quedan en tu Mac:
 
@@ -129,7 +135,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 Si tienes vcpkg en otro sitio, define `VCPKG_ROOT`.
 
-1. Clona el repositorio con el submódulo de ghost, que apunta al fork [pokoblin/ghost](https://github.com/pokoblin/ghost) (el original más la transferencia de archivos) hasta que el proyecto original incorpore las pull requests de transferencia de archivos. En un clon existente, ejecuta `git submodule sync && git submodule update --init`.
+1. Clona el repositorio con el submódulo de ghost, que sigue el `main` del fork [pokoblin/ghost](https://github.com/pokoblin/ghost) (el del proyecto original). En un clon existente, ejecuta `git submodule sync && git submodule update --init`.
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -194,7 +200,7 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 Además: `--codec h264|h265|av1|pyrowave` (AV1 reproduce un stream incluido, donde se decodifica por hardware; el de PyroWave lo codifica en el momento su versión para Metal, a unos 250 Mbit/s), `--mode onArrival|displayLink`, `--in-flight N`, `--screen N`, `--rate HZ`, `--min-present-ms MS`, `--host-clipboard TEXT`.
 
-Para probar la transferencia de archivos con el host de loopback: `--send-file PATH` envía un archivo al empezar la sesión, `--host-file PATH` hace que el usuario del host de prueba copie uno (ambas opciones se pueden repetir), `--download-copied` descarga cada copia y `--download-dir DIR` guarda las descargas en `DIR`.
+Para probar la transferencia de archivos con el host de loopback: `--send-file PATH` envía un archivo al empezar la sesión, `--host-file PATH` hace que el usuario del host de prueba copie uno, también una carpeta (ambas se pueden repetir), `--download-copied` descarga cada copia y `--download-dir DIR` guarda las descargas en `DIR`. `--host-fetch-copied` hace que el host de prueba lea cada archivo copiado aquí, como haría un pegado, y `--share-folder DIR` comparte una carpeta al empezar la sesión; el host de prueba imprime lo que recibe y lista cada carpeta compartida.
 
 En el simulador de iOS:
 
@@ -221,7 +227,7 @@ El simulador decodifica por software, así que sus tiempos no se pueden comparar
 | `Packages/GDPKit/` | El puente en C hacia libgdp y su capa en Swift |
 | `Packages/SpectreKit/` | La sesión, la decodificación, la presentación con Metal, la entrada, el portapapeles, la transferencia de archivos, el inicio de sesión |
 | `scripts/` | Compilan las dependencias y los xcframeworks |
-| `third_party/ghost/` | ghost como submódulo (el fork pokoblin/ghost); solo se compila libgdp |
+| `third_party/ghost/` | ghost como submódulo (el `main` del fork pokoblin/ghost, que sigue al original); solo se compila libgdp |
 | `third_party/pyrowave/` | PyroWave como submódulo; solo se compila su port a Metal (`metal/`) |
 
 ## Cómo contribuir

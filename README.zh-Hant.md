@@ -50,16 +50,17 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 **剪貼簿與檔案**
 
 - 雙向同步文字剪貼簿，預設關閉，需要時再開啟。
+- Mac 上可以雙向拷貝貼上檔案和檔案夾：在 Finder 中拷貝、到遠端桌面貼上，或在遠端桌面拷貝、到 Finder 中貼上（一次不超過 100 MB；更大的拷貝會提示下載）。
 - 將檔案傳送到主機：拖到畫面上，或使用 **傳送檔案⋯**。檔案存進主機使用者的下載檔案夾，不會覆寫既有的檔案，Spectre 會告訴你存到了哪個檔案夾。
-- 可以下載主機上拷貝的檔案：Mac 上存到「下載項目」，iPad 和 iPhone 上存到「檔案」App 中 Spectre 的檔案夾。
-- Mac 上，開啟共享剪貼簿時，在主機上拷貝的檔案（總共不超過 100 MB）會直接放進 Mac 的剪貼簿，在 Finder 裡 **貼上** 就是檔案本身。
+- 下載主機上拷貝的檔案和檔案夾：Mac 上存到「下載項目」檔案夾，iPad 和 iPhone 上存到「檔案」App 中 Spectre 的檔案夾。
+- 在 Mac 上將一個檔案夾唯讀共享給主機：它會出現在主機的檔案管理器中，名稱後面標著 Mac 的名稱。
 - 傳輸列表會顯示進度、可以取消，也列出結果。需要主機支援檔案傳輸，請見 [執行需求](#執行需求)。
 
 **Mac 上**
 
 - 主機列表首頁視窗，每台主機顯示上次的畫面；每個工作階段各開一個視窗，可以同時連線好幾台。
-- 工具列放著檔案、剪貼簿、擷取滑鼠和靜音，副標題顯示往返延遲和影格速率。
-- **Session** 選單：檔案、擷取滑鼠、剪貼簿，以及被 macOS 自己攔下的組合鍵。沒有新增快速鍵，所有按鍵都會傳給遠端桌面。
+- 工具列放著 **檔案** 選單、傳輸列表、共享剪貼簿、擷取滑鼠和靜音，副標題顯示往返延遲和影格速率。
+- **Session** 選單：檔案、共享檔案夾、擷取滑鼠、剪貼簿，以及被 macOS 自己攔下的組合鍵。沒有新增快速鍵，所有按鍵都能傳給遠端桌面。
 
 **iPad 和 iPhone 上**
 
@@ -71,7 +72,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 
 **語言：** 英文、簡體中文、繁體中文、日文和西班牙文。
 
-**尚未完成：** 將你的麥克風傳送到主機（已經寫好，暫時停用）、傳送檔案夾，以及在 iOS 上驗證憑證授權單位簽發的憑證。
+**尚未完成：** 將你的麥克風傳送到主機（已經寫好，暫時停用）、在 iPad 和 iPhone 上拷貝的檔案貼到遠端桌面、從它們共享檔案夾，以及在 iOS 上驗證憑證授權單位簽發的憑證。
 
 ## 螢幕截圖
 
@@ -83,7 +84,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 
 - 搭載 Apple 晶片、執行 macOS 27 的 Mac，或執行 iOS / iPadOS 27 的 iPhone、iPad
 - 一台 ghost 主機（ghostd 和 wraith），架設方式請見 [ghost](https://github.com/jsaiko/ghost)
-- 檔案傳輸需要支援它的 wraith：在上游合併之前（[jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)），請用 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork 的 `feat/file-transfer` 分支建置主機。其他功能使用上游 ghost 即可。
+- 檔案傳輸需要較新的 ghost（2026 年 10 月以後的上游 `main`）。在遠端桌面貼上本機拷貝的檔案、共享檔案夾，還需要 wraith 以 libfuse3 3.12 或更新版本建置（建置前 `apt install libfuse3-dev`），主機上要有 `/dev/fuse` 和 `fusermount3`：主機會把 Spectre 提供的檔案掛載起來。沒有這些時，傳送和下載照樣能用。
 - PyroWave 需要以 libpyrowave 建置的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了兩端必須一致的版本），並在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 中設定 `pyrowave = true`。
 
 ## 安裝
@@ -96,7 +97,12 @@ Mac 版請從 [GitHub Releases](https://github.com/pokoblin/spectre-apple/releas
 
 Mac 上每個工作階段各開一個視窗；關閉它就會中斷連線，主機上的桌面繼續執行。iPad 和 iPhone 上工作階段蓋在首頁上面。
 
-**檔案。** 將檔案拖到畫面上，或選擇 **傳送檔案⋯**（Mac 上在工具列和 Session 選單中，iPad 和 iPhone 上在 **更多 › 檔案** 中）。主機將檔案存進使用者的下載檔案夾（`~/Downloads`，或 wraith.toml 中 `[files] directory` 指定的檔案夾），名稱已被使用時存成「name (1).ext」。主機使用者拷貝檔案時，Spectre 會提示下載；共享剪貼簿開啟時，較小的拷貝（總共不超過 100 MB）會直接放進 Mac 的剪貼簿。兩個方向都暫時無法傳送檔案夾。
+**檔案。** Mac 上全部在工具列的 **檔案** 選單和 **Session** 選單中；iPad 和 iPhone 上在 **更多 › 檔案** 中。
+
+- **拷貝貼上**（Mac，開啟共享剪貼簿時）：在 Finder 中拷貝的檔案和檔案夾可以貼到遠端桌面，主機在貼上過程中從 Mac 讀取它們，所以貼上完成前請保持 Spectre 開啟；傳輸列表會顯示進度，也可以停止。在主機上拷貝的檔案和檔案夾，總共不超過 100 MB 時會放進 Mac 的剪貼簿，在 Finder 中 **貼上** 就是檔案本身。
+- **傳送檔案⋯**，或將檔案拖到畫面上：主機將檔案存進使用者的下載檔案夾（`~/Downloads`，或 wraith.toml 中 `[files] directory` 指定的檔案夾），名稱已被使用時存成「name (1).ext」。檔案夾請用拷貝貼上。
+- **下載**：主機使用者拷貝檔案或檔案夾時，Spectre 會提示下載，Mac 上存到「下載項目」檔案夾，iPad 和 iPhone 上存到「檔案」App 中 Spectre 的檔案夾。
+- **共享檔案夾⋯**（Mac）：主機能看到這個檔案夾，唯讀、不含隱藏檔案，直到你停止共享（**Session › 停止共享**，或在傳輸列表中）或結束 Spectre。工作階段重新連線後會自動再次共享；停止過的可以用 **Session › 重新共享** 找回來。
 
 **Mac 上的鍵盤。** Cmd 以 Super 鍵傳送，因此在遠端桌面上拷貝貼上仍是 Ctrl+C 和 Ctrl+V。只有下列快速鍵留在本機：
 
@@ -129,7 +135,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 如果 vcpkg 放在其他位置，請設定 `VCPKG_ROOT`。
 
-1. 複製儲存庫，連同 ghost 子模組一起。在上游合併檔案傳輸的 pull request 之前，子模組指向 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork（上游加上檔案傳輸）。已有的複本中請執行 `git submodule sync && git submodule update --init`。
+1. 複製儲存庫，連同 ghost 子模組一起，子模組跟隨 [pokoblin/ghost](https://github.com/pokoblin/ghost) fork 的 `main`（與上游一致）。已有的複製中執行 `git submodule sync && git submodule update --init`。
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -194,7 +200,7 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 其他參數：`--codec h264|h265|av1|pyrowave`（AV1 播放內建的測試串流，需要硬體解碼；PyroWave 的測試串流由它的 Metal 版即時編碼，約 250 Mbit/s）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
-以回送主機測試檔案傳輸：`--send-file PATH` 在工作階段開始後傳送一個檔案，`--host-file PATH` 讓測試主機的使用者拷貝一個檔案（兩者都可以指定多次），`--download-copied` 下載每一次拷貝的檔案，`--download-dir DIR` 將下載存到 `DIR`。
+以回送主機測試檔案傳輸：`--send-file PATH` 在工作階段開始後傳送一個檔案，`--host-file PATH` 讓測試主機的使用者拷貝一個檔案，也可以是檔案夾（這兩個參數都可以給多次），`--download-copied` 下載每一次拷貝的檔案，`--download-dir DIR` 把下載存到 `DIR`。`--host-fetch-copied` 讓測試主機像貼上那樣讀取本機拷貝的每個檔案，`--share-folder DIR` 在工作階段開始後共享一個檔案夾；測試主機會印出收到的內容，並列出每個共享。
 
 在 iOS 模擬器中：
 
@@ -221,7 +227,7 @@ xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopba
 | `Packages/GDPKit/` | 通往 libgdp 的 C 橋接及其 Swift 封裝 |
 | `Packages/SpectreKit/` | 工作階段、解碼、Metal 顯示、輸入、剪貼簿、檔案傳輸、登入 |
 | `scripts/` | 建置相依套件和 xcframework |
-| `third_party/ghost/` | ghost 子模組（pokoblin/ghost fork），只編譯其中的 libgdp |
+| `third_party/ghost/` | ghost 子模組（跟隨上游的 pokoblin/ghost fork `main`），只編譯其中的 libgdp |
 | `third_party/pyrowave/` | PyroWave 子模組，只編譯其中的 Metal 版（`metal/`） |
 
 ## 參與貢獻

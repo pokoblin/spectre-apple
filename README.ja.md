@@ -50,16 +50,17 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 **クリップボードとファイル**
 
 - テキストのクリップボードの双方向同期。オンにするまではオフです。
-- ファイルをホストに送る：画面にドロップするか、**ファイルを送信…** を使います。ホストのユーザのダウンロードフォルダに、既存のファイルを上書きせずに保存され、どのフォルダに入ったかを Spectre が表示します。
-- ホストでコピーしたファイルをダウンロードできます。Mac では「ダウンロード」フォルダへ、iPad と iPhone では「ファイル」App の Spectre のフォルダへ保存します。
-- Mac では、クリップボードを共有しているとき、ホストでコピーしたファイル（合計 100 MB まで）がそのまま Mac のクリップボードに入り、Finder で **ペースト** するとファイルそのものが貼り付けられます。
+- Mac ではファイルとフォルダを双方向にコピー＆ペーストできます。Finder でコピーしてリモートデスクトップにペースト、またはそこでコピーして Finder にペースト（1 回 100 MB まで。それより大きいコピーはダウンロードを提案します）。
+- ファイルをホストに送る：画面にドロップするか、**ファイルを送信…** を使います。ホストのユーザのダウンロードフォルダに、既存のファイルを上書きせずに保存され、保存先のフォルダも表示されます。
+- ホストでコピーされたファイルとフォルダのダウンロード：Mac では「ダウンロード」フォルダへ、iPad と iPhone では「ファイル」App の Spectre のフォルダへ。
+- Mac からフォルダを読み取り専用でホストと共有：ホストのファイルマネージャに、Mac の名前付きで表示されます。
 - 転送の一覧で進み具合、キャンセル、結果を確認できます。ファイル転送に対応したホストが必要です（[動作環境](#動作環境) を参照）。
 
 **Mac**
 
 - ホストを並べたホームウインドウ（各ホストに前回の画面）と、セッションごとのウインドウがあり、複数のセッションを同時に動かせます。
-- ファイル、クリップボード、マウスのキャプチャ、消音のツールバー。サブタイトルには往復の遅延とフレームレートが表示されます。
-- ファイル、マウスのキャプチャ、クリップボード、macOS が先に取ってしまうキーの組み合わせを送る **Session** メニュー。ショートカットは増やしていないので、キーはすべてリモートデスクトップに届きます。
+- **ファイル** メニュー、転送の一覧、クリップボードの共有、マウスのキャプチャ、消音のツールバー。サブタイトルには往復の遅延とフレームレート。
+- ファイル、共有フォルダ、マウスのキャプチャ、クリップボード、macOS が先に取ってしまうキーの組み合わせのための **Session** メニュー。新しいショートカットは足していないので、すべてのキーがリモートデスクトップに届きます。
 
 **iPad と iPhone**
 
@@ -71,7 +72,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 **言語：** 英語、簡体字中国語、繁体字中国語、日本語、スペイン語。
 
-**未実装：** マイクの音声をホストに送る機能（実装済みで、いまは無効）、フォルダの送信、iOS での認証局発行の証明書の検証。
+**未実装：** マイクの音声をホストに送ること（実装済みで、いまは無効）、iPad と iPhone でコピーしたファイルのリモートデスクトップへのペーストとそこからのフォルダ共有、iOS での認証局発行の証明書の検証。
 
 ## スクリーンショット
 
@@ -83,7 +84,7 @@ ghost プロジェクトの一部ではない、独立したサードパーテ�
 
 - Apple シリコン搭載で macOS 27 の Mac、または iOS / iPadOS 27 の iPhone・iPad
 - ghost ホスト（ghostd と wraith）。構築方法は [ghost](https://github.com/jsaiko/ghost) をご覧ください
-- ファイル転送には、それに対応した wraith が必要です。上流に取り込まれるまでは（[jsaiko/ghost#4](https://github.com/jsaiko/ghost/pull/4), [#5](https://github.com/jsaiko/ghost/pull/5)）、[pokoblin/ghost](https://github.com/pokoblin/ghost) フォークの `feat/file-transfer` ブランチからホストをビルドしてください。そのほかの機能は上流の ghost で動きます。
+- ファイル転送には新しめの ghost（2026 年 10 月以降の上流 `main`）が必要です。こちらでコピーしたファイルのペーストとフォルダの共有には、さらに libfuse3 3.12 以降でビルドした wraith（ビルド前に `apt install libfuse3-dev`）と、`/dev/fuse` と `fusermount3` のあるホストが必要です。ホストが Spectre の提供するファイルをマウントします。それがなくても、送信とダウンロードは使えます。
 - PyroWave には、libpyrowave 付きでビルドした wraith（ghost の `packaging/build-pyrowave.sh`。両端で揃える必要のあるリビジョンを固定しています）と、`/etc/ghost/wraith.toml` の `[encode.codecs]` での `pyrowave = true` が必要です。
 
 ## インストール
@@ -96,7 +97,12 @@ Mac 版は公証済みの `.dmg` を [GitHub Releases](https://github.com/pokobl
 
 Mac ではセッションがそれぞれ専用のウインドウで開きます。閉じると切断し、ホストのデスクトップは動いたままです。iPad と iPhone ではセッションがホーム画面の上に重なります。
 
-**ファイル。** ファイルを画面にドロップするか、**ファイルを送信…** を選びます（Mac ではツールバーと Session メニュー、iPad と iPhone では **その他 › ファイル**）。ホストはユーザのダウンロードフォルダ（`~/Downloads`、または wraith.toml の `[files] directory`）に保存し、同じ名前があるときは「name (1).ext」にします。ホストのユーザがファイルをコピーすると、Spectre がダウンロードを提案します。クリップボードを共有しているときは、小さなコピー（合計 100 MB まで）はそのまま Mac のクリップボードに入ります。フォルダはどちらの方向にもまだ送れません。
+**ファイル。** Mac ではツールバーの **ファイル** メニューと **Session** メニューに、iPad と iPhone では **その他 › ファイル** にまとまっています。
+
+- **コピー＆ペースト**（Mac、クリップボード共有時）：Finder でコピーしたファイルとフォルダはリモートデスクトップにペーストでき、ホストはペーストしながら Mac から読み込みます。終わるまで Spectre を開いたままにしてください。転送の一覧で進み具合を確認でき、止めることもできます。ホストでコピーしたファイルとフォルダは、合計 100 MB 以下なら Mac のクリップボードに入り、Finder で **ペースト** するとファイルそのものが貼り付けられます。
+- **ファイルを送信…**、または画面へのドロップ：ホストはユーザのダウンロードフォルダ（`~/Downloads`、または wraith.toml の `[files] directory`）に保存し、同じ名前があるときは「name (1).ext」にします。フォルダはコピー＆ペーストで送ります。
+- **ダウンロード**：ホストのユーザがファイルやフォルダをコピーすると、Spectre がダウンロードを提案します。Mac では「ダウンロード」フォルダへ、iPad と iPhone では「ファイル」App の Spectre のフォルダへ保存します。
+- **フォルダを共有…**（Mac）：共有をやめる（**Session › 共有を停止**、または転送の一覧）か Spectre を終了するまで、ホストからフォルダが読み取り専用で、隠しファイルを除いて見えます。セッションが再接続するたびに共有し直し、やめたフォルダは **Session › もう一度共有** で戻せます。
 
 **Mac でのキーボード。** Cmd は Super として送られるため、リモートデスクトップでのコピー＆ペーストは Ctrl+C と Ctrl+V のままです。Mac 側に残るショートカットは次のものだけです：
 
@@ -129,7 +135,7 @@ git -C ~/src/vcpkg checkout 07f4812200df3d3c931c0c8a6081d3b21fe2bf9f
 
 vcpkg をほかの場所に置く場合は `VCPKG_ROOT` を設定してください。
 
-1. ghost サブモジュールごとクローンします。上流がファイル転送のプルリクエストを取り込むまで、サブモジュールは [pokoblin/ghost](https://github.com/pokoblin/ghost) フォーク（上流＋ファイル転送）を指しています。既存のクローンでは `git submodule sync && git submodule update --init` を実行します。
+1. ghost サブモジュールごとクローンします。サブモジュールは [pokoblin/ghost](https://github.com/pokoblin/ghost) フォークの `main`（上流と同じ）を追います。既存のクローンでは `git submodule sync && git submodule update --init` を実行します。
 
    ```bash
    git clone --recurse-submodules https://github.com/pokoblin/spectre-apple.git
@@ -194,7 +200,7 @@ build/DerivedData/Build/Products/Release/Spectre.app/Contents/MacOS/Spectre --be
 
 そのほか：`--codec h264|h265|av1|pyrowave`（AV1 は同梱のテストストリームを再生します。ハードウェアデコードが必要です。PyroWave のストリームはその場で Metal 版がエンコードし、約 250 Mbit/s です）、`--mode onArrival|displayLink`、`--in-flight N`、`--screen N`、`--rate HZ`、`--min-present-ms MS`、`--host-clipboard TEXT`。
 
-ループバックのホストでファイル転送を試すには：`--send-file PATH` はセッション開始後にファイルを送り、`--host-file PATH` はテスト用ホストのユーザにファイルをコピーさせます（どちらも複数回指定できます）。`--download-copied` はコピーされるたびにダウンロードし、`--download-dir DIR` はダウンロード先を `DIR` にします。
+ループバックのホストでファイル転送を試すには：`--send-file PATH` はセッション開始後にファイルを送り、`--host-file PATH` はテストホストのユーザにファイル（フォルダも可）をコピーさせます（どちらも複数回指定できます）。`--download-copied` はコピーされたものをすべてダウンロードし、`--download-dir DIR` はダウンロード先を `DIR` にします。`--host-fetch-copied` はこちらでコピーしたファイルをテストホストにペーストのように読み込ませ、`--share-folder DIR` はセッション開始後にフォルダを共有します。テストホストは受け取ったものと各共有の一覧を出力します。
 
 iOS シミュレータでは：
 
@@ -221,7 +227,7 @@ xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopba
 | `Packages/GDPKit/` | libgdp への C ブリッジと、その Swift ラッパー |
 | `Packages/SpectreKit/` | セッション、デコード、Metal での表示、入力、クリップボード、ファイル転送、ログイン |
 | `scripts/` | 依存ライブラリと xcframework をビルドするスクリプト |
-| `third_party/ghost/` | ghost（サブモジュール、pokoblin/ghost フォーク）。ビルドするのは libgdp だけ |
+| `third_party/ghost/` | ghost（サブモジュール、上流を追う pokoblin/ghost フォークの `main`）。ビルドするのは libgdp だけ |
 | `third_party/pyrowave/` | PyroWave（サブモジュール）。ビルドするのは Metal 版（`metal/`）だけ |
 
 ## コントリビュート
