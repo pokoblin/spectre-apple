@@ -212,6 +212,7 @@ public final class RemoteSession: @unchecked Sendable {
             config.capabilities.append(GDPSession.Capability.refine)
         }
         offerPyroWave(in: &config)
+        if config.clientName.isEmpty { config.clientName = ClientName.current() }
         var h = GDPSession.Handlers()
         h.accepted = { [weak self] accept in self?.accepted(accept) }
         h.closed = { [weak self] ending in

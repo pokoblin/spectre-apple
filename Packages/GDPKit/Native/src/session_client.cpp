@@ -110,6 +110,7 @@ void SessionClient::on_connected() {
 	for (const auto &c : config_.codecs) hello->add_codecs(c);
 	for (const auto &c : config_.capabilities) hello->add_capabilities(c);
 	for (const auto &d : config_.decoders) hello->add_decoders(d);
+	hello->set_client_name(config_.client_name);
 	send_control(env);
 }
 

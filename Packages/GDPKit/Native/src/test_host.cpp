@@ -211,6 +211,7 @@ struct TestHost::Impl {
 			obs.codecs.assign(hello.codecs().begin(), hello.codecs().end());
 			obs.capabilities.assign(hello.capabilities().begin(), hello.capabilities().end());
 			obs.decoders.assign(hello.decoders().begin(), hello.decoders().end());
+			obs.client_name = hello.client_name();
 			obs.take_over = hello.take_over();
 			obs.via_gateway = hello.via_gateway();
 			obs.network_profile = hello.network_profile();

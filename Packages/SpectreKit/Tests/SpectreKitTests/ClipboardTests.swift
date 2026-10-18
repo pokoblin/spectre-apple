@@ -239,3 +239,20 @@ struct ClipboardSyncTests {
         #expect(sync.markForCopiedFiles() == nil)
     }
 }
+
+@Suite("Client name")
+struct ClientNameTests {
+    @Test func sanitized() {
+        #expect(ClientName.sanitized("Kbys-Mac-mini") == "Kbys-Mac-mini")
+        #expect(ClientName.sanitized("a/b") == "")
+        #expect(ClientName.sanitized("") == "")
+        let long = ClientName.sanitized(String(repeating: "é", count: 40))
+        #expect(long.utf8.count <= ClientName.maxBytes && long.utf8.count == 64)
+        #expect(ClientName.sanitized("e\u{301}") == "\u{e9}")
+    }
+
+    @Test func currentIsUsable() {
+        let name = ClientName.current()
+        #expect(name.isEmpty || GDPSession.isValidFileName(name))
+    }
+}

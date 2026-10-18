@@ -124,6 +124,7 @@ struct EstablishmentTests {
         let session = try await connected(host, rec, codecs: ["h265", "h264"]) {
             $0.capabilities = ["clipboard"]
             $0.decoders = ["videotoolbox"]
+            $0.clientName = "Kbys-Mac-mini"
             $0.display = .init(width: 2560, height: 1440, refreshMillihertz: 120_000, scale: 2)
             $0.networkProfile = .lan
         }
@@ -132,6 +133,7 @@ struct EstablishmentTests {
         #expect(seen.codecs == ["h265", "h264"])
         #expect(seen.capabilities == ["clipboard"])
         #expect(seen.decoders == ["videotoolbox"])
+        #expect(seen.clientName == "Kbys-Mac-mini")
         #expect(!seen.takeOver && !seen.viaGateway)
         #expect(seen.networkProfile == 1)
         #expect(seen.requestedWidth == 2560 && seen.requestedHeight == 1440)

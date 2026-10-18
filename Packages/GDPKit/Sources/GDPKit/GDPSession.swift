@@ -37,6 +37,9 @@ public final class GDPSession: @unchecked Sendable {
         public var capabilities: [String] = []
         /// Informational decoder backends, e.g. `videotoolbox`.
         public var decoders: [String] = []
+        /// Informational: this machine's name (§6.2), which the host may
+        /// show (its shared folders are labelled with it). Empty: none.
+        public var clientName = ""
         public var display: DisplayRequest?
         public var takeOver = false
         public var networkProfile = NetworkProfile.auto
@@ -487,28 +490,31 @@ public final class GDPSession: @unchecked Sendable {
                 withCStrings(config.capabilities) { caps in
                     withCStrings(config.decoders) { decoders in
                         config.host.withCString { host in
-                            config.token.withCString { token in
-                                config.certificate.hex.withCString { cert in
-                                    var c = gdpc_session_config()
-                                    c.host = host
-                                    c.port = config.port
-                                    c.token = token
-                                    c.cert_sha256 = cert
-                                    c.codecs = codecs.baseAddress
-                                    c.codec_count = codecs.count
-                                    c.capabilities = caps.baseAddress
-                                    c.capability_count = caps.count
-                                    c.decoders = decoders.baseAddress
-                                    c.decoder_count = decoders.count
-                                    c.display_width = config.display?.width ?? 0
-                                    c.display_height = config.display?.height ?? 0
-                                    c.display_refresh_mhz = config.display?.refreshMillihertz ?? 0
-                                    c.display_scale = config.display?.scale ?? 0
-                                    c.take_over = config.takeOver
-                                    c.network_profile = config.networkProfile.rawValue
-                                    c.drop_until_keyframe_after_loss = config.dropUntilKeyframeAfterLoss
-                                    c.file_reply_timeout_ms = config.fileReplyTimeoutMilliseconds
-                                    return gdpc_session_connect(h, &c, &errorBuffer, errorBuffer.count)
+                            config.clientName.withCString { clientName in
+                                config.token.withCString { token in
+                                    config.certificate.hex.withCString { cert in
+                                        var c = gdpc_session_config()
+                                        c.host = host
+                                        c.port = config.port
+                                        c.token = token
+                                        c.cert_sha256 = cert
+                                        c.codecs = codecs.baseAddress
+                                        c.codec_count = codecs.count
+                                        c.capabilities = caps.baseAddress
+                                        c.capability_count = caps.count
+                                        c.decoders = decoders.baseAddress
+                                        c.decoder_count = decoders.count
+                                        c.display_width = config.display?.width ?? 0
+                                        c.display_height = config.display?.height ?? 0
+                                        c.display_refresh_mhz = config.display?.refreshMillihertz ?? 0
+                                        c.display_scale = config.display?.scale ?? 0
+                                        c.take_over = config.takeOver
+                                        c.network_profile = config.networkProfile.rawValue
+                                        c.drop_until_keyframe_after_loss = config.dropUntilKeyframeAfterLoss
+                                        c.file_reply_timeout_ms = config.fileReplyTimeoutMilliseconds
+                                        c.client_name = clientName
+                                        return gdpc_session_connect(h, &c, &errorBuffer, errorBuffer.count)
+                                    }
                                 }
                             }
                         }

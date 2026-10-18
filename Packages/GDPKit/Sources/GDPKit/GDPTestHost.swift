@@ -56,6 +56,7 @@ public final class GDPTestHost: @unchecked Sendable {
         public var connected, helloReceived: Bool
         public var token: String
         public var codecs, capabilities, decoders: [String]
+        public var clientName: String
         public var takeOver, viaGateway: Bool
         public var networkProfile: Int32
         public var requestedWidth, requestedHeight: UInt32
@@ -435,7 +436,7 @@ public final class GDPTestHost: @unchecked Sendable {
         let lost = withUnsafeBytes(of: o.lost_frame_ids) { Array($0.bindMemory(to: UInt32.self)) }
         return Observed(
             connected: o.connected, helloReceived: o.hello_received, token: s(o.token), codecs: list(o.codecs),
-            capabilities: list(o.capabilities), decoders: list(o.decoders), takeOver: o.take_over,
+            capabilities: list(o.capabilities), decoders: list(o.decoders), clientName: s(o.client_name), takeOver: o.take_over,
             viaGateway: o.via_gateway, networkProfile: o.network_profile, requestedWidth: o.requested_width,
             requestedHeight: o.requested_height, accepted: o.accepted, acceptedCodec: s(o.accepted_codec),
             closed: o.closed, closeCode: o.close_code, statsReports: o.stats_reports, lastRTT: o.last_rtt_us,

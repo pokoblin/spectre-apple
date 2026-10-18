@@ -204,6 +204,7 @@ bool gdpc_session_connect(gdpc_session *session, const gdpc_session_config *c, c
 	config.codecs = strings(c->codecs, c->codec_count);
 	config.capabilities = strings(c->capabilities, c->capability_count);
 	config.decoders = strings(c->decoders, c->decoder_count);
+	config.client_name = c->client_name ? c->client_name : "";
 	config.display_width = c->display_width;
 	config.display_height = c->display_height;
 	config.display_refresh_mhz = c->display_refresh_mhz;
@@ -471,6 +472,7 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	copy_string(out->codecs, sizeof(out->codecs), join(o.codecs));
 	copy_string(out->capabilities, sizeof(out->capabilities), join(o.capabilities));
 	copy_string(out->decoders, sizeof(out->decoders), join(o.decoders));
+	copy_string(out->client_name, sizeof(out->client_name), o.client_name);
 	out->take_over = o.take_over;
 	out->via_gateway = o.via_gateway;
 	out->network_profile = o.network_profile;

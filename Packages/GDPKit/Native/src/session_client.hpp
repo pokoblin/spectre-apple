@@ -133,6 +133,7 @@ public:
 		std::vector<std::string> codecs;       // preference order (§6.6)
 		std::vector<std::string> capabilities; // §6.7; only those this client implements
 		std::vector<std::string> decoders;     // informational (§6.2)
+		std::string client_name;               // informational (§6.2): this machine's name
 		uint32_t display_width = 0;            // 0x0: keep the session's size
 		uint32_t display_height = 0;
 		uint32_t display_refresh_mhz = 0;

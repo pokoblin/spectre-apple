@@ -112,6 +112,7 @@ public:
 		std::vector<std::string> codecs;
 		std::vector<std::string> capabilities;
 		std::vector<std::string> decoders;
+		std::string client_name;
 		bool take_over = false;
 		bool via_gateway = false;
 		int32_t network_profile = 0;

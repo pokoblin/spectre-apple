@@ -238,6 +238,7 @@ typedef struct {
     int32_t network_profile;           // gdpc_network_profile
     bool drop_until_keyframe_after_loss; // §9.3
     uint32_t file_reply_timeout_ms;    // §7.12: 0 is the spec's 30 s
+    const char *client_name;           // informational (§6.2): this machine's name, or NULL
 } gdpc_session_config;
 
 // One output (§7.2). Colour fields hold session.proto's enum values; 0 is
@@ -546,6 +547,7 @@ typedef struct {
     char codecs[128];                // comma-separated, as offered
     char capabilities[128];
     char decoders[128];
+    char client_name[128];
     bool take_over;
     bool via_gateway;
     int32_t network_profile;
