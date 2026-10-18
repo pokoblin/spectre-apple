@@ -24,6 +24,27 @@ final class FakePasteboard: LocalPasteboard {
         copiedFiles = nil
         changeCount += 1
     }
+    /// A copy in the Files app (iOS): the names of what it copied.
+    var filesAppCopy: [String]?
+    /// Runs while the Files app's copy is being read (to copy something else meanwhile).
+    var whileReading: (() -> Void)?
+    var holdsCopiedFiles: Bool { filesAppCopy != nil }
+    func copyFilesApp(_ names: [String]) {
+        filesAppCopy = names
+        text = nil
+        changeCount += 1
+    }
+    func copyCopiedFiles(into directory: URL) async -> [URL]? {
+        guard let names = filesAppCopy else { return nil }
+        await Task.yield()
+        whileReading?()
+        return names.enumerated().map { index, name in
+            let url = directory.appending(path: "\(index)").appending(path: name)
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            FileManager.default.createFile(atPath: url.path(percentEncoded: false), contents: Data(name.utf8))
+            return url
+        }
+    }
     /// Files copied in the Finder: with their names as text, as it puts them.
     var copiedFiles: [URL]?
     func readFileURLs() -> [URL]? { copiedFiles }
@@ -36,6 +57,7 @@ final class FakePasteboard: LocalPasteboard {
     func copy(_ text: String?) {
         self.text = text
         copiedFiles = nil
+        filesAppCopy = nil
         changeCount += 1
     }
 }
@@ -293,6 +315,62 @@ struct ClipboardSyncTests {
         #expect(lists.isEmpty && sent().isEmpty)
     }
 
+    @Test func theFilesAppsCopyIsCopiedAndSentEvenInManualMode() async {
+        let pb = FakePasteboard()
+        let (sync, sent) = make(pb, automatic: false)
+        var lists: [[URL]] = []
+        var notices: [Bool] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        sync.onFilesSent = { notices.append($0) }
+        sync.answerTime = .seconds(60) // a busy test run is not someone answering
+        pb.copyFilesApp(["a.pdf", "Folder"])
+        sync.checkLocal()
+        #expect(await until { lists.count == 1 })
+        #expect(lists[0].map(\.lastPathComponent) == ["a.pdf", "Folder"])
+        #expect(lists[0].allSatisfy { FileManager.default.fileExists(atPath: $0.path(percentEncoded: false)) })
+        #expect(notices == [false] && sent().isEmpty)
+        // Text copied after: the list is taken back (in manual mode, an
+        // option on iOS only, the text isn't read).
+        pb.copy("words")
+        sync.checkLocal()
+        #expect(lists.count == 2 && lists[1].isEmpty)
+        #expect(sent() == (ClipboardSync.automaticIsOptional ? [] : ["words"]))
+        // The session ends: its copies go.
+        let folder = lists[0][0].deletingLastPathComponent().deletingLastPathComponent()
+        sync.stop()
+        #expect(!FileManager.default.fileExists(atPath: folder.path(percentEncoded: false)))
+    }
+
+    @Test func aCopyMadeWhileReadingWins() async {
+        let pb = FakePasteboard()
+        let (sync, _) = make(pb)
+        var lists: [[URL]] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        pb.whileReading = { pb.copy("newer") }
+        pb.copyFilesApp(["a.pdf"])
+        sync.checkLocal()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(lists.isEmpty)
+    }
+
+    @Test func onlyTheLatestCopiesAreKept() async {
+        let pb = FakePasteboard()
+        let (sync, _) = make(pb)
+        var lists: [[URL]] = []
+        sync.start()
+        sync.sendFiles = { lists.append($0) }
+        for n in 0..<(ClipboardSync.stagedCopiesKept + 2) {
+            pb.copyFilesApp(["f\(n)"])
+            sync.checkLocal()
+            #expect(await until { lists.count == n + 1 })
+        }
+        let exists = lists.map { FileManager.default.fileExists(atPath: $0[0].path(percentEncoded: false)) }
+        #expect(exists == [false, false] + Array(repeating: true, count: ClipboardSync.stagedCopiesKept))
+        sync.stop()
+    }
+
     @Test func theHostsCopyOrTextTakesTheListBack() {
         let pb = FakePasteboard()
         let (sync, _) = make(pb)
@@ -331,4 +409,14 @@ struct ClientNameTests {
         let name = ClientName.current()
         #expect(name.isEmpty || GDPSession.isValidFileName(name))
     }
+}
+
+/// Polls `condition` on the main actor until it holds, for up to 2 s.
+@MainActor
+private func until(_ condition: () -> Bool) async -> Bool {
+    for _ in 0..<200 {
+        if condition() { return true }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    return condition()
 }

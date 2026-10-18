@@ -294,6 +294,9 @@ final class PlaybackModel {
             .map { URL(filePath: arguments[$0 + 1]) }
         downloadsCopiedFiles = arguments.contains("--download-copied")
         hostFetchesCopied = arguments.contains("--host-fetch-copied")
+        #if os(iOS)
+        showsPasteSettingTip = arguments.contains("--show-paste-tip")
+        #endif
         shareOnAccept = arguments.indices.dropLast().filter { arguments[$0] == "--share-folder" }
             .map { URL(filePath: arguments[$0 + 1], directoryHint: .isDirectory) }
         #if os(iOS)
@@ -718,6 +721,9 @@ final class PlaybackModel {
                         print("clipboard: copied files \(urls.map(\.lastPathComponent))")
                         session?.setCopiedFiles(urls)
                     }
+                    #if os(iOS)
+                    clipboardSync?.onFilesSent = { [weak self] asked in self?.copiedFilesSent(asked: asked) }
+                    #endif
                 }
             }
             if accept.capabilities.contains(GDPSession.Capability.file), let session = remote.session {
@@ -1030,6 +1036,26 @@ final class PlaybackModel {
 
     /// The copied files to offer in a banner: not those on their way to
     /// the clipboard or on it, only if that didn't work out.
+    #if os(iOS)
+    /// Whether to suggest allowing pastes in Settings: once, after files
+    /// copied here first went to the host with the system asking first.
+    var showsPasteSettingTip = false
+    static let pasteSettingTipShownKey = "pasteSettingTipShown"
+
+    private func copiedFilesSent(asked: Bool) {
+        print("clipboard: copied files sent\(asked ? " (asked first)" : "")")
+        guard asked, !UserDefaults.standard.bool(forKey: Self.pasteSettingTipShownKey) else { return }
+        UserDefaults.standard.set(true, forKey: Self.pasteSettingTipShownKey)
+        showsPasteSettingTip = true
+    }
+
+    /// The tip's button: this app's page in Settings.
+    func openAppSettings() {
+        showsPasteSettingTip = false
+        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+    }
+    #endif
+
     var copiedFilesOffer: FileTransfers.HostFiles? {
         guard let list = copiedFiles else { return nil }
         if let fetch = files.clipboardFetch, fetch.listID == list.listID, fetch.state != .notOnClipboard { return nil }

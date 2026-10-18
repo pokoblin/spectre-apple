@@ -3618,6 +3618,34 @@
         }
       }
     },
+    "Open Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir Ajustes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开设置"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打開設定"
+          }
+        }
+      }
+    },
     "Open Toolbar" : {
       "localizations" : {
         "es" : {
@@ -7204,6 +7232,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "此主機無法傳送檔案夾。"
+          }
+        }
+      }
+    },
+    "To paste files on the host without being asked each time, set Paste from Other Apps to Allow in Spectre's settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para pegar archivos en el host sin que se te pregunte cada vez, pon Pegar desde otras apps en Permitir en los ajustes de Spectre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎回確認されずにホストへファイルをペーストするには、Spectre の設定で「ほかのAppからペースト」を「許可」にしてください。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想在主机上粘贴文件时不再每次询问，可以在 Spectre 的设置里把“从其他 App 粘贴”改为“允许”。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "想在主機上貼上檔案時不再每次詢問，可以在 Spectre 的設定中將「從其他 App 貼上」改為「允許」。"
           }
         }
       }

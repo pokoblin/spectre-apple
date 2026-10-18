@@ -174,6 +174,13 @@ struct TopNotices: View {
                 }
             }
             .allowsHitTesting(false)
+            #if os(iOS)
+            if model.showsPasteSettingTip {
+                PasteSettingTip(openSettings: model.openAppSettings) {
+                    withAnimation(.easeInOut(duration: 0.2)) { model.showsPasteSettingTip = false }
+                }
+            }
+            #endif
             if let files = model.copiedFilesOffer, files.listID == copiedOffer {
                 CopiedFilesBanner(files: files) {
                     model.downloadCopiedFiles()
@@ -196,6 +203,13 @@ struct TopNotices: View {
             guard let transfer = model.clipboard?.lastTransfer else { return }
             await show(transfer.direction, in: $clipboard, for: .seconds(2))
         }
+        #if os(iOS)
+        .task(id: model.showsPasteSettingTip) {
+            // A while, then out of the way: it is said once only.
+            guard model.showsPasteSettingTip, (try? await Task.sleep(for: .seconds(20))) != nil else { return }
+            withAnimation(.easeInOut(duration: 0.2)) { model.showsPasteSettingTip = false }
+        }
+        #endif
         .task(id: model.copiedFilesOffer?.listID) {
             // A new copy on the host (not put on the clipboard): offered for a while.
             guard let listID = model.copiedFilesOffer?.listID else { return }
@@ -218,6 +232,38 @@ struct TopNotices: View {
         withAnimation(.easeInOut(duration: 0.2)) { if slot.wrappedValue == value { slot.wrappedValue = nil } }
     }
 }
+
+#if os(iOS)
+/// Once, after files copied on the iPad first went to the host and iPadOS
+/// asked before Spectre could read them: where to stop it asking.
+private struct PasteSettingTip: View {
+    let openSettings: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Label {
+                Text("To paste files on the host without being asked each time, set Paste from Other Apps to Allow in Spectre's settings.")
+                    .fixedSize(horizontal: false, vertical: true)
+            } icon: {
+                Image(systemName: "doc.on.clipboard")
+            }
+            Button("Open Settings", action: openSettings)
+            Button(action: dismiss) {
+                Label("Dismiss", systemImage: "xmark")
+                    .labelStyle(.iconOnly)
+            }
+            .buttonStyle(.plain)
+        }
+        .font(.callout)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .frame(maxWidth: 560)
+        .glassEffect(.regular, in: .rect(cornerRadius: 22))
+        .transition(.opacity.combined(with: .move(edge: .top)))
+    }
+}
+#endif
 
 private struct Notice: View {
     let symbol: String

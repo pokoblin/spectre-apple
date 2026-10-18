@@ -5,6 +5,7 @@ import Observation
 import AppKit
 #else
 import UIKit
+import UniformTypeIdentifiers
 #endif
 
 /// Which clipboard text may cross, so that applying the peer's text is not
@@ -66,6 +67,18 @@ public protocol LocalPasteboard: AnyObject {
     /// The files copied in another app (the Finder), if that is what the
     /// clipboard holds; nil otherwise.
     func readFileURLs() -> [URL]?
+    /// Whether the clipboard holds what the Files app copied (iOS), without
+    /// reading it: no paste prompt.
+    var holdsCopiedFiles: Bool { get }
+    /// What the Files app copied, as copies of the app's own in `directory`
+    /// (iOS gives no access to the originals); the system asks the user
+    /// first unless pasting is allowed in Settings. Nil if nothing came.
+    func copyCopiedFiles(into directory: URL) async -> [URL]?
+}
+
+public extension LocalPasteboard {
+    var holdsCopiedFiles: Bool { false }
+    func copyCopiedFiles(into directory: URL) async -> [URL]? { nil }
 }
 
 /// One session's clipboard sync (gdp-spec.md §7.9, capability `clipboard`).
@@ -82,7 +95,10 @@ public protocol LocalPasteboard: AnyObject {
 /// With ``sendFiles`` (`file-clipboard`, §7.12), files copied here go to the
 /// host as a list of copied files, to paste there, instead of their names
 /// as text; the host reads them as the paste wants them. When the clipboard
-/// stops holding them the list is taken back.
+/// stops holding them the list is taken back. On iOS, what the Files app
+/// copies is read whether or not text goes automatically (the system asks
+/// each time, unless allowed in Settings), into copies of the app's own:
+/// the latest few, while the session lasts.
 @MainActor
 @Observable
 public final class ClipboardSync: CopiedFilesClipboard {
@@ -109,6 +125,22 @@ public final class ClipboardSync: CopiedFilesClipboard {
     @ObservationIgnored public var ownFiles: URL?
     /// Whether the host holds a list of files copied here.
     @ObservationIgnored private var filesShared = false
+    /// Called once files copied here have gone to the host: `asked` if the
+    /// system seems to have shown its paste prompt first (the app was
+    /// interrupted, or a small copy took long enough for someone to answer).
+    @ObservationIgnored public var onFilesSent: ((_ asked: Bool) -> Void)?
+    /// Where copies of what the Files app copied wait for the host: this
+    /// sync's own folder, and the folders of its latest copies, oldest first.
+    @ObservationIgnored private let stagingFolder = ClipboardSync.stagingRoot
+        .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+    @ObservationIgnored private var staged: [URL] = []
+    @ObservationIgnored private var isStaging = false
+    /// The host keeps answering a few earlier lists (§7.12): their copies stay as long.
+    static let stagedCopiesKept = 5
+    static let stagingRoot = FileManager.default.temporaryDirectory
+        .appending(path: "Copied Files", directoryHint: .isDirectory)
+    /// What a run before this one left there goes once, with the first sync.
+    private static let stagingCleared: Void = { try? FileManager.default.removeItem(at: stagingRoot) }()
 
     /// Whether local changes are found and sent without the user asking.
     /// Always on the Mac; on iOS a choice, off by default (the paste prompt).
@@ -149,6 +181,7 @@ public final class ClipboardSync: CopiedFilesClipboard {
         self.defaults = defaults
         sendText = send
         seenChangeCount = pasteboard.changeCount
+        _ = Self.stagingCleared
         isEnabled = defaults.bool(forKey: Self.enabledKey)
         sendsAutomatically = Self.automaticIsOptional ? defaults.bool(forKey: Self.sendsAutomaticallyKey) : true
     }
@@ -166,9 +199,20 @@ public final class ClipboardSync: CopiedFilesClipboard {
     /// Looks for a local change and sends it. Cheap when nothing changed: it
     /// reads only the change count.
     public func checkLocal() {
-        guard isWatching, isEnabled, sendsAutomatically else { return }
+        guard isWatching, isEnabled else { return }
         let count = pasteboard.changeCount
         guard count != seenChangeCount else { return }
+        if sendFiles != nil, pasteboard.holdsCopiedFiles {
+            guard !isStaging else { return } // looked at again once that is done
+            seenChangeCount = count
+            stageCopiedFiles(count)
+            return
+        }
+        guard sendsAutomatically else {
+            // Not read; but the files the host was told about are gone.
+            takeBackFiles()
+            return
+        }
         seenChangeCount = count
         if let sendFiles, let urls = pasteboard.readFileURLs(), !urls.isEmpty {
             let own = ownFiles.map { $0.resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false) }
@@ -189,6 +233,46 @@ public final class ClipboardSync: CopiedFilesClipboard {
         guard pasteboard.hasText, let text = pasteboard.readText(), filter.shouldSend(text) else { return }
         sendText(text)
         noteTransfer(.toHost)
+    }
+
+    /// Copies what the Files app copied, then lists it to the host, unless
+    /// something else was copied meanwhile.
+    private func stageCopiedFiles(_ count: Int) {
+        isStaging = true
+        let directory = stagingFolder.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        let interrupted = Interruption()
+        let started = ContinuousClock.now
+        Task { @MainActor in
+            let urls = await pasteboard.copyCopiedFiles(into: directory)
+            interrupted.stop()
+            let took = ContinuousClock.now - started
+            isStaging = false
+            guard isWatching, isEnabled, let sendFiles, pasteboard.changeCount == count, let urls else {
+                try? FileManager.default.removeItem(at: directory)
+                return
+            }
+            staged.append(directory)
+            while staged.count > Self.stagedCopiesKept { try? FileManager.default.removeItem(at: staged.removeFirst()) }
+            sendFiles(urls)
+            filesShared = true
+            filter.reset()
+            noteTransfer(.toHost)
+            onFilesSent?(interrupted.happened || (took > answerTime && Self.size(of: directory) < Self.smallCopy))
+        }
+    }
+
+    /// Longer than copying a small copy takes, unless someone was asked.
+    @ObservationIgnored var answerTime: Duration = .seconds(1.5)
+    static let smallCopy: UInt64 = 50_000_000
+
+    /// How much is in `folder`, all told.
+    private static func size(of folder: URL) -> UInt64 {
+        let files = FileManager.default.enumerator(at: folder, includingPropertiesForKeys: [.fileSizeKey])
+        var total: UInt64 = 0
+        while let url = files?.nextObject() as? URL {
+            total += UInt64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
+        }
+        return total
     }
 
     /// The clipboard no longer holds the files the host was told about.
@@ -274,9 +358,11 @@ public final class ClipboardSync: CopiedFilesClipboard {
 
     public func stop() {
         isWatching = false
-        // The session's lists go with it.
+        // The session's lists go with it, and the copies made for them.
         filesShared = false
         sendFiles = nil
+        staged = []
+        try? FileManager.default.removeItem(at: stagingFolder)
         pollTimer?.invalidate()
         pollTimer = nil
         observers.forEach(NotificationCenter.default.removeObserver)
@@ -345,7 +431,73 @@ public final class SystemPasteboard: LocalPasteboard {
     public func readText() -> String? { pasteboard.string }
     public func writeText(_ text: String) { pasteboard.string = text }
     public func writeFiles(_ urls: [URL]) { pasteboard.urls = urls }
-    /// Not yet on iOS: what the Files app copies comes as item providers.
+    /// Nothing: what the Files app copies comes as item providers, see ``copyCopiedFiles(into:)``.
     public func readFileURLs() -> [URL]? { nil }
+
+    /// The Files app marks its copies with these types; reading the types asks nothing.
+    public var holdsCopiedFiles: Bool {
+        pasteboard.types.contains { $0.hasPrefix("com.apple.DocumentManager.FINode") }
+    }
+
+    public func copyCopiedFiles(into directory: URL) async -> [URL]? {
+        var urls: [URL] = []
+        for (index, provider) in pasteboard.itemProviders.enumerated() {
+            guard let type = Self.fileType(of: provider) else { continue }
+            // A folder each: two copies can have the same name.
+            let place = directory.appending(path: "\(index)", directoryHint: .isDirectory)
+            if let url = await Self.copy(provider, as: type, into: place) { urls.append(url) }
+        }
+        return urls.isEmpty ? nil : urls
+    }
+
+    /// The type to read an item as: a folder, or the file's own type (not the Files app's markers).
+    private static func fileType(of provider: NSItemProvider) -> String? {
+        let types = provider.registeredTypeIdentifiers
+        if types.contains(UTType.folder.identifier) { return UTType.folder.identifier }
+        return types.first { id in
+            !id.hasPrefix("com.apple.DocumentManager.") && id != "com.apple.uikit.useractivity"
+                && UTType(id)?.conforms(to: .item) == true
+        }
+    }
+
+    /// The system's copy goes when its handler returns: moved (the same
+    /// volume, so at once) into `place` first.
+    private static func copy(_ provider: NSItemProvider, as type: String, into place: URL) async -> URL? {
+        await withCheckedContinuation { continuation in
+            _ = provider.loadFileRepresentation(forTypeIdentifier: type) { url, _ in
+                guard let url else { return continuation.resume(returning: nil) }
+                do {
+                    try FileManager.default.createDirectory(at: place, withIntermediateDirectories: true)
+                    let target = place.appending(path: url.lastPathComponent)
+                    try FileManager.default.moveItem(at: url, to: target)
+                    continuation.resume(returning: target)
+                } catch {
+                    continuation.resume(returning: nil)
+                }
+            }
+        }
+    }
 }
 #endif
+
+/// Whether the app stopped being active between this being made and
+/// ``stop()``: on iOS, the sign that the system showed its paste prompt.
+@MainActor
+private final class Interruption {
+    private(set) var happened = false
+    private var observer: NSObjectProtocol?
+
+    init() {
+        #if os(iOS)
+        observer = NotificationCenter.default.addObserver(forName: UIApplication.willResignActiveNotification,
+                                                          object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.happened = true }
+        }
+        #endif
+    }
+
+    func stop() {
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil
+    }
+}
