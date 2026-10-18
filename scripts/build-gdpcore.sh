@@ -71,6 +71,7 @@ build_platform() {
 		-DVCPKG_INSTALLED_DIR="$installed" \
 		-DVCPKG_TARGET_TRIPLET="$triplet" \
 		-DVCPKG_HOST_TRIPLET="$HOST_TRIPLET" \
+		-DGHOST_ENABLE_FUSE=OFF \
 		>"$ROOT/build/logs/cmake-$platform.log" 2>&1 \
 		|| die "cmake configure failed, see build/logs/cmake-$platform.log"
 	cmake --build "$dir/cmake" --target gdpcore >>"$ROOT/build/logs/cmake-$platform.log" 2>&1 \
