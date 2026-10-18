@@ -207,6 +207,7 @@ public:
 		uint32_t listings_refused = 0;
 		uint32_t client_file_lists = 0;   // FileLists from the viewer (file-clipboard)
 		uint32_t fetch_answers = 0;       // answering streams opened by the viewer
+		uint32_t share_messages = 0;      // FileShare from the viewer (file-share)
 
 		uint32_t frames_sent = 0;
 		uint32_t next_frame_id = 0;
@@ -296,6 +297,8 @@ public:
 	// The viewer's latest FileList (file-clipboard): its id, and an entry per
 	// line, "parent name", with "/" after a folder and "?" after an unlisted one.
 	std::string client_file_list(uint64_t *list_id) const;
+	// The folders the viewer shares (file-share), one per line: "id name".
+	std::string client_shares() const;
 
 private:
 	struct Impl;

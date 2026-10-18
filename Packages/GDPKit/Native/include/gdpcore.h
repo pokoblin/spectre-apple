@@ -477,6 +477,13 @@ uint64_t gdpc_session_request_listing(gdpc_session *session, uint64_t list_id, u
 // The host then reads them through file_serve. Ignored without
 // file-clipboard in effect; a later call wins over one still being listed.
 void gdpc_session_set_copied_files(gdpc_session *session, const char *const *paths, size_t count);
+// file-share: shares the folder at `path` with the host, read-only, as
+// `name` (§7.12's name rules), until gdpc_session_unshare_folder() or the
+// connection ends; hidden files in it are left out unless `include_hidden`.
+// The host reads it through file_serve. Returns its id; 0 without
+// file-share in effect, for a bad name, or a path that isn't a folder.
+uint64_t gdpc_session_share_folder(gdpc_session *session, const char *path, const char *name, bool include_hidden);
+void gdpc_session_unshare_folder(gdpc_session *session, uint64_t share_id);
 // `len` bytes of a fetch's file_data are stored: the host may send more.
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len);
 // §7.12's name rules: valid UTF-8, 1-255 bytes, no '/', '\\' or control
@@ -680,6 +687,7 @@ typedef struct {
     uint32_t listings_refused;
     uint32_t client_file_lists;      // FileLists from the viewer (file-clipboard)
     uint32_t fetch_answers;          // answering streams the viewer opened
+    uint32_t share_messages;         // FileShare from the viewer (file-share)
 } gdpc_test_host_observed;
 
 gdpc_test_host *gdpc_test_host_create(const gdpc_test_host_config *config, char *error, size_t error_cap);
@@ -754,6 +762,8 @@ void gdpc_test_host_reset_fetch(gdpc_test_host *host, uint64_t fetch_id);
 // after a folder, "?" after an unlisted one. Returns the length (copies at
 // most cap - 1, NUL-terminated).
 size_t gdpc_test_host_client_file_list(const gdpc_test_host *host, uint64_t *list_id, char *out, size_t cap);
+// The folders the viewer shares (file-share): one per line, "id name".
+size_t gdpc_test_host_client_shares(const gdpc_test_host *host, char *out, size_t cap);
 void gdpc_test_host_close(gdpc_test_host *host, uint64_t code);
 // Whether a keyframe was asked for (KeyframeRequest or a newly reported
 // loss) since the last call.

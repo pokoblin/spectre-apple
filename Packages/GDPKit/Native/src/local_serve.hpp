@@ -38,3 +38,22 @@ void nfc_names(gdp::session::FileList *list);
 void nfc_names(gdp::session::FileListing *listing);
 
 } // namespace gdpcore
+
+namespace gdpcore {
+
+// A shared folder's path (§7.12: '/'-separated parts, "" for the folder
+// itself) opened beneath `root` (a folder's descriptor), one part at a
+// time and never through a symbolic link, so nothing outside it can be
+// reached; a part that breaks the name rules or is empty, ".", "..", a
+// link, or (unless `include_hidden`) hidden is GONE. `folder`: what it
+// names must be a folder, else a regular file.
+OpenedFile open_beneath(int root, const std::string &path, bool folder, bool include_hidden);
+
+// What is in the folder open as `fd` (not consumed): regular files and
+// folders with usable names, NFC, sorted, no symbolic links, hidden ones
+// only with `include_hidden`. As a shared folder's listing (§7.12), in
+// frames within `frame_budget` bytes; its folders are `unlisted` (the host
+// asks for each as it is opened) and nothing has an index.
+std::vector<gdp::session::FileListing> list_shared_folder(int fd, bool include_hidden, size_t frame_budget);
+
+} // namespace gdpcore

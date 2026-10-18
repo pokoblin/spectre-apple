@@ -719,6 +719,23 @@ public final class GDPSession: @unchecked Sendable {
         async { h in withCStrings(paths) { gdpc_session_set_copied_files(h, $0.baseAddress, $0.count) } }
     }
 
+    /// With ``Capability/fileShare``: shares the folder at `folder` with the
+    /// host, read-only, as `name`, until ``unshareFolder(_:)`` or the
+    /// connection's end (§7.12). The host reads it through
+    /// ``Handlers/fileServe``; hidden files are left out unless
+    /// `includeHidden`. Nil without it in effect, for a name the host can't
+    /// take, or a folder that can't be opened.
+    public func shareFolder(_ folder: URL, name: String, includeHidden: Bool = false) -> UInt64? {
+        let path = folder.path(percentEncoded: false)
+        return onQueue {
+            guard let handle, !ended else { return nil }
+            let id = path.withCString { p in name.withCString { gdpc_session_share_folder(handle, p, $0, includeHidden) } }
+            return id == 0 ? nil : id
+        }
+    }
+
+    public func unshareFolder(_ id: UInt64) { async { gdpc_session_unshare_folder($0, id) } }
+
     /// With ``Capability/fileClipboard``: what is in folder `index` of the
     /// host's list `listID`, through ``Handlers/fileListing`` and
     /// ``Handlers/fileFinished``. Nil before establishment or without it.

@@ -15,6 +15,7 @@
 #include "session.pb.h"
 
 #include <algorithm>
+#include <fcntl.h>
 #include <unistd.h>
 #include <cmath>
 
@@ -151,6 +152,7 @@ void SessionClient::report_closed(uint64_t c, const std::string &reason, bool co
 	// Every transfer still going ends with the connection, reported first.
 	while (!files_.empty()) finish_file(files_.begin()->second.get(), FileOutcome::kLost);
 	copied_lists_.clear();
+	shares_.clear();
 	if (cb_.closed) cb_.closed(c, reason, certificate_rejected(), connection_lost);
 }
 
@@ -319,6 +321,8 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	// §7.12: only with what it builds on, whatever the host lists.
 	file_clipboard_ = file_ && clipboard_ &&
 		std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFileClipboard) != capabilities_.end();
+	file_share_ = file_ &&
+		std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFileShare) != capabilities_.end();
 	refine_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityRefine) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
@@ -1075,8 +1079,12 @@ void SessionClient::forget_copied_lists() {
 
 void SessionClient::handle_fetch(const gdp::session::FileFetch &fetch) {
 	// §6.7: nothing of a capability not in effect.
-	if (!file_clipboard_) return;
+	if (!file_clipboard_ && !file_share_) return;
 	uint64_t fetch_id = fetch.fetch_id();
+	if (fetch.share_id() && file_share_) {
+		handle_share_fetch(fetch);
+		return;
+	}
 	auto it = copied_lists_.find(fetch.list_id());
 	if (fetch.share_id() || it == copied_lists_.end() || fetch.index() >= it->second.list.size()) {
 		answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
@@ -1236,4 +1244,83 @@ void SessionClient::answer_bytes(uint64_t fetch_id, int fd, uint64_t file_size, 
 	cb_.file_serve(id, fd, start, size);
 }
 
+// --- Folders shared with the host (§7.12, file-share) ---
+
+SessionClient::SharedRoot::~SharedRoot() {
+	::close(fd);
+}
+
+uint64_t SessionClient::share_folder(const std::string &path, const std::string &name, bool include_hidden) {
+	std::string wire = nfc(name);
+	if (!accepted_ || !file_share_ || !gdp::valid_file_name(wire)) return 0;
+	// The folder the user picked: wherever a link the path goes through leads.
+	int fd = ::open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+	if (fd < 0) return 0;
+	uint64_t share_id = next_share_id_++;
+	shares_[share_id] = SharedFolder{std::make_shared<SharedRoot>(fd), wire, include_hidden};
+	gdp::session::ControlEnvelope env;
+	env.mutable_file_share()->set_share_id(share_id);
+	env.mutable_file_share()->set_name(wire);
+	send_control(env);
+	return share_id;
+}
+
+void SessionClient::unshare_folder(uint64_t share_id) {
+	if (!shares_.erase(share_id) || !accepted_) return;
+	gdp::session::ControlEnvelope env;
+	env.mutable_file_share()->set_share_id(share_id);
+	env.mutable_file_share()->set_removed(true);
+	send_control(env);
+}
+
+void SessionClient::handle_share_fetch(const gdp::session::FileFetch &fetch) {
+	uint64_t fetch_id = fetch.fetch_id(), share_id = fetch.share_id();
+	auto it = shares_.find(share_id);
+	if (it == shares_.end()) {
+		answer_refused(fetch_id, gdp::session::FILE_ERROR_GONE);
+		return;
+	}
+	std::shared_ptr<SharedRoot> root = it->second.root;
+	bool include_hidden = it->second.include_hidden;
+	std::string path = fetch.path();
+	std::string name = path.empty() ? it->second.name : path.substr(path.rfind('/') + 1);
+	if (fetch.listing()) {
+		struct Listing {
+			int32_t error = 0;
+			std::vector<gdp::session::FileListing> frames;
+		};
+		worker_.run<std::shared_ptr<Listing>>(
+			[root, path, include_hidden] {
+				auto out = std::make_shared<Listing>();
+				OpenedFile folder = open_beneath(root->fd, path, true, include_hidden);
+				out->error = folder.error;
+				if (folder.fd >= 0) {
+					out->frames = list_shared_folder(folder.fd, include_hidden, gdp::kFileListBudgetBytes);
+					::close(folder.fd);
+				}
+				return out;
+			},
+			[this, fetch_id, share_id](std::shared_ptr<Listing> listing) {
+				if (!accepted_) return;
+				if (listing->error || !shares_.count(share_id)) {
+					answer_refused(fetch_id, listing->error ? listing->error : gdp::session::FILE_ERROR_GONE);
+					return;
+				}
+				answer_listing(fetch_id, std::move(listing->frames));
+			});
+		return;
+	}
+	uint64_t offset = fetch.offset(), length = fetch.length();
+	worker_.run<OpenedFile>([root, path, include_hidden] { return open_beneath(root->fd, path, false, include_hidden); },
+		[this, fetch_id, share_id, offset, length, name](OpenedFile file) {
+			if (!accepted_ || file.error || !shares_.count(share_id)) {
+				if (file.fd >= 0) ::close(file.fd);
+				if (accepted_) answer_refused(fetch_id, file.error ? file.error : gdp::session::FILE_ERROR_GONE);
+				return;
+			}
+			answer_bytes(fetch_id, file.fd, file.size, file.modified_unix_ms, offset, length, name);
+		});
+}
+
 } // namespace gdpcore
+

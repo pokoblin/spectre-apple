@@ -141,6 +141,8 @@ public final class GDPTestHost: @unchecked Sendable {
         public var listingsRequested, listingsRefused: UInt32
         /// FileLists from the viewer, and the answering streams it opened.
         public var clientFileLists, fetchAnswers: UInt32
+        /// FileShare messages from the viewer.
+        public var shareMessages: UInt32
     }
 
     /// A file the host saved (§7.12).
@@ -456,6 +458,19 @@ public final class GDPTestHost: @unchecked Sendable {
         return (listID, text(out).split(separator: "\n").map(String.init))
     }
 
+    /// The folders the viewer shares (file-share), by id.
+    public var clientShares: [UInt64: String] {
+        let length = gdpc_test_host_client_shares(handle, nil, 0)
+        var out = [CChar](repeating: 0, count: length + 1)
+        _ = out.withUnsafeMutableBufferPointer { gdpc_test_host_client_shares(handle, $0.baseAddress, $0.count) }
+        var shares: [UInt64: String] = [:]
+        for line in text(out).split(separator: "\n") {
+            let parts = line.split(separator: " ", maxSplits: 1)
+            if parts.count == 2, let id = UInt64(parts[0]) { shares[id] = String(parts[1]) }
+        }
+        return shares
+    }
+
     public func sendFileList(_ files: [URL]) {
         withCStrings(files.map { $0.path(percentEncoded: false) }) {
             gdpc_test_host_send_file_list(handle, $0.baseAddress, $0.count)
@@ -565,7 +580,8 @@ public final class GDPTestHost: @unchecked Sendable {
             lastFileName: s(o.last_file_name), fileListsSent: o.file_lists_sent, fileListID: o.file_list_id,
             filesRequested: o.files_requested, filesServed: o.files_served,
             fileRequestsRefused: o.file_requests_refused, listingsRequested: o.listings_requested,
-            listingsRefused: o.listings_refused, clientFileLists: o.client_file_lists, fetchAnswers: o.fetch_answers)
+            listingsRefused: o.listings_refused, clientFileLists: o.client_file_lists, fetchAnswers: o.fetch_answers,
+            shareMessages: o.share_messages)
     }
 }
 

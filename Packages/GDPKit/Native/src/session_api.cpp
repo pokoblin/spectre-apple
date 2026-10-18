@@ -308,6 +308,14 @@ void gdpc_session_set_copied_files(gdpc_session *session, const char *const *pat
 	session->client.set_copied_files(strings(paths, count));
 }
 
+uint64_t gdpc_session_share_folder(gdpc_session *session, const char *path, const char *name, bool include_hidden) {
+	return path && name ? session->client.share_folder(path, name, include_hidden) : 0;
+}
+
+void gdpc_session_unshare_folder(gdpc_session *session, uint64_t share_id) {
+	session->client.unshare_folder(share_id);
+}
+
 void gdpc_session_consume_file_data(gdpc_session *session, uint64_t id, size_t len) {
 	session->client.consume_file_data(id, len);
 }
@@ -541,6 +549,12 @@ size_t gdpc_test_host_client_file_list(const gdpc_test_host *host, uint64_t *lis
 	return lines.size();
 }
 
+size_t gdpc_test_host_client_shares(const gdpc_test_host *host, char *out, size_t cap) {
+	std::string lines = host->host.client_shares();
+	if (out && cap) copy_string(out, cap, lines);
+	return lines.size();
+}
+
 void gdpc_test_host_send_file_list(gdpc_test_host *host, const char *const *paths, size_t count) {
 	host->host.send_file_list(strings(paths, count));
 }
@@ -644,6 +658,7 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->listings_refused = o.listings_refused;
 	out->client_file_lists = o.client_file_lists;
 	out->fetch_answers = o.fetch_answers;
+	out->share_messages = o.share_messages;
 	out->touches = o.touches;
 	out->input_before_accept = o.input_before_accept;
 

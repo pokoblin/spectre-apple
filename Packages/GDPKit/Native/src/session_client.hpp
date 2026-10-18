@@ -307,6 +307,14 @@ public:
 	// The list is made off this thread (worker_fd()); a newer call wins.
 	void set_copied_files(const std::vector<std::string> &paths);
 
+	// file-share: shares the folder at `path` (UTF-8) with the host,
+	// read-only, as `name`, until unshare_folder() or the connection's end
+	// (§7.12). Hidden files in it are left out unless `include_hidden`.
+	// Returns its id; 0 without file-share in effect, for a bad name, or a
+	// path that isn't a folder.
+	uint64_t share_folder(const std::string &path, const std::string &name, bool include_hidden);
+	void unshare_folder(uint64_t share_id);
+
 	// Disk work for the host's requests runs on a thread of its own: call
 	// dispatch_worker() whenever worker_fd() is readable.
 	int worker_fd() const { return worker_.notify_fd(); }
@@ -371,8 +379,9 @@ private:
 		const std::string &saved_directory = {});
 	// Offers the host hasn't answered in time.
 	void expire_file_offers();
-	// file-clipboard: the host asks for one of this side's files.
+	// file-clipboard, file-share: the host asks for one of this side's files.
 	void handle_fetch(const gdp::session::FileFetch &fetch);
+	void handle_share_fetch(const gdp::session::FileFetch &fetch);
 	// A new file stream answering fetch `fetch_id`, its StreamOpen sent;
 	// null if there can't be one.
 	std::unique_ptr<gdp::Stream> open_answer(uint64_t fetch_id, size_t *open_frame_len = nullptr);
@@ -415,6 +424,7 @@ private:
 	bool gamepad_ = false;                  // `gamepad` among them
 	bool file_ = false;                     // `file` among them
 	bool file_clipboard_ = false;           // `file-clipboard` among them (with `file` and `clipboard`)
+	bool file_share_ = false;               // `file-share` among them (with `file`)
 	bool refine_ = false;                   // `refine` among them
 	bool refine_paused_ = false;            // what the user wants, across connections
 	// The latest frame's layer, reused frame to frame.
@@ -433,6 +443,22 @@ private:
 	std::map<uint64_t, CopiedList> copied_lists_;
 	uint64_t next_list_id_ = 1;
 	uint64_t copied_generation_ = 0; // set_copied_files() calls, so a stale build is dropped
+	// file-share: the folders shared, by id, each held open: what a request
+	// names is opened beneath it, wherever it has been moved to since.
+	struct SharedRoot {
+		explicit SharedRoot(int fd) : fd(fd) {}
+		~SharedRoot();
+		SharedRoot(const SharedRoot &) = delete;
+		SharedRoot &operator=(const SharedRoot &) = delete;
+		int fd;
+	};
+	struct SharedFolder {
+		std::shared_ptr<SharedRoot> root;
+		std::string name;
+		bool include_hidden = false;
+	};
+	std::map<uint64_t, SharedFolder> shares_;
+	uint64_t next_share_id_ = 1;
 
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}

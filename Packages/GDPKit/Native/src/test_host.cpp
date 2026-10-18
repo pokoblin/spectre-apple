@@ -51,6 +51,7 @@ struct TestHost::Impl {
 		bool clipboard = false; // `clipboard` in effect
 		bool file = false;      // `file` in effect
 		bool file_clipboard = false; // `file-clipboard` in effect (with `file` and `clipboard`)
+		bool file_share = false;     // `file-share` in effect (with `file`)
 		bool refine = false;    // `refine` in effect: every payload a container (§9.5)
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
@@ -102,6 +103,7 @@ struct TestHost::Impl {
 	std::string client_list;
 	uint64_t client_list_id = 0;
 	std::map<uint64_t, FetchResult> fetches;
+	std::map<uint64_t, std::string> client_shares; // the viewer's shared folders, by id
 	uint64_t next_fetch_id = 1;
 
 	mutable std::mutex mu; // guards `obs`, `microphone_log` and `keyframe_wanted`
@@ -291,8 +293,10 @@ struct TestHost::Impl {
 			if (c == gdp::kCapabilityFile) p.file = true;
 			if (c == gdp::kCapabilityRefine) p.refine = true;
 			if (c == gdp::kCapabilityFileClipboard) p.file_clipboard = true;
+			if (c == gdp::kCapabilityFileShare) p.file_share = true;
 		}
 		p.file_clipboard = p.file_clipboard && p.file && p.clipboard;
+		p.file_share = p.file_share && p.file;
 		if (p.microphone) {
 			auto *m = accept->mutable_microphone();
 			m->set_sample_rate_hz(cfg.microphone_sample_rate_hz);
@@ -468,6 +472,18 @@ struct TestHost::Impl {
 			obs.client_file_lists++;
 			client_list = lines;
 			client_list_id = env.file_list().list_id();
+			break;
+		}
+		case E::kFileShare: {
+			if (!p.file_share) break;
+			const auto &share = env.file_share();
+			std::lock_guard lock(mu);
+			obs.share_messages++;
+			if (share.removed()) {
+				client_shares.erase(share.share_id());
+			} else {
+				client_shares[share.share_id()] = share.name();
+			}
 			break;
 		}
 		case E::kClipboard: {
@@ -1187,6 +1203,13 @@ bool TestHost::fetch_result(uint64_t fetch_id, FetchResult *out) const {
 
 void TestHost::reset_fetch(uint64_t fetch_id) {
 	impl_->post([m = impl_.get(), fetch_id] { m->reset_answer(fetch_id); });
+}
+
+std::string TestHost::client_shares() const {
+	std::lock_guard lock(impl_->mu);
+	std::string lines;
+	for (const auto &[id, name] : impl_->client_shares) lines += std::to_string(id) + " " + name + "\n";
+	return lines;
 }
 
 std::string TestHost::client_file_list(uint64_t *list_id) const {
