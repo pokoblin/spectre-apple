@@ -62,7 +62,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
 - A toolbar with a **Files** menu, the list of transfers, clipboard sharing, mouse capture and mute, with the round trip and frame rate in its subtitle.
 - A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key in a session's window reaches the remote desktop.
-- **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): defaults for full screen, the clipboard, sound, resolution, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
+- **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): light or dark windows, the language (Spectre's windows change at once), whether sessions open in full screen, defaults for the toolbar in full screen, the clipboard, sound, resolution, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
 
 **On iPad and iPhone**
 
@@ -72,7 +72,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Pinch to magnify, or **Fill Screen**; the magnified picture follows the pointer.
 - Region alerts: watch part of the screen, such as a terminal, and be told when it stops or starts changing.
 
-**Languages:** English, Simplified Chinese, Traditional Chinese, Japanese and Spanish.
+**Languages:** English, Simplified Chinese, Traditional Chinese, Japanese, Korean, Spanish, French, German, Brazilian Portuguese and Russian. On the Mac, **Settings › General › Language** picks one for Spectre alone; on iPad and iPhone, **Settings › Apps › Spectre › Language**.
 
 **Not done yet:** sending your microphone to the host (written, turned off for now), and checking CA-issued certificates on iOS.
 

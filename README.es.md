@@ -62,7 +62,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
 - Una barra de herramientas con el menú **Archivos**, la lista de transferencias, el portapapeles compartido, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en el subtítulo.
 - Un menú **Session** para los archivos, las carpetas compartidas, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se queda. Sin atajos nuevos, así que en la ventana de una sesión todas las teclas llegan al escritorio remoto.
-- **Ajustes** (Spectre › Ajustes…, o Cmd+, fuera de la ventana de una sesión): los valores predeterminados de pantalla completa, portapapeles, sonido, resolución, refinamiento sin pérdidas, PyroWave y mandos, y los servidores de confianza. Un cambio ahí también se aplica a las sesiones abiertas.
+- **Ajustes** (Spectre › Ajustes…, o Cmd+, fuera de la ventana de una sesión): ventanas claras u oscuras, el idioma (las ventanas de Spectre cambian al momento), si las sesiones se abren en pantalla completa, y los valores predeterminados de la barra de herramientas en pantalla completa, portapapeles, sonido, resolución, refinamiento sin pérdidas, PyroWave y mandos, y los servidores de confianza. Un cambio ahí también se aplica a las sesiones abiertas.
 
 **En iPad y iPhone**
 
@@ -72,7 +72,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Pellizca para ampliar la imagen, o usa **Llenar la pantalla**; ampliada, la imagen sigue al puntero.
 - Avisos de región: vigila una parte de la pantalla, como un terminal, y recibe un aviso cuando deja de cambiar o empieza a cambiar.
 
-**Idiomas:** inglés, chino simplificado, chino tradicional, japonés y español.
+**Idiomas:** inglés, chino simplificado, chino tradicional, japonés, coreano, español, francés, alemán, portugués (Brasil) y ruso. En el Mac, **Ajustes › General › Idioma** elige uno solo para Spectre; en el iPad y el iPhone, **Ajustes › Apps › Spectre › Idioma**.
 
 **Pendiente:** enviar tu micrófono al host (escrito, desactivado por ahora), y comprobar en iOS los certificados emitidos por una autoridad de certificación.
 
