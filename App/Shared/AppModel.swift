@@ -77,7 +77,7 @@ final class AppModel {
     private(set) var hosts: [SavedHost] = []
     /// The host being signed in to: the home screen's login sheet is up while it is set.
     var loginHost: SavedHost.ID?
-    /// The trusted servers sheet is up (the Mac's app menu opens it too).
+    /// The trusted servers sheet is up (iPad and iPhone; the Mac has them in Settings).
     var showsTrustedServers = false
     /// The host of the session, or of the one that last ended (whose
     /// ending the home screen says).
@@ -97,6 +97,11 @@ final class AppModel {
         }
         wire(login)
         loadHosts()
+        // Signing in trusts and forgets pins too, while the Mac's Settings may list them.
+        trustObserver = NotificationCenter.default.addObserver(forName: KnownHosts.didChange, object: login.knownHosts,
+                                                               queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.trustedRevision += 1 }
+        }
     }
 
     /// A login whose redirect opens a session.
@@ -352,14 +357,14 @@ final class AppModel {
 
     /// The servers whose certificate the user trusted (docs/login.md).
     var trustedServers: [KnownHosts.Pin] { _ = trustedRevision; return login.knownHosts.all }
-    /// Bumped when a pin is forgotten here, so the list redraws.
+    /// Bumped when a pin is trusted or forgotten, so the list redraws.
     private var trustedRevision = 0
+    @ObservationIgnored private var trustObserver: (any NSObjectProtocol)?
 
     /// Forgets a trusted server's fingerprint: its next connection asks again
     /// (§2.3). Its recent login and saved password stay.
     func forgetTrusted(_ pin: KnownHosts.Pin) {
         login.knownHosts.forget(pin.server)
-        trustedRevision += 1
     }
 
     private func remember(_ entry: RecentLogin) {

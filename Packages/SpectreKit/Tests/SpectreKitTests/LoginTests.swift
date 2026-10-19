@@ -62,6 +62,26 @@ struct KnownHostsTests {
         known.forget(v6)
         #expect(KnownHosts(file: file).all == [.init(server: ServerAddress(host: "ghost.example"), fingerprint: a)])
     }
+
+    /// The Mac's Settings lists the pins while signing in trusts or forgets
+    /// one: each change says so.
+    @Test func trustingOrForgettingIsAnnounced() throws {
+        let file = FileManager.default.temporaryDirectory.appending(path: "known-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: file) }
+        let known = KnownHosts(file: file)
+        let other = KnownHosts(file: file)
+        let seen = Mutex(0)
+        let observer = NotificationCenter.default.addObserver(forName: KnownHosts.didChange, object: known,
+                                                              queue: nil) { _ in seen.withLock { $0 += 1 } }
+        defer { NotificationCenter.default.removeObserver(observer) }
+        let server = ServerAddress(host: "ghost.example")
+        known.trust(CertificateFingerprint(certificateDER: Array("a".utf8)), for: server)
+        #expect(seen.withLock { $0 } == 1)
+        known.forget(server)
+        #expect(seen.withLock { $0 } == 2)
+        other.forget(server) // another instance's change isn't this one's
+        #expect(seen.withLock { $0 } == 2)
+    }
 }
 
 @MainActor

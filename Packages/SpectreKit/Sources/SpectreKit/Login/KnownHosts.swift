@@ -58,6 +58,11 @@ public final class KnownHosts: Sendable {
     public let file: URL
     private let pins: Mutex<[String: String]>
 
+    /// Posted, with this object, after a pin is trusted or forgotten, on the
+    /// thread that changed it: the Mac's Settings lists the pins while
+    /// signing in changes them.
+    public static let didChange = Notification.Name("KnownHosts.didChange")
+
     public init(file: URL) {
         self.file = file
         let loaded = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([String: String].self, from: $0) }
@@ -106,5 +111,6 @@ public final class KnownHosts: Sendable {
             return try? JSONEncoder().encode($0)
         }
         try? data?.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        NotificationCenter.default.post(name: Self.didChange, object: self)
     }
 }
