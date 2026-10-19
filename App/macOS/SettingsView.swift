@@ -106,16 +106,18 @@ private struct InputSettings: View {
             }
             Section {
                 ForEach(LocalShortcut.allCases, id: \.self) { shortcut in
-                    LabeledContent {
-                        Text(verbatim: shortcut.keys).monospaced().foregroundStyle(.secondary)
-                    } label: {
-                        Text(shortcut.purpose)
+                    if let purpose = shortcut.purpose {
+                        LabeledContent {
+                            Text(verbatim: shortcut.keys).monospaced().foregroundStyle(.secondary)
+                        } label: {
+                            Text(purpose)
+                        }
                     }
                 }
             } header: {
                 Text("Keys Spectre Keeps")
             } footer: {
-                Text("Every other key goes to the remote desktop, Cmd as Super.")
+                Text("Every other key goes to the remote desktop, Cmd as Super. ⌘Q quits Spectre, as in every app.")
             }
         }
         .formStyle(.grouped)
@@ -123,11 +125,13 @@ private struct InputSettings: View {
 }
 
 private extension LocalShortcut {
-    var purpose: LocalizedStringResource {
+    /// What the list says the keys do; ⌘Q isn't listed, it quits as in
+    /// every Mac app (the footer says so).
+    var purpose: LocalizedStringResource? {
         switch self {
         case .toggleCapture: "Capture or Release the Mouse"
         case .toggleFullScreen: "Enter or Exit Full Screen"
-        case .quit: "Quit Spectre"
+        case .quit: nil
         }
     }
 }

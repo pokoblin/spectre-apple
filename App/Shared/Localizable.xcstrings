@@ -1938,30 +1938,30 @@
         }
       }
     },
-    "Every other key goes to the remote desktop, Cmd as Super." : {
+    "Every other key goes to the remote desktop, Cmd as Super. ⌘Q quits Spectre, as in every app." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Las demás teclas van al escritorio remoto, Cmd como Super."
+            "value" : "Las demás teclas van al escritorio remoto, Cmd como Super. ⌘Q cierra Spectre, como en cualquier app."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ほかのキーはすべてリモートデスクトップに送られます。Cmd は Super として送られます。"
+            "value" : "ほかのキーはすべてリモートデスクトップに送られます。Cmd は Super として送られます。⌘Q はほかのアプリと同じく Spectre を終了します。"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "其他按键都发送给远程桌面，Cmd 作为 Super 键。"
+            "value" : "其他按键都发送给远程桌面，Cmd 作为 Super 键。⌘Q 和其他 App 一样退出 Spectre。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "其他按鍵都傳送給遠端桌面，Cmd 作為 Super 鍵。"
+            "value" : "其他按鍵都傳送給遠端桌面，Cmd 作為 Super 鍵。⌘Q 和其他 App 一樣結束 Spectre。"
           }
         }
       }
@@ -4202,34 +4202,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有線網路使用 PyroWave"
-          }
-        }
-      }
-    },
-    "Quit Spectre" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Salir de Spectre"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Spectre を終了"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "退出 Spectre"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "結束 Spectre"
           }
         }
       }
