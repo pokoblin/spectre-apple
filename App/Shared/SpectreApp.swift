@@ -94,6 +94,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// a windowless app has nothing to show.
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
+    /// Before the first window shows, so it doesn't change in sight.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        Appearance.saved.apply()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // A window restored in full screen (after a crash, or by "reopen
         // windows" at login) got there before SwiftUI applied the setting,

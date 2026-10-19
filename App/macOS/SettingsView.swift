@@ -26,12 +26,21 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     let app: AppModel
+    @AppStorage(Appearance.key) private var appearance = Appearance.system
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbar = true
     @AppStorage(ClipboardSync.enabledKey) private var sharesClipboard = false
     @AppStorage(PlaybackModel.audioMutedKey) private var isAudioMuted = false
 
     var body: some View {
         Form {
+            Section {
+                Picker("Appearance", selection: $appearance) {
+                    Text("Match System").tag(Appearance.system)
+                    Text("Light").tag(Appearance.light)
+                    Text("Dark").tag(Appearance.dark)
+                }
+                .onChange(of: appearance) { appearance.apply() }
+            }
             Section {
                 // SpectreApp applies it to a window already in full screen.
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbar)
@@ -52,6 +61,28 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Light or dark windows, or the system's choice: the home window,
+/// sessions' toolbars and Settings. The remote desktop's picture is the
+/// host's own.
+enum Appearance: String {
+    case system, light, dark
+
+    static let key = "appearance"
+
+    /// The saved choice, at launch.
+    static var saved: Appearance {
+        UserDefaults.standard.string(forKey: key).flatMap(Appearance.init) ?? .system
+    }
+
+    @MainActor func apply() {
+        NSApp.appearance = switch self {
+        case .system: nil
+        case .light: NSAppearance(named: .aqua)
+        case .dark: NSAppearance(named: .darkAqua)
+        }
     }
 }
 
