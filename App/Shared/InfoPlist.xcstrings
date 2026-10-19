@@ -5,6 +5,12 @@
       "comment" : "Privacy - Local Network Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre verbindet sich mit ghost-Hosts und -Servern in deinem lokalen Netzwerk."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -17,10 +23,34 @@
             "value" : "Spectre se conecta a hosts y servidores ghost de tu red local."
           }
         },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre se connecte aux hôtes et serveurs ghost de votre réseau local."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spectre はローカルネットワーク上の ghost ホストやサーバに接続します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre는 로컬 네트워크에 있는 ghost 호스트 및 서버에 연결합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Spectre se conecta a hosts e servidores ghost na sua rede local."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre подключается к хостам и серверам ghost в вашей локальной сети."
           }
         },
         "zh-Hans" : {
@@ -41,6 +71,12 @@
       "comment" : "Privacy - Microphone Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre hört zu, während du die Mikrofontaste gedrückt hältst oder antippst, und gibt das Gesagte auf dem Remote-Desktop ein."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -53,10 +89,34 @@
             "value" : "Spectre escucha mientras mantienes pulsada o tocas la tecla del micrófono, y escribe lo que dices en el escritorio remoto."
           }
         },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre écoute pendant que vous maintenez ou touchez la touche micro, et saisit ce que vous dites sur le bureau à distance."
+          }
+        },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "マイクキーを押している間やタップしたあと、Spectre はあなたの声を聞き取り、話した内容をリモートデスクトップに入力します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "마이크 키를 길게 누르거나 탭하면 Spectre가 사용자의 말을 듣고 원격 데스크탑에 입력합니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "O Spectre ouve enquanto você mantém pressionada ou toca a tecla do microfone e digita o que você diz na área de trabalho remota."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre слушает, пока вы удерживаете клавишу микрофона или после ее касания, и вводит сказанное на удаленном рабочем столе."
           }
         },
         "zh-Hans" : {
