@@ -10,10 +10,11 @@ import SwiftUI
 /// sessions side by side can each be muted on their own.
 struct SettingsView: View {
     let app: AppModel
+    let language: AppLanguage
 
     var body: some View {
         TabView {
-            Tab("General", systemImage: "gearshape") { GeneralSettings(app: app) }
+            Tab("General", systemImage: "gearshape") { GeneralSettings(app: app, language: language) }
             Tab("Video", systemImage: "display") { VideoSettings(app: app) }
             Tab("Input", systemImage: "keyboard") { InputSettings(app: app) }
             Tab("Servers", systemImage: "lock.shield") {
@@ -26,6 +27,7 @@ struct SettingsView: View {
 
 private struct GeneralSettings: View {
     let app: AppModel
+    let language: AppLanguage
     @AppStorage(Appearance.key) private var appearance = Appearance.system
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbar = true
     @AppStorage(AppDelegate.opensSessionsInFullScreenKey) private var opensInFullScreen = false
@@ -41,6 +43,16 @@ private struct GeneralSettings: View {
                     Text("Dark").tag(Appearance.dark)
                 }
                 .onChange(of: appearance) { appearance.apply() }
+                Picker("Language", selection: Binding(get: { language.chosen }, set: { language.choose($0) })) {
+                    Text("Match System").tag(String?.none)
+                    ForEach(AppLanguage.byName, id: \.self) { id in
+                        Text(verbatim: AppLanguage.name(id)).tag(Optional(id))
+                    }
+                }
+            } footer: {
+                if language.needsRelaunch {
+                    Text("Some menus and messages change the next time Spectre opens.")
+                }
             }
             Section {
                 // For the next session's window: open ones stay as they are.

@@ -9,10 +9,13 @@ struct SpectreApp: App {
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbarInFullScreen = true
     @State private var app = AppModel()
+    @State private var language = AppLanguage()
 
     var body: some Scene {
+        // Each window shows the language chosen in Settings, at once.
         Window(Text(verbatim: "Spectre"), id: Self.homeWindow) {
             HomeView(app: app)
+                .environment(\.locale, language.locale)
         }
         .defaultSize(width: 960, height: 640)
 
@@ -20,6 +23,7 @@ struct SpectreApp: App {
             SessionWindow(app: app, id: id)
                 .windowToolbarFullScreenVisibility(hidesToolbarInFullScreen ? .onHover : .visible)
                 .onChange(of: hidesToolbarInFullScreen) { AppDelegate.reenterFullScreen() }
+                .environment(\.locale, language.locale)
         }
         .defaultSize(width: 1280, height: 800)
         .commands {
@@ -29,9 +33,11 @@ struct SpectreApp: App {
             AppCommands()
             SessionMenu()
         }
+        .environment(\.locale, language.locale)
 
         Settings {
-            SettingsView(app: app)
+            SettingsView(app: app, language: language)
+                .environment(\.locale, language.locale)
         }
         // Its Settings… item is AppCommands' own.
         .commandsRemoved()

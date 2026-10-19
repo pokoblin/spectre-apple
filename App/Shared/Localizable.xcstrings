@@ -121,16 +121,16 @@
         "fr" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld caractère ne peut pas être saisi avec la disposition américaine de l’hôte. Pour les autres écritures, utilisez la méthode de saisie de l’hôte."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld caractères ne peuvent pas être saisis avec la disposition américaine de l’hôte. Pour les autres écritures, utilisez la méthode de saisie de l’hôte."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld caractère ne peut pas être saisi avec la disposition américaine de l’hôte. Pour les autres écritures, utilisez la méthode de saisie de l’hôte."
                 }
               },
               "other" : {
@@ -157,16 +157,16 @@
         "pt-BR" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld caractere não pode ser digitado no layout americano do host. Para outros sistemas de escrita, use o método de entrada do host."
-                }
-              },
               "many" : {
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld caracteres não podem ser digitados no layout americano do host. Para outros sistemas de escrita, use o método de entrada do host."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld caractere não pode ser digitado no layout americano do host. Para outros sistemas de escrita, use o método de entrada do host."
                 }
               },
               "other" : {
@@ -181,12 +181,6 @@
         "ru" : {
           "variations" : {
             "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%lld символ нельзя ввести в американской раскладке хоста. Для других систем письма используйте метод ввода хоста."
-                }
-              },
               "few" : {
                 "stringUnit" : {
                   "state" : "translated",
@@ -197,6 +191,12 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%lld символов нельзя ввести в американской раскладке хоста. Для других систем письма используйте метод ввода хоста."
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld символ нельзя ввести в американской раскладке хоста. Для других систем письма используйте метод ввода хоста."
                 }
               },
               "other" : {
@@ -12804,6 +12804,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登入「%@」"
+          }
+        }
+      }
+    },
+    "Some menus and messages change the next time Spectre opens." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einige Menüs und Meldungen ändern sich erst beim nächsten Öffnen von Spectre."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Algunos menús y mensajes cambiarán la próxima vez que abras Spectre."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Certains menus et messages changeront à la prochaine ouverture de Spectre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のメニューとメッセージは、次に Spectre を開いたときに切り替わります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일부 메뉴와 메시지는 다음에 Spectre를 열 때 변경됩니다."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alguns menus e mensagens mudam na próxima vez que você abrir o Spectre."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Некоторые меню и сообщения изменятся при следующем запуске Spectre."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分菜单和提示会在下次打开 Spectre 时更新。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分選單和提示會在下次開啟 Spectre 時更新。"
           }
         }
       }
