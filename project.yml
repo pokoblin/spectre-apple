@@ -48,7 +48,7 @@ targets:
         PRODUCT_NAME: Spectre
         PRODUCT_BUNDLE_IDENTIFIER: org.ghost.spectre.apple
         MARKETING_VERSION: "0.6.1"
-        CURRENT_PROJECT_VERSION: "17"
+        CURRENT_PROJECT_VERSION: "18"
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Spectre
         # App/Shared/AppIcon.icon, made in Icon Composer's format (docs/app-icon.md).
