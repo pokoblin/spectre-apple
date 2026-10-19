@@ -33,8 +33,8 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 **Imagen y sonido**
 
 - H.264, HEVC y AV1, decodificados por hardware y mostrados con Metal sin copiar fotogramas. En los dispositivos que decodifican AV1 por hardware (Apple M3, A17 Pro y posteriores) se pide AV1 primero, y se usa si la GPU del host puede codificarlo; si no, HEVC.
-- Refinamiento sin pérdidas: cuando una parte de la pantalla deja de cambiar, el host la vuelve a enviar sin pérdidas y se muestra exacta píxel a píxel sobre el vídeo, así que el texto y las líneas se ven nítidos. Activado por defecto; **Más › Refinamiento sin pérdidas** lo desactiva para ahorrarle trabajo al host.
-- PyroWave en una red por cable: cuando el host está en la misma red por cable a 1 Gbit/s o más, Spectre pide primero PyroWave, un códec wavelet solo intra que se ve casi sin pérdidas a unos cientos de Mbit/s y se decodifica en la GPU en alrededor de un milisegundo. Por Wi-Fi, un enlace más lento u otra red se usan los códecs de siempre. Necesita un host con PyroWave activado y una GPU lo bastante rápida para codificarlo: una GPU integrada pequeña puede no dar abasto a resoluciones altas (un Intel N100 llega a unos 25 fps a 2560×1496). **Más › PyroWave en redes por cable** lo desactiva e indica si se está usando o por qué no.
+- Refinamiento sin pérdidas: cuando una parte de la pantalla deja de cambiar, el host la vuelve a enviar sin pérdidas y se muestra exacta píxel a píxel sobre el vídeo, así que el texto y las líneas se ven nítidos. Activado por defecto; **Más › Refinamiento sin pérdidas** (en el Mac, también **Ajustes › Vídeo**) lo desactiva para ahorrarle trabajo al host.
+- PyroWave en una red por cable: cuando el host está en la misma red por cable a 1 Gbit/s o más, Spectre pide primero PyroWave, un códec wavelet solo intra que se ve casi sin pérdidas a unos cientos de Mbit/s y se decodifica en la GPU en alrededor de un milisegundo. Por Wi-Fi, un enlace más lento u otra red se usan los códecs de siempre. Necesita un host con PyroWave activado y una GPU lo bastante rápida para codificarlo: una GPU integrada pequeña puede no dar abasto a resoluciones altas (un Intel N100 llega a unos 25 fps a 2560×1496). **Más › PyroWave en redes por cable** (en el Mac, también **Ajustes › Vídeo**) lo desactiva e indica si se está usando o por qué no.
 - El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa.
 - En el Mac, la pantalla completa oculta la barra de herramientas y la barra de menús hasta que el puntero llega al borde superior.
 - El sonido del escritorio remoto, con un búfer de fluctuación y un botón para silenciarlo.
@@ -61,7 +61,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 
 - Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
 - Una barra de herramientas con el menú **Archivos**, la lista de transferencias, el portapapeles compartido, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en el subtítulo.
-- Un menú **Session** para los archivos, las carpetas compartidas, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se queda. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
+- Un menú **Session** para los archivos, las carpetas compartidas, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se queda. Sin atajos nuevos, así que en la ventana de una sesión todas las teclas llegan al escritorio remoto.
 - **Ajustes** (Spectre › Ajustes…, o Cmd+, fuera de la ventana de una sesión): los valores predeterminados de pantalla completa, portapapeles, sonido, resolución, refinamiento sin pérdidas, PyroWave y mandos, y los servidores de confianza. Un cambio ahí también se aplica a las sesiones abiertas.
 
 **En iPad y iPhone**

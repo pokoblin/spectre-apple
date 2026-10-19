@@ -33,8 +33,8 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 **Picture and sound**
 
 - H.264, HEVC and AV1 decoded in hardware and presented with Metal without copying frames. AV1 is asked for first on devices that decode it in hardware (Apple M3, A17 Pro and later), and used when the host's GPU can encode it; otherwise HEVC.
-- Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** turns it off to spare the host the work.
-- PyroWave on a wired network: when the host is on the same wired network at 1 Gbit/s or more, Spectre asks for PyroWave first, an intra-only wavelet codec that looks close to lossless at a few hundred Mbit/s and decodes on the GPU in about a millisecond. Over Wi-Fi, a slower link or another network, the usual codecs are used. It needs a host with PyroWave turned on and a GPU quick enough to encode it: a small integrated GPU may not keep up at high resolutions (an Intel N100 manages about 25 fps at 2560×1496). **More › PyroWave on Wired Networks** turns it off, and says whether it is in use or why not.
+- Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** (on the Mac also **Settings › Video**) turns it off to spare the host the work.
+- PyroWave on a wired network: when the host is on the same wired network at 1 Gbit/s or more, Spectre asks for PyroWave first, an intra-only wavelet codec that looks close to lossless at a few hundred Mbit/s and decodes on the GPU in about a millisecond. Over Wi-Fi, a slower link or another network, the usual codecs are used. It needs a host with PyroWave turned on and a GPU quick enough to encode it: a small integrated GPU may not keep up at high resolutions (an Intel N100 manages about 25 fps at 2560×1496). **More › PyroWave on Wired Networks** (on the Mac also **Settings › Video**) turns it off, and says whether it is in use or why not.
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
@@ -61,7 +61,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
 - A toolbar with a **Files** menu, the list of transfers, clipboard sharing, mouse capture and mute, with the round trip and frame rate in its subtitle.
-- A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
+- A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key in a session's window reaches the remote desktop.
 - **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): defaults for full screen, the clipboard, sound, resolution, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
 
 **On iPad and iPhone**
