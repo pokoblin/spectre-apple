@@ -18,6 +18,7 @@ struct HomeView: View {
     @State private var selection: SavedHost.ID?
     @State private var editing: SavedHost?
     #if os(iOS)
+    @State private var showsAbout = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     private var isCollapsed: Bool { sizeClass == .compact }
     #else
@@ -29,7 +30,8 @@ struct HomeView: View {
         NavigationSplitView {
             // The sidebar column is always compact itself: the window's size class decides.
             HostSidebar(app: app, selection: $selection, isCollapsed: isCollapsed,
-                        edit: { editing = $0 }, add: addHost, showTrustedServers: { app.showsTrustedServers = true })
+                        edit: { editing = $0 }, add: addHost, showTrustedServers: { app.showsTrustedServers = true },
+                        showAbout: showAbout)
                 .sheet(item: $editing) { host in
                     HostEditor(host: host, isNew: app.host(host.id) == nil,
                                hasSavedPassword: app.hasSavedPassword(host)) { saved, password, remember in
@@ -49,6 +51,9 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $app.showsTrustedServers) { TrustedServersView(app: app) }
+            #if os(iOS)
+            .sheet(isPresented: $showsAbout) { AboutView() }
+            #endif
         }
         .sheet(isPresented: Binding(get: { app.loginHost != nil && !isCoveredBySession },
                                     set: { if !$0, app.loginHost != nil { app.cancelLogin() } })) {
@@ -94,6 +99,13 @@ struct HomeView: View {
         editing = SavedHost(server: "", username: "")
     }
 
+    /// iOS: About Spectre's sheet. The Mac has the system's About panel.
+    private func showAbout() {
+        #if os(iOS)
+        showsAbout = true
+        #endif
+    }
+
     /// Side by side, the detail column is never left empty; collapsed,
     /// selecting would push straight into a host.
     private func selectFirstIfWide() {
@@ -118,6 +130,7 @@ struct HostSidebar: View {
     let edit: (SavedHost) -> Void
     let add: () -> Void
     let showTrustedServers: () -> Void
+    let showAbout: () -> Void
 
     /// The three connected last, latest first.
     static func recent(_ hosts: [SavedHost]) -> [SavedHost] {
@@ -164,6 +177,9 @@ struct HostSidebar: View {
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button(action: showTrustedServers) { Label("Trusted Servers…", systemImage: "lock.shield") }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(action: showAbout) { Label("About Spectre", systemImage: "info.circle") }
             }
             #else
             // Above the sidebar, beside its toggle; Trusted Servers is a page of Settings.

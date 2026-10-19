@@ -44,6 +44,10 @@ struct AppCommands: Commands {
     @FocusedValue(\.session) private var session
 
     var body: some Commands {
+        // The system's About panel, with the thanks to ghost as its credits.
+        CommandGroup(replacing: .appInfo) {
+            Button("About Spectre") { Credits.showAboutPanel() }
+        }
         // Settings… as the system makes it, but Cmd+, only outside a
         // session's window: in one, every key is the remote desktop's.
         CommandGroup(replacing: .appSettings) {

@@ -146,6 +146,34 @@
         }
       }
     },
+    "About Spectre" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acerca de Spectre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre について"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关于 Spectre"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關於 Spectre"
+          }
+        }
+      }
+    },
     "Add" : {
       "localizations" : {
         "es" : {
@@ -2886,6 +2914,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "左方向鍵"
+          }
+        }
+      }
+    },
+    "License" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Licencia"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライセンス"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "许可证"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "授權"
           }
         }
       }
@@ -6110,6 +6166,34 @@
         }
       }
     },
+    "Source Code" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Código fuente"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ソースコード"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "源代码"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "原始碼"
+          }
+        }
+      }
+    },
     "Spectre hasn't seen this server before. Check that its certificate fingerprint matches the one its administrator gave you before you sign in." : {
       "localizations" : {
         "es" : {
@@ -6134,6 +6218,62 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Spectre 之前沒有連線過這個伺服器。登入前，請確認它的憑證指紋與管理員提供給你的一致。"
+          }
+        }
+      }
+    },
+    "Spectre is an independent, third-party client, not part of the ghost project." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre es un cliente independiente, de terceros, y no forma parte del proyecto ghost."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre は ghost プロジェクトの一部ではない、独立したサードパーティ製のクライアントです。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 是独立的第三方客户端，并非 ghost 官方项目。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 是獨立的第三方用戶端，並非 ghost 專案的一部分。"
+          }
+        }
+      }
+    },
+    "Spectre is inspired by [ghost](https://github.com/jsaiko/ghost) by [Joseph Saiko](https://saiko.dev). It uses ghost's libgdp and follows its published specification. Many thanks to the author for open-sourcing ghost and releasing libgdp and the specification under MIT." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre está inspirado en [ghost](https://github.com/jsaiko/ghost), de [Joseph Saiko](https://saiko.dev). Usa la biblioteca libgdp de ghost y sigue su especificación publicada. Muchas gracias al autor por publicar ghost como código abierto y por liberar libgdp y la especificación bajo la licencia MIT."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre は [Joseph Saiko](https://saiko.dev) さんの [ghost](https://github.com/jsaiko/ghost) に触発されたアプリです。ghost の libgdp を使い、ghost が公開している仕様に従っています。ghost をオープンソースで公開し、libgdp と仕様を MIT ライセンスで提供してくださった作者に深く感謝します。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 的灵感来自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)。它使用 ghost 的 libgdp，按 ghost 公开的协议规范编写。感谢原作者把 ghost 开源，并以 MIT 许可证开放 libgdp 和协议规范。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 的靈感來自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)。它使用 ghost 的 libgdp，依照 ghost 公開的協定規格撰寫。非常感謝原作者將 ghost 開源，並以 MIT 授權開放 libgdp 和協定規格。"
           }
         }
       }
@@ -6582,6 +6722,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "從另一位檢視者那裡接管"
+          }
+        }
+      }
+    },
+    "Thanks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Agradecimientos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "謝辞"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "致谢"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "致謝"
           }
         }
       }
@@ -7460,6 +7628,34 @@
         }
       }
     },
+    "Third-Party Notices" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avisos de terceros"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サードパーティの表示"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第三方声明"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第三方聲明"
+          }
+        }
+      }
+    },
     "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
       "localizations" : {
         "es" : {
@@ -7936,6 +8132,40 @@
         }
       }
     },
+    "Version %@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Version %1$@ (%2$@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versión %1$@ (%2$@)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バージョン %1$@ (%2$@)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %1$@ (%2$@)"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "版本 %1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "Video" : {
       "localizations" : {
         "es" : {
@@ -8212,6 +8442,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的工作階段"
+          }
+        }
+      }
+    },
+    "ghost on GitHub" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ghost en GitHub"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub の ghost"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub 上的 ghost"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "GitHub 上的 ghost"
           }
         }
       }
