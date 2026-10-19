@@ -264,6 +264,18 @@ struct LocalShortcutTests {
         #expect(LocalShortcut.match(character: "g", modifiers: [.command]) == nil)
         #expect(LocalShortcut.match(character: "g", modifiers: [.control, .command, .option]) == nil)
     }
+
+    /// The Mac's Settings opens with Cmd+, only outside a session's window:
+    /// in one, the remote desktop gets it.
+    @Test func theSettingsShortcutReachesTheRemoteDesktop() {
+        #expect(LocalShortcut.match(character: ",", modifiers: [.command]) == nil)
+    }
+
+    /// As Settings lists them.
+    @Test func reservedKeysAsShown() {
+        #expect(LocalShortcut.allCases == [.toggleCapture, .toggleFullScreen, .quit])
+        #expect(LocalShortcut.allCases.map(\.keys) == ["⌃⌘G", "⌃⌘F", "⌘Q"])
+    }
 }
 
 @Suite("Input end to end (GDPTestHost)")

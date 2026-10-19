@@ -54,6 +54,8 @@ final class AppModel {
     /// iOS: the session covering the home screen, if any.
     var screen: Screen { sessions.last.map { .session($0.model) } ?? .login }
     func session(_ id: UUID?) -> Session? { sessions.first { $0.id == id } }
+    /// A change made in the Mac's Settings, made in every open session too.
+    func applyToSessions(_ change: (PlaybackModel) -> Void) { sessions.forEach { change($0.model) } }
     /// A session opened (the Mac gives it a window).
     var onSessionOpened: ((UUID) -> Void)?
     /// Signing in needs the home window (the Mac brings it forward).

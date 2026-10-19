@@ -86,7 +86,7 @@ final class PlaybackModel {
             UserDefaults.standard.set(isAudioMuted, forKey: Self.audioMutedKey)
         }
     }
-    private static let audioMutedKey = "audioMuted"
+    static let audioMutedKey = "audioMuted"
     /// The host's sound is silent while voice input listens, so it isn't
     /// written out with what the user says; ``isAudioMuted`` is left alone.
     var isQuietForDictation = false {
@@ -110,7 +110,7 @@ final class PlaybackModel {
             remote?.setRefinePaused(!isRefinementOn)
         }
     }
-    private static let refinementKey = "losslessRefinement"
+    static let refinementKey = "losslessRefinement"
     /// Whether the session has lossless refinement (the host took `refine`).
     private(set) var hasRefinement = false
     /// PyroWave (gdp-spec.md §6.6): offered first, on its own, when the
@@ -124,7 +124,7 @@ final class PlaybackModel {
             if isPyroWaveOn != oldValue { switchCodecIfNeeded() }
         }
     }
-    private static let pyroWaveKey = "pyroWaveOnWiredLAN"
+    static let pyroWaveKey = "pyroWaveOnWiredLAN"
     /// Whether this device decodes PyroWave, so the switch is worth showing.
     static let canDecodePyroWave = VideoCodec.pyrowave.isHardwareDecodable
     /// The codec the session's video is in, once established.
@@ -140,8 +140,8 @@ final class PlaybackModel {
             scheduleResolution()
         }
     }
-    private static let matchesWindowSizeKey = "matchesWindowSize"
-    private static let resolutionUnitsKey = "resolutionUnits"
+    static let matchesWindowSizeKey = "matchesWindowSize"
+    static let resolutionUnitsKey = "resolutionUnits"
     private var resolution = ResolutionFollower(isEnabled: true, units: .points)
     private var resolutionTimer: Task<Void, Never>?
     /// The session plays audio (SessionAccept described a format we decode).
@@ -165,6 +165,9 @@ final class PlaybackModel {
     var clipboard: ClipboardSync? { clipboardInEffect ? clipboardSync : nil }
     private var clipboardSync: ClipboardSync?
     private var clipboardInEffect = false
+    /// Shares the clipboard or stops, as the Mac's Settings does: also before
+    /// `clipboard` is in effect, so the session starts with the new choice.
+    func setClipboardShared(_ on: Bool) { clipboardSync?.isEnabled = on }
     /// The session's gamepads, once established with `gamepad` in effect (gdp-spec.md §8.5).
     private(set) var gamepads: GamepadForwarder?
     /// Files on their way to the host (gdp-spec.md §7.12): the window's, kept

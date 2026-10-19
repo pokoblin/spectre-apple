@@ -454,6 +454,34 @@
         }
       }
     },
+    "Capture or Release the Mouse" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Capturar o liberar el ratón"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "マウスをキャプチャまたは解放"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "捕获或释放鼠标"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "擷取或釋放滑鼠"
+          }
+        }
+      }
+    },
     "Capture the mouse for games and 3D views: relative motion, the pointer locked (Ctrl+Cmd+G)" : {
       "localizations" : {
         "es" : {
@@ -1798,6 +1826,34 @@
         }
       }
     },
+    "Enter or Exit Full Screen" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entrar o salir de pantalla completa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フルスクリーンの開始／終了"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进入或退出全屏"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進入或退出全螢幕"
+          }
+        }
+      }
+    },
     "Enter the address of the ghost server and your username on it." : {
       "localizations" : {
         "es" : {
@@ -1850,6 +1906,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Esc"
+          }
+        }
+      }
+    },
+    "Every other key goes to the remote desktop, Cmd as Super." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las demás teclas van al escritorio remoto, Cmd como Super."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ほかのキーはすべてリモートデスクトップに送られます。Cmd は Super として送られます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他按键都发送给远程桌面，Cmd 作为 Super 键。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他按鍵都傳送給遠端桌面，Cmd 作為 Super 鍵。"
           }
         }
       }
@@ -2330,6 +2414,34 @@
         }
       }
     },
+    "General" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "General"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一般"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通用"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一般"
+          }
+        }
+      }
+    },
     "Get Started" : {
       "localizations" : {
         "es" : {
@@ -2662,6 +2774,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "儲存到鑰匙圈，下次點一下即可登入。一次性驗證碼請勿勾選。"
+          }
+        }
+      }
+    },
+    "Keys Spectre Keeps" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Teclas que Spectre se reserva"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre が使うキー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 保留的快捷键"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre 保留的快速鍵"
           }
         }
       }
@@ -3082,6 +3222,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "靜音"
+          }
+        }
+      }
+    },
+    "Mute the Remote Desktop" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Silenciar el escritorio remoto"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモートデスクトップを消音"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将远程桌面静音"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將遠端桌面靜音"
           }
         }
       }
@@ -3978,6 +4146,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "有線網路使用 PyroWave"
+          }
+        }
+      }
+    },
+    "Quit Spectre" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salir de Spectre"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spectre を終了"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出 Spectre"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "結束 Spectre"
           }
         }
       }
@@ -5158,6 +5354,34 @@
         }
       }
     },
+    "Servers" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidores"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サーバー"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服务器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "伺服器"
+          }
+        }
+      }
+    },
     "Servers you trust on their first connection appear here. A server whose certificate comes from a certificate authority isn't listed: nothing is saved for it." : {
       "localizations" : {
         "es" : {
@@ -5270,6 +5494,34 @@
         }
       }
     },
+    "Settings…" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ajustes…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "设置…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定…"
+          }
+        }
+      }
+    },
     "Share" : {
       "localizations" : {
         "es" : {
@@ -5378,6 +5630,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "共享檔案夾⋯"
+          }
+        }
+      }
+    },
+    "Share the Clipboard" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compartir el portapapeles"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クリップボードを共有"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享剪贴板"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共享剪貼簿"
           }
         }
       }
@@ -7152,6 +7432,34 @@
         }
       }
     },
+    "These are the defaults for new sessions. A change here applies to open sessions too." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Son los valores predeterminados de las sesiones nuevas. Un cambio aquí también se aplica a las sesiones abiertas."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいセッションのデフォルトです。ここでの変更は開いているセッションにも適用されます。"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些是新会话的默认设置。在这里所做的更改也会应用到已打开的会话。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些是新工作階段的預設設定。在這裡所做的更改也會套用到已開啟的工作階段。"
+          }
+        }
+      }
+    },
     "This can mean someone is intercepting the connection. Spectre did not send your username. Unless the server's administrator told you its certificate was replaced, don't continue." : {
       "localizations" : {
         "es" : {
@@ -7624,6 +7932,34 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用者名稱"
+          }
+        }
+      }
+    },
+    "Video" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vídeo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "映像"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "畫面"
           }
         }
       }

@@ -166,7 +166,7 @@ struct HostSidebar: View {
                 Button(action: showTrustedServers) { Label("Trusted Servers…", systemImage: "lock.shield") }
             }
             #else
-            // Above the sidebar, beside its toggle; Trusted Servers… is in the app menu.
+            // Above the sidebar, beside its toggle; Trusted Servers is a page of Settings.
             ToolbarItem {
                 Button(action: add) { Label("Add Server", systemImage: "plus") }
             }

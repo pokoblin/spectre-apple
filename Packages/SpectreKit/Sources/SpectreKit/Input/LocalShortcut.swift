@@ -3,7 +3,7 @@
 ///
 /// Matched by character, not position, like the system's own shortcuts:
 /// on an AZERTY keyboard Cmd+Q is where QWERTY has A.
-public enum LocalShortcut: Sendable, Equatable {
+public enum LocalShortcut: Sendable, Equatable, CaseIterable {
     /// Ctrl+Cmd+G: capture or release the mouse (the upstream macOS
     /// client's binding; Mac keyboards have no Scroll Lock).
     case toggleCapture
@@ -28,6 +28,15 @@ public enum LocalShortcut: Sendable, Equatable {
         case ("f", [.control, .command]): .toggleFullScreen
         case ("q", [.command]): .quit
         default: nil
+        }
+    }
+
+    /// The keys as the Mac's menus write them, for listing.
+    public var keys: String {
+        switch self {
+        case .toggleCapture: "⌃⌘G"
+        case .toggleFullScreen: "⌃⌘F"
+        case .quit: "⌘Q"
         }
     }
 }

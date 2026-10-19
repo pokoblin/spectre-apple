@@ -26,23 +26,29 @@ struct SpectreApp: App {
             CommandGroup(after: .toolbar) {
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbarInFullScreen)
             }
-            AppCommands(app: app)
+            AppCommands()
             SessionMenu()
         }
+
+        Settings {
+            SettingsView(app: app)
+        }
+        // Its Settings… item is AppCommands' own.
+        .commandsRemoved()
     }
 }
 
 /// The app menu's own items.
 struct AppCommands: Commands {
-    let app: AppModel
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
+    @FocusedValue(\.session) private var session
 
     var body: some Commands {
-        CommandGroup(after: .appSettings) {
-            Button("Trusted Servers…") {
-                openWindow(id: SpectreApp.homeWindow)
-                app.showsTrustedServers = true
-            }
+        // Settings… as the system makes it, but Cmd+, only outside a
+        // session's window: in one, every key is the remote desktop's.
+        CommandGroup(replacing: .appSettings) {
+            Button("Settings…") { openSettings() }
+                .keyboardShortcut(session == nil ? KeyboardShortcut(",", modifiers: .command) : nil)
         }
     }
 }
