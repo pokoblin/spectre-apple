@@ -70,6 +70,7 @@ struct SessionWindow: View {
         if let id, let session = app.session(id) {
             SessionView(model: session.model)
                 .id(id)
+                .background(FullScreenOnOpen())
                 .navigationTitle(Text(verbatim: session.model.title.isEmpty ? "Spectre" : session.model.title))
                 .onAppear {
                     // The home window may be closed: this one can open the next.
@@ -83,12 +84,39 @@ struct SessionWindow: View {
     }
 }
 
+/// Puts a new session's window in full screen when Settings says so
+/// (`AppDelegate.opensSessionsInFullScreenKey`), once, as it first shows.
+/// A window restored in full screen is already there.
+private struct FullScreenOnOpen: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Probe() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    final class Probe: NSView {
+        private var done = false
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            guard let window, !done else { return }
+            done = true
+            guard UserDefaults.standard.bool(forKey: AppDelegate.opensSessionsInFullScreenKey) else { return }
+            // Not before the window is on screen: toggleFullScreen does nothing then.
+            DispatchQueue.main.async {
+                if !window.styleMask.contains(.fullScreen) { window.toggleFullScreen(nil) }
+            }
+        }
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
     /// In full screen the toolbar (and the menu bar) slide away and the
     /// remote desktop fills the screen; pushing the pointer against the top
     /// edge brings them back over the picture. On unless turned off in the
     /// View menu.
     static let hidesToolbarKey = "hidesToolbarInFullScreen"
+
+    /// A session's window goes to full screen as it opens. Off unless
+    /// turned on in Settings.
+    static let opensSessionsInFullScreenKey = "opensSessionsInFullScreen"
 
     /// Closing the last window, the home window or a session's, quits:
     /// a windowless app has nothing to show.

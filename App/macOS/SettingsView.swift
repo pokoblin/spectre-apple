@@ -28,6 +28,7 @@ private struct GeneralSettings: View {
     let app: AppModel
     @AppStorage(Appearance.key) private var appearance = Appearance.system
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbar = true
+    @AppStorage(AppDelegate.opensSessionsInFullScreenKey) private var opensInFullScreen = false
     @AppStorage(ClipboardSync.enabledKey) private var sharesClipboard = false
     @AppStorage(PlaybackModel.audioMutedKey) private var isAudioMuted = false
 
@@ -42,6 +43,8 @@ private struct GeneralSettings: View {
                 .onChange(of: appearance) { appearance.apply() }
             }
             Section {
+                // For the next session's window: open ones stay as they are.
+                Toggle("Open Sessions in Full Screen", isOn: $opensInFullScreen)
                 // SpectreApp applies it to a window already in full screen.
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbar)
             }

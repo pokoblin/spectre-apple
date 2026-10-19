@@ -3954,6 +3954,34 @@
         }
       }
     },
+    "Open Sessions in Full Screen" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir las sesiones en pantalla completa"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "セッションをフルスクリーンで開く"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会话默认全屏打开"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "工作階段預設以全螢幕開啟"
+          }
+        }
+      }
+    },
     "Open Settings" : {
       "localizations" : {
         "es" : {
