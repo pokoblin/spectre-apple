@@ -245,6 +245,8 @@ xcrun simctl launch --console-pty booted org.ghost.spectre.apple --source loopba
 
 spectre-apple 的灵感来自 [Joseph Saiko](https://saiko.dev) 的 [ghost](https://github.com/jsaiko/ghost)：GDP 协议、主机端 wraith 和 Linux 客户端 spectre。本项目使用 ghost 的 libgdp，按 ghost 公开的协议规范和设计文档编写，名字也沿用了上游客户端的 Spectre。感谢原作者把 ghost 开源，并以 MIT 许可证开放 libgdp 和协议规范，没有它们就没有这个项目。
 
+App 里也有这段致谢，在「关于 Spectre」中：Mac 上在 App 菜单里，iPad 和 iPhone 上在服务器列表上方的「⋯」菜单里。
+
 ## 许可证
 
 [MIT](LICENSE)。

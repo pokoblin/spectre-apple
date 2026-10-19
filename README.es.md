@@ -245,6 +245,8 @@ Las incidencias y las pull requests son bienvenidas; para cambios grandes, abre 
 
 spectre-apple está inspirado en [ghost](https://github.com/jsaiko/ghost), de [Joseph Saiko](https://saiko.dev): el protocolo GDP, el host wraith y el cliente spectre para Linux. Usa la biblioteca libgdp de ghost, sigue su especificación y sus documentos de diseño publicados, y toma el nombre Spectre del cliente original. Muchas gracias al autor por publicar ghost como código abierto y por liberar libgdp y la especificación bajo la licencia MIT; sin ello este proyecto no existiría.
 
+La app también lo agradece, en «Acerca de Spectre»: en el menú de la app en el Mac, y en el menú ⋯ sobre la lista de servidores en el iPad y el iPhone.
+
 ## Licencia
 
 [MIT](LICENSE).

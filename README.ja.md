@@ -245,6 +245,8 @@ Issue やプルリクエストを歓迎します。大きな変更の場合は�
 
 spectre-apple は、[Joseph Saiko](https://saiko.dev) さんの [ghost](https://github.com/jsaiko/ghost)（GDP プロトコル、ホストの wraith、Linux 向けクライアントの spectre）に触発されたプロジェクトです。ghost の libgdp を使い、ghost が公開している仕様と設計ドキュメントに従い、Spectre という名前も上流のクライアントから借りています。ghost をオープンソースで公開し、libgdp と仕様を MIT ライセンスで提供してくださった作者に深く感謝します。それがなければ、このプロジェクトは存在しませんでした。
 
+アプリの「Spectre について」にも同じ謝辞があります。Mac ではアプリケーションメニュー、iPad と iPhone ではサーバー一覧の上にある「⋯」メニューから開けます。
+
 ## ライセンス
 
 [MIT](LICENSE)。

@@ -245,6 +245,8 @@ Issues and pull requests are welcome; please open an issue before larger changes
 
 spectre-apple is inspired by [ghost](https://github.com/jsaiko/ghost) by [Joseph Saiko](https://saiko.dev): the GDP protocol, the wraith host and the spectre client for Linux. It uses ghost's libgdp, follows its published specification and design documents, and borrows the name Spectre from the upstream client. Many thanks to the author for open-sourcing ghost and releasing libgdp and the specification under MIT; this project would not exist without them.
 
+The app thanks them too, in About Spectre: in the app menu on the Mac, and in the ⋯ menu above the server list on iPad and iPhone.
+
 ## License
 
 [MIT](LICENSE).
