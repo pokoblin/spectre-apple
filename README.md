@@ -25,7 +25,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 **Connecting**
 
 - Sign in with a user name and password, answering any further prompts such as a one-time code, then pick a device and a desktop session, or take over a running one.
-- Trust on first use: confirm the server's certificate fingerprint once and it is remembered; **Trusted Servers…** lists and forgets them.
+- Trust on first use: confirm the server's certificate fingerprint once and it is remembered; **Trusted Servers…** lists and forgets them (on the Mac, in **Settings › Servers**).
 - Save the password with the server for one-tap Connect, optionally in the Keychain.
 - Lost connections (Wi-Fi changes, sleep, iOS suspending the app) reconnect by themselves.
 - Disconnect (the desktop session keeps running) or log out (it ends).
@@ -62,6 +62,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
 - A toolbar with a **Files** menu, the list of transfers, clipboard sharing, mouse capture and mute, with the round trip and frame rate in its subtitle.
 - A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key reaches the remote desktop.
+- **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): defaults for full screen, the clipboard, sound, resolution, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
 
 **On iPad and iPhone**
 

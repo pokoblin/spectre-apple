@@ -25,7 +25,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 **Conexión**
 
 - Inicia sesión con tu nombre de usuario y contraseña, responde a las demás preguntas, como un código de un solo uso, y elige un dispositivo y una sesión de escritorio, o toma el control de una que ya está en marcha.
-- Confianza en el primer uso: confirmas una vez la huella del certificado del servidor y se recuerda; **Servidores de confianza…** las muestra y te permite olvidarlas.
+- Confianza en el primer uso: confirmas una vez la huella del certificado del servidor y se recuerda; **Servidores de confianza…** las muestra y te permite olvidarlas (en el Mac, en **Ajustes › Servidores**).
 - Guarda la contraseña con el servidor para Conectar con un toque, si quieres en el llavero.
 - Las conexiones perdidas (al cambiar de Wi-Fi, al dormirse el equipo o al suspender iOS la app) se vuelven a conectar solas.
 - Desconectar (la sesión de escritorio sigue en marcha) o cerrar sesión (la termina).
@@ -62,6 +62,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Una ventana de inicio con tus hosts y la última imagen de cada uno, y una ventana por sesión, así que puedes tener varias a la vez.
 - Una barra de herramientas con el menú **Archivos**, la lista de transferencias, el portapapeles compartido, la captura del ratón y el silencio, con el tiempo de ida y vuelta y los fotogramas por segundo en el subtítulo.
 - Un menú **Session** para los archivos, las carpetas compartidas, la captura del ratón, el portapapeles y las combinaciones de teclas que macOS se queda. Sin atajos nuevos, así que todas las teclas llegan al escritorio remoto.
+- **Ajustes** (Spectre › Ajustes…, o Cmd+, fuera de la ventana de una sesión): los valores predeterminados de pantalla completa, portapapeles, sonido, resolución, refinamiento sin pérdidas, PyroWave y mandos, y los servidores de confianza. Un cambio ahí también se aplica a las sesiones abiertas.
 
 **En iPad y iPhone**
 
