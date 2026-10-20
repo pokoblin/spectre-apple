@@ -605,8 +605,9 @@ final class PlaybackModel {
                 presenter?.color = picture.color
                 self?.input?.pictureChanged(picture.size)
                 self?.resolution.outputChanged(ResolutionFollower.Size(width: UInt32(picture.size.width),
-                                                                       height: UInt32(picture.size.height)))
-                print("session: output \(Int(picture.size.width))×\(Int(picture.size.height))")
+                                                                       height: UInt32(picture.size.height)),
+                                               scale: picture.scale)
+                print("session: output \(Int(picture.size.width))×\(Int(picture.size.height)) at \(Int((picture.scale * 100).rounded()))%")
             }
         }
         remote.onCursorShape = { [weak self] shape in
@@ -661,9 +662,10 @@ final class PlaybackModel {
         // The size the view wants, asked for in SessionHello (§6.2): the
         // first picture comes at it, without a second encoder start. The
         // test sources stream at a fixed size.
-        if isRemoteSession, let size = resolution.sizeForConnection() {
-            config.display = GDPSession.DisplayRequest(width: size.width, height: size.height)
-            print("session: asking for \(size)")
+        if isRemoteSession, let request = resolution.requestForConnection() {
+            config.display = GDPSession.DisplayRequest(width: request.size.width, height: request.size.height,
+                                                       scale: request.scale)
+            print("session: asking for \(request)")
         }
         do {
             try remote.connect(config)
@@ -805,9 +807,9 @@ final class PlaybackModel {
             try? await Task.sleep(for: .seconds(max(deadline - Self.now, 0)))
             guard !Task.isCancelled, let self, phase == .playing, let session = remote?.session else { return }
             resolutionTimer = nil
-            guard let size = resolution.update(at: Self.now) else { return }
-            print("session: asking for \(size)")
-            session.requestResolution(width: size.width, height: size.height)
+            guard let request = resolution.update(at: Self.now) else { return }
+            print("session: asking for \(request)")
+            session.requestResolution(width: request.size.width, height: request.size.height, scale: request.scale)
         }
     }
 

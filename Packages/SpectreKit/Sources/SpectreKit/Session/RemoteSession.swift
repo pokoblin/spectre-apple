@@ -21,6 +21,8 @@ public final class RemoteSession: @unchecked Sendable {
     public struct Picture: Sendable, Equatable {
         public var size: CGSize
         public var color: ColorDescription
+        /// The scale the host's desktop runs at (§6.2): 1 from a host that sets none.
+        public var scale: Double = 1
     }
 
     public let mailbox: FrameMailbox
@@ -383,7 +385,8 @@ public final class RemoteSession: @unchecked Sendable {
         guard let output = outputs.first else { return }
         refinement.resize(width: Int(output.width), height: Int(output.height))
         onPictureChange?(Picture(size: CGSize(width: Int(output.width), height: Int(output.height)),
-                                 color: ColorDescription(output: output, codec: codec)))
+                                 color: ColorDescription(output: output, codec: codec),
+                                 scale: output.scale > 0 ? output.scale : 1))
     }
 
     private func received(_ frame: GDPSession.VideoFrame) -> Bool {

@@ -3,7 +3,9 @@ import Foundation
 
 /// Keeps the remote output the size of the view that shows it
 /// (docs/resolution.md): what to put in SessionHello (gdp-spec.md §6.2) and
-/// when to send a ResolutionChange (§7.2).
+/// when to send a ResolutionChange (§7.2). In pixels, the host's desktop is
+/// asked to run at the view's scale too, so that it looks as big as a
+/// local app; in points, at none, which a host takes as 100%.
 ///
 /// The host reopens its encoder for every new size, so a size is only asked
 /// for once the view has stopped changing for ``settleDelay``, and never
@@ -33,6 +35,22 @@ public struct ResolutionFollower: Sendable {
         public var description: String { "\(width)×\(height)" }
     }
 
+    /// What is asked for: the output's size, and the desktop scale to go
+    /// with it (§6.2), 0 for none.
+    public struct Request: Sendable, Equatable, CustomStringConvertible {
+        public var size: Size
+        public var scale: Double
+
+        public init(size: Size, scale: Double = 0) {
+            self.size = size
+            self.scale = scale
+        }
+
+        public var description: String {
+            scale > 0 ? "\(size) at \(Int((scale * 100).rounded()))%" : size.description
+        }
+    }
+
     /// How long the view must keep its size before it is asked for.
     public static let settleDelay: TimeInterval = 0.5
     /// §7.2: the sizes a host accepts, per side.
@@ -50,10 +68,10 @@ public struct ResolutionFollower: Sendable {
 
     private var viewSize: CGSize = .zero
     private var scale: CGFloat = 1
-    /// The output's size, as the host last reported it.
-    private var outputSize: Size?
-    /// The size last asked for, in SessionHello or a ResolutionChange.
-    private var requested: Size?
+    /// The output's size and scale, as the host last reported them.
+    private var output: Request?
+    /// What was last asked for, in SessionHello or a ResolutionChange.
+    private var requested: Request?
 
     public init(isEnabled: Bool, units: Units) {
         self.isEnabled = isEnabled
@@ -74,9 +92,10 @@ public struct ResolutionFollower: Sendable {
                     height: side(viewSize.height, multipleOf: 2))
     }
 
-    /// The size the view asks for now, if following.
-    public var target: Size? {
-        isEnabled ? Self.outputSize(viewSize: viewSize, scale: scale, units: units) : nil
+    /// What the view asks for now, if following.
+    public var target: Request? {
+        guard isEnabled, let size = Self.outputSize(viewSize: viewSize, scale: scale, units: units) else { return nil }
+        return Request(size: size, scale: units == .pixels ? Double(scale) : 0)
     }
 
     /// The view's size (points) or its scale changed.
@@ -87,9 +106,10 @@ public struct ResolutionFollower: Sendable {
         settle(from: now)
     }
 
-    /// SessionAccept or DisplaysChanged reported the output's size.
-    public mutating func outputChanged(_ size: Size) {
-        outputSize = size
+    /// SessionAccept or DisplaysChanged reported the output's size and
+    /// the scale the host's desktop runs at (1 from a host that sets none).
+    public mutating func outputChanged(_ size: Size, scale: Double = 1) {
+        output = Request(size: size, scale: scale)
     }
 
     public mutating func setEnabled(_ on: Bool, at now: TimeInterval) {
@@ -107,21 +127,30 @@ public struct ResolutionFollower: Sendable {
     /// What to put in SessionHello for a new connection (or nil: keep the
     /// session's size). It counts as asked for: the host applies it or
     /// keeps its size, and either way there is nothing more to send.
-    public mutating func sizeForConnection() -> Size? {
+    public mutating func requestForConnection() -> Request? {
         nextDeadline = nil
-        outputSize = nil
+        output = nil
         requested = target
         return requested
     }
 
-    /// The size to send in a ResolutionChange now, if the view has settled
-    /// on one that is neither the output's size nor already asked for.
-    public mutating func update(at now: TimeInterval) -> Size? {
+    /// What to send in a ResolutionChange now, if the view has settled on
+    /// something that is neither what the output has nor already asked for.
+    public mutating func update(at now: TimeInterval) -> Request? {
         guard let deadline = nextDeadline, now >= deadline else { return nil }
         nextDeadline = nil
-        guard let target, target != outputSize, target != requested else { return nil }
+        guard let target, target != requested else { return nil }
+        if let output, Self.matches(target, output) { return nil }
         requested = target
         return target
+    }
+
+    /// Whether the output is what the view asks for: its size, at the scale
+    /// asked for (none is 100%, as a host takes it). A host may round the
+    /// scale; what it couldn't set isn't asked for again, being `requested`.
+    private static func matches(_ target: Request, _ output: Request) -> Bool {
+        func percent(_ scale: Double) -> Int { Int(((scale > 0 ? scale : 1) * 100).rounded()) }
+        return target.size == output.size && percent(target.scale) == percent(output.scale)
     }
 
     private mutating func settle(from now: TimeInterval) {
