@@ -132,20 +132,32 @@ final class AppModel {
     func host(_ id: SavedHost.ID?) -> SavedHost? { hosts.first { $0.id == id } }
 
     /// Adds a host, or replaces the one with its id. `password`, typed in
-    /// its form (empty: none, or the saved one stays), is kept in the
+    /// its form (empty: none, or the known one stays), is kept in the
     /// Keychain if `remember`, otherwise only until the app quits; either
-    /// way Connect signs in with it (docs/saved-logins.md).
+    /// way Connect signs in with it (docs/saved-logins.md). With no
+    /// password typed, `remember` moves the known one into the Keychain
+    /// or, turned off, forgets the saved one.
     func saveHost(_ host: SavedHost, password: String = "", remember: Bool = false) {
         if let i = hosts.firstIndex(where: { $0.id == host.id }) {
             let old = hosts[i]
             hosts[i] = host
             // A different server or account: the old one's password goes.
-            if old.server != host.server || old.username != host.username { forgetPassword(old) }
+            if old.address != host.address || old.username != host.username { forgetPassword(old) }
         } else {
             hosts.append(host)
         }
         saveHosts()
-        guard !password.isEmpty, let server = host.address else { return }
+        guard let server = host.address else { return }
+        if password.isEmpty {
+            if remember, let typed = sessionPasswords[host.id] {
+                login.savedLogins.savePassword(typed, server: server, username: host.username)
+                sessionPasswords[host.id] = nil
+                savedRevision += 1
+            } else if !remember, hasSavedPassword(host) {
+                forgetPassword(host)
+            }
+            return
+        }
         if remember {
             login.savedLogins.savePassword(password, server: server, username: host.username)
             sessionPasswords[host.id] = nil

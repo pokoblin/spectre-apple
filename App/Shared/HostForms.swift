@@ -40,23 +40,30 @@ struct HostEditor: View {
     let isNew: Bool
     /// The account's password is in the Keychain already.
     let hasSavedPassword: Bool
-    /// The host, the password typed (empty: none, or the saved one stays),
+    /// A password typed for the host before, kept until the app quits.
+    let hasSessionPassword: Bool
+    /// The host, the password typed (empty: none, or the known one stays),
     /// and whether to keep it in the Keychain.
     let save: (SavedHost, String, Bool) -> Void
+    /// The host as it was, to tell whether the account changed.
+    private let original: SavedHost
     @State private var host: SavedHost
     @State private var address: String
     @State private var port: String
     @State private var password = ""
-    /// Off unless the user turns it on.
-    @State private var remember = false
+    /// As it is: on if the password is saved, off unless the user turns it on otherwise.
+    @State private var remember: Bool
     @Environment(\.dismiss) private var dismiss
 
-    init(host: SavedHost, isNew: Bool, hasSavedPassword: Bool = false,
+    init(host: SavedHost, isNew: Bool, hasSavedPassword: Bool = false, hasSessionPassword: Bool = false,
          save: @escaping (SavedHost, String, Bool) -> Void) {
         self.isNew = isNew
         self.hasSavedPassword = hasSavedPassword
+        self.hasSessionPassword = hasSessionPassword
         self.save = save
+        original = host
         _host = State(initialValue: host)
+        _remember = State(initialValue: hasSavedPassword)
         let parsed = host.address
         _address = State(initialValue: parsed?.host ?? host.server)
         _port = State(initialValue: parsed.map { $0.port == GDPLobby.defaultPort ? "" : String($0.port) } ?? "")
@@ -72,6 +79,15 @@ struct HostEditor: View {
     }
 
     private var isComplete: Bool { server != nil && !host.username.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// A password the switch can keep or let go: one typed now, or the
+    /// account's known one while it stays the same account.
+    private var canRemember: Bool {
+        guard password.isEmpty else { return true }
+        let sameAccount = server != nil && server == original.address
+            && host.username.trimmingCharacters(in: .whitespaces) == original.username
+        return sameAccount && (hasSavedPassword || hasSessionPassword)
+    }
 
     var body: some View {
         NavigationStack {
@@ -106,8 +122,9 @@ struct HostEditor: View {
                         Text("Password")
                     }
                     .textContentType(.password)
-                    Toggle("Remember in Keychain", isOn: $remember)
-                        .disabled(password.isEmpty)
+                    Toggle("Remember in Keychain", isOn: Binding(get: { remember && canRemember },
+                                                                set: { remember = $0 }))
+                        .disabled(!canRemember)
                 } footer: {
                     Text("Connect signs in with it. If you leave it empty, or the server asks for more, such as a one-time code, you are asked when you connect. Not remembered, it is kept until Spectre quits; remembered, it stays in this device's Keychain.")
                 }
@@ -130,7 +147,7 @@ struct HostEditor: View {
                         saved.server = server.description
                         saved.username = host.username.trimmingCharacters(in: .whitespaces)
                         saved.name = host.name.trimmingCharacters(in: .whitespaces)
-                        save(saved, password, remember)
+                        save(saved, password, remember && canRemember)
                         dismiss()
                     }
                     .disabled(!isComplete)

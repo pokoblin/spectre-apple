@@ -34,7 +34,8 @@ struct HomeView: View {
                         showAbout: showAbout)
                 .sheet(item: $editing) { host in
                     HostEditor(host: host, isNew: app.host(host.id) == nil,
-                               hasSavedPassword: app.hasSavedPassword(host)) { saved, password, remember in
+                               hasSavedPassword: app.hasSavedPassword(host),
+                               hasSessionPassword: app.hasSessionPassword(host)) { saved, password, remember in
                         app.saveHost(saved, password: password, remember: remember)
                         selection = saved.id
                     }
