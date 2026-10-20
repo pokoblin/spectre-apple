@@ -35,7 +35,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 - H.264、HEVC 和 AV1 由硬體解碼，交給 Metal 顯示，全程不複製影格。在能以硬體解碼 AV1 的裝置上（Apple M3、A17 Pro 及以後）會優先要求 AV1，主機的顯示卡能編碼 AV1 時就使用它，否則使用 HEVC。
 - 無損增強：畫面上停止變化的區域，主機會再以無損方式傳送一次，疊在視訊上逐像素精確顯示，文字和線條因此非常清晰。預設開啟；**更多 › 無損增強**（Mac 上還有 **設定 › 畫面**）可以關閉，減輕主機的負擔。
 - 有線網路上的 PyroWave：主機和本機在同一個 1 Gbit/s 以上的有線網路中時，會優先要求 PyroWave。它是只做影格內編碼的小波編解碼器，幾百 Mbit/s 時看起來接近無損，在 GPU 上解碼一個影格約 1 毫秒。透過 Wi-Fi、較慢的連結或其他網路連線時，照常使用一般的編解碼器。主機需要啟用 PyroWave，GPU 也要夠快：小型內建顯示卡在高解析度下可能跟不上（Intel N100 在 2560×1496 下約 25 fps）。**更多 › 有線網路使用 PyroWave**（Mac 上還有 **設定 › 畫面**）可以關閉，並顯示目前是否在用、沒用的原因。
-- 遠端桌面的大小會跟隨視窗或螢幕，也可以以 Retina 的完整解析度執行。以 Retina 解析度執行時，較新的 ghost 主機（上游 `main`，2026 年 10 月起）還會把桌面縮放設成和 Mac 或 iPad 相同，文字和視窗看起來和本機 App 一樣大。
+- 遠端桌面的大小會跟隨視窗或螢幕，也可以以 Retina 的完整解析度執行。以 Retina 解析度執行時，較新的 ghost 主機（見[執行需求](#執行需求)）還會把桌面縮放設成和 Mac 或 iPad 相同，文字和視窗看起來和本機 App 一樣大。
 - Mac 上全螢幕時會隱藏工具列和選單列，指標移到頂端邊緣時才出現。
 - 遠端桌面的聲音，具備抖動緩衝和靜音按鈕。
 
@@ -88,6 +88,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 - 一台 ghost 主機（ghostd 和 wraith），架設方式請見 [ghost](https://github.com/jsaiko/ghost)
 - 檔案傳輸需要較新的 ghost（2026 年 10 月以後的上游 `main`）。在遠端桌面貼上本機拷貝的檔案、共享檔案夾，還需要 wraith 以 libfuse3 3.12 或更新版本建置（建置前 `apt install libfuse3-dev`），主機上要有 `/dev/fuse` 和 `fusermount3`：主機會把 Spectre 提供的檔案掛載起來。沒有這些時，傳送和下載照樣能用。
 - PyroWave 需要以 libpyrowave 建置的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了兩端必須一致的版本），並在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 中設定 `pyrowave = true`。
+- 要讓主機桌面在 Retina 解析度下跟隨 Mac 或 iPad 的縮放比例，需要 2026 年 10 月 18 日以後的 ghost（上游 `main`），它的 wraith 會在 GNOME、KDE Plasma 和 wlroots 桌面上設定縮放。在 `/etc/ghost/wraith.toml` 的 `[display]` 中設定 `client_scale = false`，縮放就交給桌面自己的設定。
 
 ## 安裝
 
@@ -95,7 +96,7 @@ Mac 版請從 [GitHub Releases](https://github.com/pokoblin/spectre-apple/releas
 
 ## 使用方式
 
-用 **+** 新增伺服器：位址（`host` 或 `host:port`，連接埠預設 4442）、你的使用者名稱，也可以填寫密碼。然後點 **連線**，選擇一個桌面。第一次連線時，請確認伺服器的憑證指紋。
+用 **+** 新增伺服器：位址（`host` 或 `host:port`，連接埠預設 4442）、你的使用者名稱，也可以填寫密碼。打開 **在鑰匙圈中記住**，密碼就存在這台裝置上；在 **編輯伺服器** 中，這個開關會顯示密碼是否已儲存，關掉就會刪除已儲存的密碼。然後點 **連線**，選擇一個桌面。第一次連線時，請確認伺服器的憑證指紋。
 
 Mac 上每個工作階段各開一個視窗；關閉它就會中斷連線，主機上的桌面繼續執行。iPad 和 iPhone 上工作階段蓋在首頁上面。
 

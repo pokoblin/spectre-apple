@@ -35,7 +35,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 - H.264、HEVC 和 AV1 硬件解码，交给 Metal 显示，全程不复制帧。在能硬件解码 AV1 的设备上（Apple M3、A17 Pro 及以后）优先请求 AV1，主机的显卡能编码 AV1 时就用它，否则用 HEVC。
 - 无损增强：屏幕上停止变化的区域，主机会再无损发送一次，叠在视频上逐像素精确显示，文字和线条因此非常清晰。默认开启；**更多 › 无损增强**（Mac 上还有 **设置 › 画面**）可以关掉，减轻主机的负担。
 - 有线网络上的 PyroWave：主机和本机在同一个 1 Gbit/s 及以上的有线网络里时，优先请求 PyroWave。它是只做帧内编码的小波编解码器，几百 Mbit/s 时看起来接近无损，在 GPU 上解码一帧约 1 毫秒。通过 Wi-Fi、较慢的链路或其他网络连接时，照旧使用常规编解码器。主机需要启用 PyroWave，GPU 也要够快：小型集成显卡在高分辨率下可能跟不上（Intel N100 在 2560×1496 下约 25 fps）。**更多 › 有线网络使用 PyroWave**（Mac 上还有 **设置 › 画面**）可以关掉，并显示当前是否在用、没用的原因。
-- 远程桌面的大小跟随窗口或屏幕，也可以按 Retina 的完整分辨率运行。按 Retina 分辨率运行时，较新的 ghost 主机（上游 `main`，2026 年 10 月起）还会把桌面缩放设成和 Mac 或 iPad 一样，文字和窗口看起来和本机 App 一样大。
+- 远程桌面的大小跟随窗口或屏幕，也可以按 Retina 的完整分辨率运行。按 Retina 分辨率运行时，较新的 ghost 主机（见[运行要求](#运行要求)）还会把桌面缩放设成和 Mac 或 iPad 一样，文字和窗口看起来和本机 App 一样大。
 - Mac 上全屏时隐藏工具栏和菜单栏，指针移到顶部边缘时才出现。
 - 远程桌面的声音，带抖动缓冲和静音按钮。
 
@@ -88,6 +88,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 - 一台 ghost 主机（ghostd 和 wraith），搭建方法见 [ghost](https://github.com/jsaiko/ghost) 项目
 - 文件传输需要较新的 ghost（2026 年 10 月以后的上游 `main`）。在远程桌面粘贴本机复制的文件、共享文件夹，还需要 wraith 用 libfuse3 3.12 或更新版本构建（构建前 `apt install libfuse3-dev`），主机上要有 `/dev/fuse` 和 `fusermount3`：主机会把 Spectre 提供的文件挂载起来。没有这些时，发送和下载照样能用。
 - PyroWave 需要用 libpyrowave 构建的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了两端必须一致的版本），并在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 里设置 `pyrowave = true`。
+- 要让主机桌面在 Retina 分辨率下跟随 Mac 或 iPad 的缩放比例，需要 2026 年 10 月 18 日以后的 ghost（上游 `main`），它的 wraith 会在 GNOME、KDE Plasma 和 wlroots 桌面上设置缩放。在 `/etc/ghost/wraith.toml` 的 `[display]` 里设置 `client_scale = false`，缩放就交给桌面自己的设置。
 
 ## 安装
 
@@ -95,7 +96,7 @@ Mac 版可以在 [GitHub Releases](https://github.com/pokoblin/spectre-apple/rel
 
 ## 使用
 
-用 **+** 添加服务器：地址（`host` 或 `host:port`，端口默认 4442）、你的用户名，还可以填密码。然后点 **连接**，选择一个桌面。第一次连接时请确认服务器的证书指纹。
+用 **+** 添加服务器：地址（`host` 或 `host:port`，端口默认 4442）、你的用户名，还可以填密码。打开 **在钥匙串中记住**，密码就存在这台设备上；在 **编辑服务器** 里，这个开关显示密码是否已保存，关掉就会删除已保存的密码。然后点 **连接**，选择一个桌面。第一次连接时请确认服务器的证书指纹。
 
 Mac 上每个会话各开一个窗口；关掉它就断开连接，主机上的桌面会话继续运行。iPad 和 iPhone 上会话盖在首页上面。
 

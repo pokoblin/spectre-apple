@@ -35,7 +35,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - H.264, HEVC and AV1 decoded in hardware and presented with Metal without copying frames. AV1 is asked for first on devices that decode it in hardware (Apple M3, A17 Pro and later), and used when the host's GPU can encode it; otherwise HEVC.
 - Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** (on the Mac also **Settings › Video**) turns it off to spare the host the work.
 - PyroWave on a wired network: when the host is on the same wired network at 1 Gbit/s or more, Spectre asks for PyroWave first, an intra-only wavelet codec that looks close to lossless at a few hundred Mbit/s and decodes on the GPU in about a millisecond. Over Wi-Fi, a slower link or another network, the usual codecs are used. It needs a host with PyroWave turned on and a GPU quick enough to encode it: a small integrated GPU may not keep up at high resolutions (an Intel N100 manages about 25 fps at 2560×1496). **More › PyroWave on Wired Networks** (on the Mac also **Settings › Video**) turns it off, and says whether it is in use or why not.
-- The remote desktop resizes to fit the window or screen, or runs at full Retina resolution. At Retina resolution, a recent ghost host (upstream `main` since October 2026) also sets its desktop's scale to the Mac's or iPad's, so text and windows look as big as in a local app.
+- The remote desktop resizes to fit the window or screen, or runs at full Retina resolution. At Retina resolution, a recent ghost host (see [Requirements](#requirements)) also sets its desktop's scale to the Mac's or iPad's, so text and windows look as big as in a local app.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
 
@@ -88,6 +88,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - A ghost host (ghostd and wraith); see [ghost](https://github.com/jsaiko/ghost) for setting one up
 - For file transfer, a recent ghost (upstream `main` since October 2026). Pasting files copied here, and shared folders, also need a wraith built with libfuse3 3.12 or newer (`apt install libfuse3-dev` before building) on a host with `/dev/fuse` and `fusermount3`: the host mounts what Spectre offers. Without it, sending and downloading still work.
 - For PyroWave, a wraith built with libpyrowave (ghost's `packaging/build-pyrowave.sh`, which pins the revision both ends must share) and `pyrowave = true` under `[encode.codecs]` in `/etc/ghost/wraith.toml`.
+- For the host's desktop to follow the Mac's or iPad's scale at Retina resolution, a ghost from 18 October 2026 on (upstream `main`), whose wraith sets the scale on GNOME, KDE Plasma and wlroots desktops. `client_scale = false` under `[display]` in `/etc/ghost/wraith.toml` leaves the scale to the desktop's own settings.
 
 ## Install
 
@@ -95,7 +96,7 @@ Download the notarized `.dmg` for the Mac from [GitHub Releases](https://github.
 
 ## Usage
 
-Add a server with **+**: its address (`host` or `host:port`, port 4442 by default), your user name and optionally your password. Then **Connect** and choose a desktop. On the first connection, confirm the server's certificate fingerprint.
+Add a server with **+**: its address (`host` or `host:port`, port 4442 by default), your user name and optionally your password, which **Remember in Keychain** keeps on this device; in **Edit Server** the switch shows whether it is kept, and turning it off forgets it. Then **Connect** and choose a desktop. On the first connection, confirm the server's certificate fingerprint.
 
 On the Mac, each session opens in its own window; closing it disconnects and leaves the desktop running on the host. On iPad and iPhone the session covers the home screen.
 

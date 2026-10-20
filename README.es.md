@@ -35,7 +35,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - H.264, HEVC y AV1, decodificados por hardware y mostrados con Metal sin copiar fotogramas. En los dispositivos que decodifican AV1 por hardware (Apple M3, A17 Pro y posteriores) se pide AV1 primero, y se usa si la GPU del host puede codificarlo; si no, HEVC.
 - Refinamiento sin pérdidas: cuando una parte de la pantalla deja de cambiar, el host la vuelve a enviar sin pérdidas y se muestra exacta píxel a píxel sobre el vídeo, así que el texto y las líneas se ven nítidos. Activado por defecto; **Más › Refinamiento sin pérdidas** (en el Mac, también **Ajustes › Vídeo**) lo desactiva para ahorrarle trabajo al host.
 - PyroWave en una red por cable: cuando el host está en la misma red por cable a 1 Gbit/s o más, Spectre pide primero PyroWave, un códec wavelet solo intra que se ve casi sin pérdidas a unos cientos de Mbit/s y se decodifica en la GPU en alrededor de un milisegundo. Por Wi-Fi, un enlace más lento u otra red se usan los códecs de siempre. Necesita un host con PyroWave activado y una GPU lo bastante rápida para codificarlo: una GPU integrada pequeña puede no dar abasto a resoluciones altas (un Intel N100 llega a unos 25 fps a 2560×1496). **Más › PyroWave en redes por cable** (en el Mac, también **Ajustes › Vídeo**) lo desactiva e indica si se está usando o por qué no.
-- El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa. A resolución Retina, un host de ghost reciente (`main` del proyecto original desde octubre de 2026) también ajusta la escala de su escritorio a la del Mac o del iPad, así que el texto y las ventanas se ven del mismo tamaño que en una app local.
+- El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa. A resolución Retina, un host de ghost reciente (ver [Requisitos](#requisitos)) también ajusta la escala de su escritorio a la del Mac o del iPad, así que el texto y las ventanas se ven del mismo tamaño que en una app local.
 - En el Mac, la pantalla completa oculta la barra de herramientas y la barra de menús hasta que el puntero llega al borde superior.
 - El sonido del escritorio remoto, con un búfer de fluctuación y un botón para silenciarlo.
 
@@ -88,6 +88,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Un host ghost (ghostd y wraith); consulta el proyecto [ghost](https://github.com/jsaiko/ghost) para montar uno
 - Para transferir archivos, un ghost reciente (el `main` del proyecto original desde octubre de 2026). Pegar archivos copiados aquí y compartir carpetas requiere además un wraith compilado con libfuse3 3.12 o posterior (`apt install libfuse3-dev` antes de compilar) en un host con `/dev/fuse` y `fusermount3`: el host monta lo que Spectre ofrece. Sin ello, enviar y descargar siguen funcionando.
 - Para PyroWave, un wraith compilado con libpyrowave (`packaging/build-pyrowave.sh` de ghost, que fija la revisión que ambos extremos deben compartir) y `pyrowave = true` en `[encode.codecs]` de `/etc/ghost/wraith.toml`.
+- Para que el escritorio del host siga la escala del Mac o del iPad a resolución Retina, un ghost del 18 de octubre de 2026 en adelante (`main` del proyecto original), cuyo wraith ajusta la escala en escritorios GNOME, KDE Plasma y wlroots. `client_scale = false` en `[display]` de `/etc/ghost/wraith.toml` deja la escala a la configuración del propio escritorio.
 
 ## Instalación
 
@@ -95,7 +96,7 @@ Descarga el `.dmg` notarizado para Mac desde [GitHub Releases](https://github.co
 
 ## Uso
 
-Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña. Luego **Conectar** y elige un escritorio. En la primera conexión, confirma la huella del certificado del servidor.
+Añade un servidor con **+**: su dirección (`host` o `host:port`; el puerto por omisión es 4442), tu nombre de usuario y, si quieres, tu contraseña, que **Recordar en el llavero** guarda en este dispositivo; en **Editar servidor** el interruptor muestra si está guardada, y al desactivarlo se olvida. Luego **Conectar** y elige un escritorio. En la primera conexión, confirma la huella del certificado del servidor.
 
 En el Mac, cada sesión se abre en su propia ventana; al cerrarla se desconecta y el escritorio sigue abierto en el host. En iPad y iPhone la sesión cubre la pantalla de inicio.
 
