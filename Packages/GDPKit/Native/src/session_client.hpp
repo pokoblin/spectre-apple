@@ -251,7 +251,8 @@ public:
 	void mark_frame_discarded(uint8_t stream_id, uint32_t frame_id);
 
 	void request_keyframe(uint32_t stream_id);
-	void request_resolution(uint32_t stream_id, uint32_t width, uint32_t height);
+	// `scale`: the desktop scale wanted with the size, 0 for none (§6.2, §7.2).
+	void request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale);
 	void send_logout();
 	// The answer to the latest DiagnosticsRequest; ignored without one pending.
 	void send_diagnostics_report(const uint8_t *text, size_t len);

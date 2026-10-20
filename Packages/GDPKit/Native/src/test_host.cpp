@@ -119,6 +119,9 @@ struct TestHost::Impl {
 	uint16_t next_audio_seq = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
+	// The desktop's scale, reported in OutputDescriptor (§6.2): the one the
+	// client asked for with its size, or 1 for none, as wraith does.
+	double scale = 1;
 	std::string codec; // the one accepted
 	std::string clipboard;
 
@@ -237,8 +240,11 @@ struct TestHost::Impl {
 			if (hello.displays_size() > 0) {
 				obs.requested_width = hello.displays(0).width();
 				obs.requested_height = hello.displays(0).height();
+				obs.requested_scale = hello.displays(0).scale();
 			}
 		}
+		// The size in Hello is only recorded, but its scale is taken.
+		scale = hello.displays_size() > 0 && hello.displays(0).scale() > 0 ? hello.displays(0).scale() : 1;
 		if (hello.token() != cfg.token) return close_peer(p, code(gdp::ErrorCode::kAuthFailed));
 		if (cfg.refuse_code) return close_peer(p, cfg.refuse_code);
 		if (!cfg.reject_reason.empty()) {
@@ -356,7 +362,7 @@ struct TestHost::Impl {
 		o->mutable_display()->set_width(width);
 		o->mutable_display()->set_height(height);
 		o->mutable_display()->set_refresh_mhz(60000);
-		o->mutable_display()->set_scale(1.0);
+		o->mutable_display()->set_scale(scale);
 		auto *color = o->mutable_color();
 		// §7.3: pyrowave is full-range BT.709 either way; the block codecs
 		// take their default here.
@@ -430,14 +436,17 @@ struct TestHost::Impl {
 		case E::kResolutionChange: {
 			uint32_t w = env.resolution_change().display().width();
 			uint32_t h = env.resolution_change().display().height();
+			double s = env.resolution_change().display().scale();
 			{
 				std::lock_guard lock(mu);
 				obs.resolution_requests.emplace_back(w, h);
+				obs.last_resolution_scale = s;
 			}
 			// §7.2: refuse odd sizes and sizes outside 320-8192; answer either way.
 			if (w % 2 == 0 && h % 2 == 0 && w >= 320 && h >= 320 && w <= 8192 && h <= 8192) {
 				width = w;
 				height = h;
+				scale = s > 0 ? s : 1; // §6.2: none is 100%
 			}
 			send_displays_changed_now();
 			break;

@@ -504,13 +504,14 @@ void SessionClient::request_keyframe(uint32_t stream_id) {
 	send_control(env);
 }
 
-void SessionClient::request_resolution(uint32_t stream_id, uint32_t width, uint32_t height) {
+void SessionClient::request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale) {
 	if (!accepted_) return;
 	gdp::session::ControlEnvelope env;
 	auto *r = env.mutable_resolution_change();
 	r->set_stream_id(stream_id);
 	r->mutable_display()->set_width(width);
 	r->mutable_display()->set_height(height);
+	r->mutable_display()->set_scale(scale);
 	send_control(env);
 }
 

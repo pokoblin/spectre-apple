@@ -426,7 +426,9 @@ void gdpc_session_record_frame_timing(gdpc_session *session, uint32_t decode_us,
 // A frame video_frame accepted turned out unusable (the decoder rejected it).
 void gdpc_session_mark_frame_discarded(gdpc_session *session, uint8_t stream_id, uint32_t frame_id);
 void gdpc_session_request_keyframe(gdpc_session *session, uint32_t stream_id);
-void gdpc_session_request_resolution(gdpc_session *session, uint32_t stream_id, uint32_t width, uint32_t height);
+// `scale`: the desktop scale wanted with the size, 0 for none (§6.2, §7.2).
+void gdpc_session_request_resolution(gdpc_session *session, uint32_t stream_id, uint32_t width, uint32_t height,
+                                     double scale);
 void gdpc_session_send_logout(gdpc_session *session);
 void gdpc_session_send_diagnostics_report(gdpc_session *session, const uint8_t *text, size_t len);
 // A local clipboard change, UTF-8 (§7.9). Dropped before establishment,
@@ -604,6 +606,7 @@ typedef struct {
     int32_t network_profile;
     uint32_t requested_width;
     uint32_t requested_height;
+    double requested_scale;
     bool accepted;
     char accepted_codec[16];
     bool closed;
@@ -632,6 +635,7 @@ typedef struct {
     uint32_t resolution_requests;
     uint32_t last_resolution_width;
     uint32_t last_resolution_height;
+    double last_resolution_scale;
     bool logout_requested;
     uint32_t pongs;
     uint64_t last_pong_nonce;

@@ -166,13 +166,14 @@ struct EstablishmentTests {
         #expect(seen.clientName == "Kbys-Mac-mini")
         #expect(!seen.takeOver && !seen.viaGateway)
         #expect(seen.networkProfile == 1)
-        #expect(seen.requestedWidth == 2560 && seen.requestedHeight == 1440)
+        #expect(seen.requestedWidth == 2560 && seen.requestedHeight == 1440 && seen.requestedScale == 2)
 
         let accept = try #require(rec.snapshot.accept)
         #expect(accept.codec == "h264") // the first offered codec the host can encode
         #expect(accept.capabilities.isEmpty) // the host supports none of them
         #expect(accept.outputs.count == 1)
         #expect(accept.outputs.first.map { ($0.width, $0.height, $0.matrix, $0.range) } ?? (0, 0, 0, 0) == (1920, 1080, 1, 1))
+        #expect(accept.outputs.first?.scale == 2) // §6.2: the scale asked for, which the host set
         #expect(accept.audio == nil)
         #expect(accept.networkProfile == .lan)
         #expect(accept.encoder == "test" && accept.hostUser == "tester" && accept.hostName == "loopback")
@@ -431,7 +432,7 @@ struct ControlTests {
         let rec = Recorder()
         let session = try await connected(host, rec)
         session.requestKeyframe()
-        session.requestResolution(width: 2560, height: 1440)
+        session.requestResolution(width: 2560, height: 1440, scale: 2)
         session.requestResolution(width: 1001, height: 701) // odd: refused, answered with the current size
         session.sendKey(hidUsage: 0x04, pressed: true)
         session.sendKey(hidUsage: 0x04, pressed: false)
@@ -442,8 +443,9 @@ struct ControlTests {
         #expect(await eventually { host.observed.touches == 1 && rec.snapshot.displays.count == 2 })
         let o = host.observed
         #expect(o.keyframeRequests == 1)
-        #expect(o.resolutionRequests == 2 && o.lastResolution == (1001, 701))
+        #expect(o.resolutionRequests == 2 && o.lastResolution == (1001, 701) && o.lastResolutionScale == 0)
         #expect(rec.snapshot.displays.map { $0.first?.width } == [2560, 2560])
+        #expect(rec.snapshot.displays.map { $0.first?.scale } == [2, 2]) // §7.2: the scale goes with the size
         #expect(o.keyEvents == 2 && o.lastKeyUsage == 0x04 && !o.lastKeyPressed)
         #expect(o.pointerMotions == 1 && o.lastMotion == (0.5, 0.25, true))
         #expect(o.buttonEvents == 1 && o.lastButton == 0x110 && o.lastButtonPressed)
