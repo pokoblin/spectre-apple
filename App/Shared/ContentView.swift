@@ -522,10 +522,24 @@ private struct ResolutionControls: View {
                                                           set: { model.resolutionUnits = $0 ? .pixels : .points }))
                     .disabled(!model.matchesWindowSize)
             }
+            Section("Smoother motion on a fast display, at more bandwidth and work for the host") {
+                Picker("Frame Rate", selection: $model.frameRate) {
+                    FrameRateChoices()
+                }
+                .pickerStyle(.inline)
+            }
         } label: {
             Label("Resolution", systemImage: "arrow.up.left.and.arrow.down.right")
         }
     }
 }
 #endif
+
+/// The frame rates to ask the host for (gdp-spec.md §6.2).
+struct FrameRateChoices: View {
+    var body: some View {
+        Text("60 Hz").tag(PlaybackModel.FrameRate.standard)
+        Text("Match Display").tag(PlaybackModel.FrameRate.display)
+    }
+}
 

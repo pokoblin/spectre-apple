@@ -117,6 +117,7 @@ private struct VideoSettings: View {
     let app: AppModel
     @AppStorage(PlaybackModel.matchesWindowSizeKey) private var matchesWindowSize = true
     @AppStorage(PlaybackModel.resolutionUnitsKey) private var resolutionUnits = ResolutionFollower.Units.points
+    @AppStorage(PlaybackModel.frameRateKey) private var frameRate = PlaybackModel.FrameRate.standard
     @AppStorage(PlaybackModel.refinementKey) private var isRefinementOn = true
     @AppStorage(PlaybackModel.pyroWaveKey) private var isPyroWaveOn = true
 
@@ -128,6 +129,13 @@ private struct VideoSettings: View {
                     .disabled(!matchesWindowSize)
             } footer: {
                 Text("Sharper on Retina screens, at up to four times the work for the host")
+            }
+            Section {
+                Picker("Frame Rate", selection: app.live($frameRate) { $0.frameRate = $1 }) {
+                    FrameRateChoices()
+                }
+            } footer: {
+                Text("Smoother motion on a fast display, at more bandwidth and work for the host")
             }
             Section {
                 Toggle("Lossless Refinement", isOn: app.live($isRefinementOn) { $0.isRefinementOn = $1 })

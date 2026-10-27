@@ -236,6 +236,14 @@ struct SessionMoreMenu: View {
                     }
                     .disabled(!model.matchesWindowSize)
                 }
+                Section("Smoother motion on a fast display, at more bandwidth and work for the host") {
+                    Picker(selection: $model.frameRate) {
+                        FrameRateChoices()
+                    } label: {
+                        Label("Frame Rate", systemImage: "gauge.with.dots.needle.67percent")
+                    }
+                    .pickerStyle(.menu)
+                }
             }
             if let clipboard = model.clipboard {
                 ClipboardSection(clipboard: clipboard)

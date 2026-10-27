@@ -65,6 +65,15 @@ final class PlaybackModel {
     /// window subtitle shows it.
     private(set) var quality: Quality?
     private(set) var streamInfo = ""
+    /// A remote session's codec and encoder, and its output's size and
+    /// rate as last reported, which `streamInfo` shows after the title.
+    @ObservationIgnored private var acceptedText: (codec: String, encoder: String)?
+    @ObservationIgnored private var outputText = "" {
+        didSet {
+            guard let acceptedText else { return }
+            streamInfo = "\(title) — \(acceptedText.codec) \(outputText), \(acceptedText.encoder)"
+        }
+    }
     /// A remote session's title (user@server, or the --connect target),
     /// which `streamInfo` extends with the codec once accepted.
     private(set) var title = ""
@@ -142,6 +151,21 @@ final class PlaybackModel {
     }
     static let matchesWindowSizeKey = "matchesWindowSize"
     static let resolutionUnitsKey = "resolutionUnits"
+    /// The frame rate asked of the host (gdp-spec.md §6.2): 60 Hz unless
+    /// changed, or the highest rate of the display the session is on;
+    /// remembered.
+    var frameRate = UserDefaults.standard.string(forKey: PlaybackModel.frameRateKey)
+        .flatMap(FrameRate.init) ?? .standard {
+        didSet {
+            UserDefaults.standard.set(frameRate.rawValue, forKey: Self.frameRateKey)
+            updateFrameRate()
+        }
+    }
+    enum FrameRate: String, CaseIterable {
+        case standard
+        case display
+    }
+    static let frameRateKey = "frameRate"
     private var resolution = ResolutionFollower(isEnabled: true, units: .points)
     private var resolutionTimer: Task<Void, Never>?
     /// The session plays audio (SessionAccept described a format we decode).
@@ -224,6 +248,9 @@ final class PlaybackModel {
     #if os(iOS)
     private var backgroundTask: UIBackgroundTaskIdentifier = .invalid
     private var lifecycleObservers: [NSObjectProtocol] = []
+    #else
+    /// The window moving to another display, or a display's mode changing.
+    private var displayObservers: [NSObjectProtocol] = []
     #endif
     private var endReported = false
     /// The user disconnected, logged out or gave up reconnecting: the
@@ -279,6 +306,7 @@ final class PlaybackModel {
         }
         bench = value("--bench").flatMap(Double.init).map { BenchOptions(seconds: $0) }
         resolution = ResolutionFollower(isEnabled: matchesWindowSize, units: resolutionUnits)
+        resolution.setRefresh(wantedRefresh, at: Self.now)
         if let c = value("--codec").flatMap(VideoCodec.init(rawValue:)) { codec = c }
         if let s = value("--source").flatMap(Source.init(rawValue:)) { source = s }
         if let m = value("--mode").flatMap(VideoPresenter.Mode.init(rawValue:)) {
@@ -343,6 +371,19 @@ final class PlaybackModel {
                 [weak self] _ in MainActor.assumeIsolated { self?.enteringForeground() }
             },
         ]
+        #else
+        let center = NotificationCenter.default
+        displayObservers = [
+            center.addObserver(forName: NSWindow.didChangeScreenNotification, object: nil, queue: .main) {
+                [weak self] note in
+                let window = note.object as? NSWindow
+                MainActor.assumeIsolated {
+                    if let self, window != nil, window === self.presenter?.window { self.updateFrameRate() }
+                }
+            },
+            center.addObserver(forName: NSApplication.didChangeScreenParametersNotification, object: nil,
+                               queue: .main) { [weak self] _ in MainActor.assumeIsolated { self?.updateFrameRate() } },
+        ]
         #endif
     }
 
@@ -350,6 +391,8 @@ final class PlaybackModel {
         pathMonitor.cancel()
         #if os(iOS)
         lifecycleObservers.forEach(NotificationCenter.default.removeObserver)
+        #else
+        displayObservers.forEach(NotificationCenter.default.removeObserver)
         #endif
     }
 
@@ -606,8 +649,11 @@ final class PlaybackModel {
                 self?.input?.pictureChanged(picture.size)
                 self?.resolution.outputChanged(ResolutionFollower.Size(width: UInt32(picture.size.width),
                                                                        height: UInt32(picture.size.height)),
-                                               scale: picture.scale)
-                print("session: output \(Int(picture.size.width))×\(Int(picture.size.height)) at \(Int((picture.scale * 100).rounded()))%")
+                                               scale: picture.scale, refreshMillihertz: picture.refreshMillihertz)
+                let output = Self.outputText(width: Int(picture.size.width), height: Int(picture.size.height),
+                                             refreshMillihertz: picture.refreshMillihertz)
+                self?.outputText = output
+                print("session: output \(output) at \(Int((picture.scale * 100).rounded()))%")
             }
         }
         remote.onCursorShape = { [weak self] shape in
@@ -662,10 +708,15 @@ final class PlaybackModel {
         // The size the view wants, asked for in SessionHello (§6.2): the
         // first picture comes at it, without a second encoder start. The
         // test sources stream at a fixed size.
-        if isRemoteSession, let request = resolution.requestForConnection() {
-            config.display = GDPSession.DisplayRequest(width: request.size.width, height: request.size.height,
-                                                       scale: request.scale)
-            print("session: asking for \(request)")
+        if isRemoteSession {
+            // The display may have changed since the last connection.
+            resolution.setRefresh(wantedRefresh, at: Self.now)
+            let request = resolution.requestForConnection()
+            let refresh = resolution.refreshMillihertz
+            config.display = GDPSession.DisplayRequest(width: request?.size.width ?? 0,
+                                                       height: request?.size.height ?? 0,
+                                                       refreshMillihertz: refresh, scale: request?.scale ?? 0)
+            print("session: asking for \(request?.description ?? "\(ResolutionFollower.hertz(refresh)) Hz")")
         }
         do {
             try remote.connect(config)
@@ -711,7 +762,12 @@ final class PlaybackModel {
             } else {
                 print("session: no audio: \(remote.audioUnavailable ?? "?")")
             }
-            if source == .remote { streamInfo = "\(title) — \(codecName) \(size), \(accept.encoder)" }
+            if source == .remote {
+                acceptedText = (codecName, accept.encoder)
+                outputText = accept.outputs.first.map {
+                    Self.outputText(width: Int($0.width), height: Int($0.height), refreshMillihertz: $0.refreshMillihertz)
+                } ?? size
+            }
             if accept.capabilities.contains(GDPSession.Capability.clipboard) {
                 clipboardInEffect = true
                 clipboardSync?.start()
@@ -791,6 +847,8 @@ final class PlaybackModel {
     /// is kept the size of (docs/resolution.md).
     func sessionViewChanged(_ size: CGSize, scale: CGFloat) {
         resolution.viewChanged(size, scale: scale, at: Self.now)
+        // Now in a window, on a display (iOS has no notification for it).
+        resolution.setRefresh(wantedRefresh, at: Self.now)
         scheduleResolution()
     }
 
@@ -809,8 +867,38 @@ final class PlaybackModel {
             resolutionTimer = nil
             guard let request = resolution.update(at: Self.now) else { return }
             print("session: asking for \(request)")
-            session.requestResolution(width: request.size.width, height: request.size.height, scale: request.scale)
+            session.requestResolution(width: request.size.width, height: request.size.height, scale: request.scale,
+                                      refreshMillihertz: request.refreshMillihertz)
         }
+    }
+
+    /// What ``frameRate`` asks for, in millihertz: Match Display counts the
+    /// display the session is on (the main one before the window is up),
+    /// kept to the 30-240 Hz a host may run at.
+    private var wantedRefresh: UInt32 {
+        guard frameRate == .display else { return 60_000 }
+        var hertz = presenter?.displayRefreshRate ?? 0
+        if hertz == 0 {
+            #if os(macOS)
+            hertz = NSScreen.main?.maximumFramesPerSecond ?? 60
+            #else
+            hertz = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.maximumFramesPerSecond ?? 60
+            #endif
+        }
+        return UInt32(min(max(hertz, 30), 240)) * 1000
+    }
+
+    /// The setting or the display changed: a new rate is asked for once it
+    /// has settled (a ResolutionChange, §7.2), or by the next connection.
+    private func updateFrameRate() {
+        resolution.setRefresh(wantedRefresh, at: Self.now)
+        scheduleResolution()
+    }
+
+    /// The output as the overlay shows it: its size and frame rate.
+    private static func outputText(width: Int, height: Int, refreshMillihertz: UInt32) -> String {
+        let size = "\(width)×\(height)"
+        return refreshMillihertz > 0 ? "\(size)@\(ResolutionFollower.hertz(refreshMillihertz))" : size
     }
 
     // MARK: - Reconnecting
