@@ -10,6 +10,7 @@ struct SpectreApp: App {
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbarInFullScreen = true
     @State private var app = AppModel()
     @State private var language = AppLanguage()
+    @State private var updates = Updates()
 
     var body: some Scene {
         // Each window shows the language chosen in Settings, at once.
@@ -30,13 +31,13 @@ struct SpectreApp: App {
             CommandGroup(after: .toolbar) {
                 Toggle("Hide Toolbar in Full Screen", isOn: $hidesToolbarInFullScreen)
             }
-            AppCommands()
+            AppCommands(updates: updates)
             SessionMenu()
         }
         .environment(\.locale, language.locale)
 
         Settings {
-            SettingsView(app: app, language: language)
+            SettingsView(app: app, language: language, updates: updates)
                 .environment(\.locale, language.locale)
         }
         // Its Settings… item is AppCommands' own.
@@ -46,6 +47,7 @@ struct SpectreApp: App {
 
 /// The app menu's own items.
 struct AppCommands: Commands {
+    let updates: Updates
     @Environment(\.openSettings) private var openSettings
     @FocusedValue(\.session) private var session
 
@@ -53,6 +55,9 @@ struct AppCommands: Commands {
         // The system's About panel, with the thanks to ghost as its credits.
         CommandGroup(replacing: .appInfo) {
             Button("About Spectre") { Credits.showAboutPanel() }
+            if updates.isAvailable {
+                Button("Check for Updates…") { updates.checkForUpdates() }
+            }
         }
         // Settings… as the system makes it, but Cmd+, only outside a
         // session's window: in one, every key is the remote desktop's.

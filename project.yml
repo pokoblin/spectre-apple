@@ -27,6 +27,10 @@ packages:
     path: Packages/GDPKit
   SpectreKit:
     path: Packages/SpectreKit
+  # The Mac's updates (App/macOS/Updates.swift).
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.10.1"
 
 targets:
   Spectre:
@@ -37,12 +41,15 @@ targets:
       - path: App/Shared
       - path: App/macOS
         destinationFilters: [macOS]
+        excludes: [Info.plist]
       - path: App/iOS
         destinationFilters: [iOS]
         excludes: [FileSharing.plist]
     dependencies:
       - package: GDPKit
       - package: SpectreKit
+      - package: Sparkle
+        destinationFilters: [macOS]
     settings:
       base:
         PRODUCT_NAME: Spectre
@@ -67,6 +74,17 @@ targets:
         # Downloads go to Documents, which the Files app shows as On My
         # iPad › Spectre (docs/file-transfer.md).
         "INFOPLIST_FILE[sdk=iphone*]": App/iOS/FileSharing.plist
+        # The Mac's update feed and the public EdDSA key its updates are
+        # signed with, for App/macOS/Info.plist. The private key stays in the
+        # releaser's Keychain (scripts/make-appcast.sh). Without the public
+        # key the app doesn't check for updates.
+        "INFOPLIST_FILE[sdk=macosx*]": App/macOS/Info.plist
+        SPARKLE_FEED_URL: https://github.com/pokoblin/spectre-apple/releases/latest/download/appcast.xml
+        SPARKLE_PUBLIC_ED_KEY: ""
+        # Sparkle.framework is embedded in Contents/Frameworks. A target for
+        # both platforms gets only iOS's @executable_path/Frameworks, so the
+        # Mac app wouldn't launch without this.
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
         INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortraitUpsideDown"
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO

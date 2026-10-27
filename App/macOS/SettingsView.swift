@@ -11,10 +11,13 @@ import SwiftUI
 struct SettingsView: View {
     let app: AppModel
     let language: AppLanguage
+    let updates: Updates
 
     var body: some View {
         TabView {
-            Tab("General", systemImage: "gearshape") { GeneralSettings(app: app, language: language) }
+            Tab("General", systemImage: "gearshape") {
+                GeneralSettings(app: app, language: language, updates: updates)
+            }
             Tab("Video", systemImage: "display") { VideoSettings(app: app) }
             Tab("Input", systemImage: "keyboard") { InputSettings(app: app) }
             Tab("Servers", systemImage: "lock.shield") {
@@ -28,11 +31,13 @@ struct SettingsView: View {
 private struct GeneralSettings: View {
     let app: AppModel
     let language: AppLanguage
+    let updates: Updates
     @AppStorage(Appearance.key) private var appearance = Appearance.system
     @AppStorage(AppDelegate.hidesToolbarKey) private var hidesToolbar = true
     @AppStorage(AppDelegate.opensSessionsInFullScreenKey) private var opensInFullScreen = false
     @AppStorage(ClipboardSync.enabledKey) private var sharesClipboard = false
     @AppStorage(PlaybackModel.audioMutedKey) private var isAudioMuted = false
+    @AppStorage(Updates.automaticChecksKey) private var checksForUpdates = false
 
     var body: some View {
         Form {
@@ -73,6 +78,13 @@ private struct GeneralSettings: View {
             Section {
             } footer: {
                 Text("These are the defaults for new sessions. A change here applies to open sessions too.")
+            }
+            if updates.isAvailable {
+                // Sparkle asks on the second launch; this changes the answer.
+                Section {
+                    Toggle("Check for Updates Automatically", isOn: $checksForUpdates)
+                        .onChange(of: checksForUpdates) { updates.setAutomaticChecks(checksForUpdates) }
+                }
             }
         }
         .formStyle(.grouped)
