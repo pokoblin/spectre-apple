@@ -287,6 +287,11 @@ final class PlaybackModel {
     /// and queues a session runs on (StatsReport every 250 ms, §7.5) when
     /// the window is in the background. Idle system sleep still happens.
     private var activity: NSObjectProtocol?
+    /// Keeps this display awake while the host's desktop is held awake
+    /// (gdp-spec.md §7.13), until it isn't or the connection ends.
+    private let wakeLock = DisplayWakeLock()
+    /// `--host-holds-awake`: the loopback host says its desktop is held awake.
+    @ObservationIgnored private var hostHoldsAwake = false
 
     init(arguments: [String] = CommandLine.arguments) {
         // The per-second report reaches a log file (or a pipe) as it is printed.
@@ -325,6 +330,7 @@ final class PlaybackModel {
             .map { URL(filePath: arguments[$0 + 1]) }
         downloadsCopiedFiles = arguments.contains("--download-copied")
         hostFetchesCopied = arguments.contains("--host-fetch-copied")
+        hostHoldsAwake = arguments.contains("--host-holds-awake")
         #if os(iOS)
         showsPasteSettingTip = arguments.contains("--show-paste-tip")
         #endif
@@ -519,6 +525,7 @@ final class PlaybackModel {
     private func stopAll() {
         if let activity { ProcessInfo.processInfo.endActivity(activity) }
         activity = nil
+        desktopHeldAwake(false)
         reconnectTask?.cancel()
         reconnectTask = nil
         resolutionTimer?.cancel()
@@ -661,6 +668,12 @@ final class PlaybackModel {
         }
         remote.onCursorPosition = { [weak self] position in
             Task { @MainActor in self?.input?.hostCursorPosition(position) }
+        }
+        remote.onDesktopState = { [weak self, weak remote] held in
+            Task { @MainActor in
+                guard let self, let remote, remote === self.remote else { return } // a session already replaced
+                self.desktopHeldAwake(held)
+            }
         }
         remote.onClipboardText = { [weak self] text in
             Task { @MainActor in
@@ -814,8 +827,10 @@ final class PlaybackModel {
             phase = .playing
             startTicker()
             scheduleResolution() // the view may have changed while connecting
+            if hostHoldsAwake { testHost?.sendDesktopState(idleInhibited: true) }
         case let .ended(ending):
             print("session: ended: \(ending)")
+            desktopHeldAwake(false) // §7.13: it ends with the connection
             endRefinement()
             input?.end()
             input = nil
@@ -839,6 +854,14 @@ final class PlaybackModel {
                 phase = .failed("session ended: \(ending)")
             }
         }
+    }
+
+    /// The host's DesktopState (§7.13), or the connection's end: this
+    /// display stays awake while an application there holds that desktop awake.
+    private func desktopHeldAwake(_ held: Bool) {
+        guard held != wakeLock.isHeld else { return }
+        print("session: the host's desktop \(held ? "is held awake" : "is no longer held awake")")
+        wakeLock.hold(held)
     }
 
     // MARK: - Resolution
