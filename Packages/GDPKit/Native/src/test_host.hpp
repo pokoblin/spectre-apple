@@ -248,6 +248,8 @@ public:
 	void send_network_profile(int32_t profile);
 	void send_gateway_path(uint32_t upstream_rtt_us);
 	void send_diagnostics_request();
+	// DesktopState (§7.13): an application holding the desktop awake.
+	void send_desktop_state(bool idle_inhibited);
 	// Sends ClipboardData as given, even if invalid (tests); a text/plain
 	// one also becomes the host's clipboard.
 	void send_clipboard(std::string mime_type, std::string data);

@@ -318,6 +318,10 @@ typedef struct {
     // The host's clipboard text, UTF-8 as sent (§7.9): only with `clipboard`
     // in effect, never empty or over 1 047 552 bytes.
     void (*clipboard_text)(void *ctx, const uint8_t *text, size_t len);
+    // The host's DesktopState (§7.13), each one it sends: an application
+    // there is holding the desktop awake. False again when it stops; the
+    // connection closing ends it too.
+    void (*desktop_state)(void *ctx, bool idle_inhibited);
     // File transfer (§7.12), per gdpc_session_offer_file() id: the host
     // accepted (send the bytes now); how many bytes it has acknowledged
     // (coalesced); and how it ended, exactly once per offer unless it was
@@ -726,6 +730,7 @@ void gdpc_test_host_send_displays_changed(gdpc_test_host *host, uint32_t width, 
 void gdpc_test_host_send_network_profile(gdpc_test_host *host, int32_t profile);
 void gdpc_test_host_send_gateway_path(gdpc_test_host *host, uint32_t upstream_rtt_us);
 void gdpc_test_host_send_diagnostics_request(gdpc_test_host *host);
+void gdpc_test_host_send_desktop_state(gdpc_test_host *host, bool idle_inhibited);
 // Sends ClipboardData as given, even if invalid; a text/plain one also
 // becomes the host's clipboard.
 void gdpc_test_host_send_clipboard(gdpc_test_host *host, const char *mime_type, const uint8_t *data, size_t len);

@@ -336,6 +336,9 @@ public final class GDPSession: @unchecked Sendable {
         /// The host's clipboard text (§7.9): only with ``Capability/clipboard``
         /// in effect, never empty; text that isn't valid UTF-8 is dropped.
         public var clipboardText: (@Sendable (String) -> Void)?
+        /// The host's DesktopState (§7.13), as each one comes: an application
+        /// there holds the desktop awake. It ends with the connection too.
+        public var desktopState: (@Sendable (_ idleInhibited: Bool) -> Void)?
         /// File transfer (§7.12), per ``GDPSession/offerFile(name:size:modified:)``
         /// id: the host accepted the offer (send the bytes with
         /// ``GDPSession/sendFileData(_:_:)`` now), how many of them it has
@@ -528,6 +531,9 @@ public final class GDPSession: @unchecked Sendable {
                     return
                 }
                 GDPSession.from(ctx).handlers.clipboardText?(text)
+            }
+            callbacks.desktop_state = { ctx, idleInhibited in
+                GDPSession.from(ctx).handlers.desktopState?(idleInhibited)
             }
 
             _ = GDP.ignoreBrokenPipes

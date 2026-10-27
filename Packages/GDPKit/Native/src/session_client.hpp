@@ -179,6 +179,8 @@ public:
 		// The host's clipboard text, UTF-8 as sent (§7.9): only with
 		// `clipboard` in effect, never empty or over the size limit.
 		std::function<void(const uint8_t *text, size_t len)> clipboard_text;
+		// The host's DesktopState (§7.13), as each one comes.
+		std::function<void(bool idle_inhibited)> desktop_state;
 		// File transfer (§7.12), per offer_file() id. `file_accepted`: send
 		// its bytes now. `file_progress`: how many of them the host has
 		// acknowledged, coalesced. `file_finished`: exactly once per offer

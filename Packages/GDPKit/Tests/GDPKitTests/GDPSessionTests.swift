@@ -32,6 +32,7 @@ final class Recorder: Sendable {
         var diagnosticsRequests = 0
         var audio: [(UInt16, UInt32, [UInt8])] = []
         var clipboards: [String] = []
+        var desktopStates: [Bool] = []
         var filesAccepted: [UInt64] = []
         var fileProgress: [UInt64: [UInt64]] = [:]
         var filesFinished: [UInt64: GDPSession.FileOutcome] = [:]
@@ -83,6 +84,7 @@ final class Recorder: Sendable {
             onDiagnostics?()
         }
         h.clipboardText = { t in self.state.withLock { $0.clipboards.append(t) } }
+        h.desktopState = { held in self.state.withLock { $0.desktopStates.append(held) } }
         h.fileAccepted = { id in self.state.withLock { $0.filesAccepted.append(id) } }
         h.fileProgress = { id, acked in self.state.withLock { $0.fileProgress[id, default: []].append(acked) } }
         h.fileList = { listID, files in self.state.withLock { $0.fileLists.append((listID, files)) } }
@@ -427,6 +429,19 @@ struct ControlTests {
         #expect(host.observed.diagnosticsReportLength == 512 * 1024) // §7.11
         #expect(rec.snapshot.diagnosticsRequests == 1)
         box.withLock { $0 = nil }
+    }
+
+    @Test func everyDesktopStateIsHandedOn() async throws {
+        // §7.13: no capability; each one replaces the last, repeats included.
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        host.sendDesktopState(idleInhibited: true)
+        host.sendDesktopState(idleInhibited: true)
+        host.sendDesktopState(idleInhibited: false)
+        #expect(await eventually { rec.snapshot.desktopStates.count == 3 })
+        #expect(rec.snapshot.desktopStates == [true, true, false])
+        session.close()
     }
 
     @Test func aFrameRateGoesWithoutASizeAndStaysWithAResize() async throws {

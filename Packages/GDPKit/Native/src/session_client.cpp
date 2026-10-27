@@ -240,6 +240,9 @@ bool SessionClient::handle_envelope(const gdp::session::ControlEnvelope &env) {
 		diagnostics_pending_ = true;
 		if (cb_.diagnostics_requested) cb_.diagnostics_requested();
 		break;
+	case E::kDesktopState:
+		if (cb_.desktop_state) cb_.desktop_state(env.desktop_state().idle_inhibited());
+		break;
 	case E::kFileList: {
 		// §7.12: only with `file` in effect; at most the limit's entries of
 		// what was copied, and with file-clipboard, what is in its folders.

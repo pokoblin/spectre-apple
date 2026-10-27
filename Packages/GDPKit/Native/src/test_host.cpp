@@ -1174,6 +1174,15 @@ void TestHost::send_displays_changed(uint32_t w, uint32_t h) {
 	});
 }
 
+void TestHost::send_desktop_state(bool idle_inhibited) {
+	impl_->post([m = impl_.get(), idle_inhibited] {
+		if (!m->viewer) return;
+		gdp::session::ControlEnvelope env;
+		env.mutable_desktop_state()->set_idle_inhibited(idle_inhibited);
+		m->send(*m->viewer, env);
+	});
+}
+
 void TestHost::send_network_profile(int32_t profile) {
 	impl_->post([m = impl_.get(), profile] {
 		if (!m->viewer) return;

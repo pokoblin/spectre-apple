@@ -158,6 +158,9 @@ struct gdpc_session {
 		cb.clipboard_text = [this](const uint8_t *text, size_t len) {
 			if (callbacks.clipboard_text) callbacks.clipboard_text(callbacks.ctx, text, len);
 		};
+		cb.desktop_state = [this](bool idle_inhibited) {
+			if (callbacks.desktop_state) callbacks.desktop_state(callbacks.ctx, idle_inhibited);
+		};
 		cb.file_accepted = [this](uint64_t id) {
 			if (callbacks.file_accepted) callbacks.file_accepted(callbacks.ctx, id);
 		};
@@ -488,6 +491,10 @@ void gdpc_test_host_send_cursor_shape(gdpc_test_host *host, uint32_t width, uint
 
 void gdpc_test_host_send_cursor_position(gdpc_test_host *host, double x, double y) {
 	host->host.send_cursor_position(x, y);
+}
+
+void gdpc_test_host_send_desktop_state(gdpc_test_host *host, bool idle_inhibited) {
+	host->host.send_desktop_state(idle_inhibited);
 }
 
 void gdpc_test_host_send_displays_changed(gdpc_test_host *host, uint32_t width, uint32_t height) {

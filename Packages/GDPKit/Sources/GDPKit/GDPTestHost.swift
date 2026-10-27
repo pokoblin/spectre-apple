@@ -368,6 +368,7 @@ public final class GDPTestHost: @unchecked Sendable {
         gdpc_test_host_send_gateway_path(handle, upstreamRTTMicroseconds)
     }
     public func sendDiagnosticsRequest() { gdpc_test_host_send_diagnostics_request(handle) }
+    public func sendDesktopState(idleInhibited: Bool) { gdpc_test_host_send_desktop_state(handle, idleInhibited) }
     /// Sends ClipboardData as given, even if invalid; a `text/plain` one
     /// also becomes the host's clipboard.
     public func sendClipboard(_ data: some Collection<UInt8>, mimeType: String = "text/plain") {
