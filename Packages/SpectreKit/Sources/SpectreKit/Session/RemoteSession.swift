@@ -39,6 +39,9 @@ public final class RemoteSession: @unchecked Sendable {
     public var onCursorPosition: (@Sendable (CGPoint) -> Void)?
     /// Called on the session queue: the host's clipboard text (§7.9).
     public var onClipboardText: (@Sendable (String) -> Void)?
+    /// Called on the session queue: whether an application in the host's
+    /// desktop holds it awake, at each DesktopState (§7.13).
+    public var onDesktopState: (@Sendable (_ idleInhibited: Bool) -> Void)?
     /// Called on the session queue: file transfer events (§7.12), for
     /// ``FileTransfers/fileAccepted(_:)`` and its siblings.
     public var onFileAccepted: (@Sendable (UInt64) -> Void)?
@@ -245,6 +248,7 @@ public final class RemoteSession: @unchecked Sendable {
             self?.audioState.withLock { $0.player }?.receive(sequence: sequence, pts: pts, opus: opus)
         }
         h.clipboardText = { [weak self] text in self?.onClipboardText?(text) }
+        h.desktopState = { [weak self] held in self?.onDesktopState?(held) }
         h.fileAccepted = { [weak self] id in self?.onFileAccepted?(id) }
         h.fileProgress = { [weak self] id, acknowledged in self?.onFileProgress?(id, acknowledged) }
         h.fileFinished = { [weak self] id, outcome in self?.onFileFinished?(id, outcome) }
