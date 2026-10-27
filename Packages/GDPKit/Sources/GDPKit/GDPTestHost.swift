@@ -68,6 +68,7 @@ public final class GDPTestHost: @unchecked Sendable {
         public var networkProfile: Int32
         public var requestedWidth, requestedHeight: UInt32
         public var requestedScale: Double
+        public var requestedRefreshMillihertz: UInt32
         public var accepted: Bool
         public var acceptedCodec: String
         public var closed: Bool
@@ -89,6 +90,7 @@ public final class GDPTestHost: @unchecked Sendable {
         public var keyframeRequests, resolutionRequests: UInt32
         public var lastResolution: (width: UInt32, height: UInt32)
         public var lastResolutionScale: Double
+        public var lastResolutionRefreshMillihertz: UInt32
         public var logoutRequested: Bool
         public var pongs: UInt32
         public var lastPongNonce: UInt64
@@ -552,7 +554,8 @@ public final class GDPTestHost: @unchecked Sendable {
             connected: o.connected, helloReceived: o.hello_received, token: s(o.token), codecs: list(o.codecs),
             capabilities: list(o.capabilities), decoders: list(o.decoders), clientName: s(o.client_name), takeOver: o.take_over,
             viaGateway: o.via_gateway, networkProfile: o.network_profile, requestedWidth: o.requested_width,
-            requestedHeight: o.requested_height, requestedScale: o.requested_scale, accepted: o.accepted, acceptedCodec: s(o.accepted_codec),
+            requestedHeight: o.requested_height, requestedScale: o.requested_scale,
+            requestedRefreshMillihertz: o.requested_refresh_mhz, accepted: o.accepted, acceptedCodec: s(o.accepted_codec),
             closed: o.closed, closeCode: o.close_code, statsReports: o.stats_reports, lastRTT: o.last_rtt_us,
             lastHasStream: o.last_has_stream, lastHighestFrameID: o.last_highest_frame_id,
             lastLossBitmap: o.last_loss_bitmap, lastDecodeMicroseconds: o.last_decode_us,
@@ -563,7 +566,8 @@ public final class GDPTestHost: @unchecked Sendable {
             bytesReported: o.bytes_reported, lostFrameIDs: Array(lost.prefix(Int(min(o.lost_frame_count, 64)))),
             keyframeRequests: o.keyframe_requests, resolutionRequests: o.resolution_requests,
             lastResolution: (o.last_resolution_width, o.last_resolution_height),
-            lastResolutionScale: o.last_resolution_scale, logoutRequested: o.logout_requested,
+            lastResolutionScale: o.last_resolution_scale,
+            lastResolutionRefreshMillihertz: o.last_resolution_refresh_mhz, logoutRequested: o.logout_requested,
             pongs: o.pongs, lastPongNonce: o.last_pong_nonce, diagnosticsReportLength: o.diagnostics_report_len,
             keyEvents: o.key_events, lastKeyUsage: o.last_key_usage, lastKeyPressed: o.last_key_pressed,
             pointerMotions: o.pointer_motions, lastMotion: (o.last_motion_x, o.last_motion_y, o.last_motion_absolute),

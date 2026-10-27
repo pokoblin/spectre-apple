@@ -103,12 +103,16 @@ void SessionClient::on_connected() {
 	hello->set_take_over(config_.take_over);
 	hello->set_via_gateway(false); // §6.10: a client always sends false
 	hello->set_network_profile(static_cast<gdp::session::NetworkProfile>(config_.network_profile));
-	if (config_.display_width && config_.display_height) {
+	// §6.2: a 0x0 entry asks for no size, only the frame rate.
+	bool sized = config_.display_width && config_.display_height;
+	if (sized || config_.display_refresh_mhz) {
 		auto *d = hello->add_displays();
-		d->set_width(config_.display_width);
-		d->set_height(config_.display_height);
+		if (sized) {
+			d->set_width(config_.display_width);
+			d->set_height(config_.display_height);
+			d->set_scale(config_.display_scale);
+		}
 		d->set_refresh_mhz(config_.display_refresh_mhz);
-		d->set_scale(config_.display_scale);
 	}
 	for (const auto &c : config_.codecs) hello->add_codecs(c);
 	for (const auto &c : config_.capabilities) hello->add_capabilities(c);
@@ -504,7 +508,8 @@ void SessionClient::request_keyframe(uint32_t stream_id) {
 	send_control(env);
 }
 
-void SessionClient::request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale) {
+void SessionClient::request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale,
+	uint32_t refresh_mhz) {
 	if (!accepted_) return;
 	gdp::session::ControlEnvelope env;
 	auto *r = env.mutable_resolution_change();
@@ -512,6 +517,7 @@ void SessionClient::request_resolution(uint32_t stream_id, uint32_t width, uint3
 	r->mutable_display()->set_width(width);
 	r->mutable_display()->set_height(height);
 	r->mutable_display()->set_scale(scale);
+	r->mutable_display()->set_refresh_mhz(refresh_mhz);
 	send_control(env);
 }
 

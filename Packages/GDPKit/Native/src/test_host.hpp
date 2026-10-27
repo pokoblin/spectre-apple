@@ -127,6 +127,7 @@ public:
 		uint32_t requested_width = 0;
 		uint32_t requested_height = 0;
 		double requested_scale = 0;
+		uint32_t requested_refresh_mhz = 0;
 		bool accepted = false;
 		std::string accepted_codec;
 		bool closed = false;
@@ -162,6 +163,7 @@ public:
 		uint32_t keyframe_requests = 0;
 		std::vector<std::pair<uint32_t, uint32_t>> resolution_requests;
 		double last_resolution_scale = 0;
+		uint32_t last_resolution_refresh_mhz = 0;
 		bool logout_requested = false;
 		uint32_t pongs = 0;
 		uint64_t last_pong_nonce = 0;

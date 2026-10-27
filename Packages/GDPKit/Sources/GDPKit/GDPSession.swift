@@ -636,9 +636,11 @@ public final class GDPSession: @unchecked Sendable {
 
     public func requestKeyframe(streamID: UInt32 = 0) { async { gdpc_session_request_keyframe($0, streamID) } }
 
-    /// `scale`: the desktop scale wanted with the size, 0 for none (§6.2, §7.2).
-    public func requestResolution(streamID: UInt32 = 0, width: UInt32, height: UInt32, scale: Double = 0) {
-        async { gdpc_session_request_resolution($0, streamID, width, height, scale) }
+    /// `scale`: the desktop scale wanted with the size, 0 for none (§6.2, §7.2);
+    /// `refreshMillihertz`: the frame rate wanted, 0 to keep the current one.
+    public func requestResolution(streamID: UInt32 = 0, width: UInt32, height: UInt32, scale: Double = 0,
+                                  refreshMillihertz: UInt32 = 0) {
+        async { gdpc_session_request_resolution($0, streamID, width, height, scale, refreshMillihertz) }
     }
 
     /// Ends the desktop session itself; completion is a close with `SESSION_ENDED` (§7.10).

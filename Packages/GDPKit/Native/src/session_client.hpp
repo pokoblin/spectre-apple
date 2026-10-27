@@ -145,7 +145,7 @@ public:
 		std::string client_name;               // informational (§6.2): this machine's name
 		uint32_t display_width = 0;            // 0x0: keep the session's size
 		uint32_t display_height = 0;
-		uint32_t display_refresh_mhz = 0;
+		uint32_t display_refresh_mhz = 0;      // 0: the host's default, 60 Hz (§6.2)
 		double display_scale = 0;
 		bool take_over = false;
 		int32_t network_profile = 0; // NetworkProfile
@@ -252,7 +252,8 @@ public:
 
 	void request_keyframe(uint32_t stream_id);
 	// `scale`: the desktop scale wanted with the size, 0 for none (§6.2, §7.2).
-	void request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale);
+	// `refresh_mhz`: the frame rate wanted, 0 to keep the current one.
+	void request_resolution(uint32_t stream_id, uint32_t width, uint32_t height, double scale, uint32_t refresh_mhz);
 	void send_logout();
 	// The answer to the latest DiagnosticsRequest; ignored without one pending.
 	void send_diagnostics_report(const uint8_t *text, size_t len);

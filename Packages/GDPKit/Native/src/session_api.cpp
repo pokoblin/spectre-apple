@@ -264,8 +264,8 @@ void gdpc_session_request_keyframe(gdpc_session *session, uint32_t stream_id) {
 }
 
 void gdpc_session_request_resolution(gdpc_session *session, uint32_t stream_id, uint32_t width, uint32_t height,
-                                     double scale) {
-	session->client.request_resolution(stream_id, width, height, scale);
+                                     double scale, uint32_t refresh_mhz) {
+	session->client.request_resolution(stream_id, width, height, scale, refresh_mhz);
 }
 
 void gdpc_session_send_logout(gdpc_session *session) { session->client.send_logout(); }
@@ -582,6 +582,7 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->requested_width = o.requested_width;
 	out->requested_height = o.requested_height;
 	out->requested_scale = o.requested_scale;
+	out->requested_refresh_mhz = o.requested_refresh_mhz;
 	out->accepted = o.accepted;
 	copy_string(out->accepted_codec, sizeof(out->accepted_codec), o.accepted_codec);
 	out->closed = o.closed;
@@ -613,6 +614,7 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 		out->last_resolution_height = o.resolution_requests.back().second;
 	}
 	out->last_resolution_scale = o.last_resolution_scale;
+	out->last_resolution_refresh_mhz = o.last_resolution_refresh_mhz;
 	out->logout_requested = o.logout_requested;
 	out->pongs = o.pongs;
 	out->last_pong_nonce = o.last_pong_nonce;

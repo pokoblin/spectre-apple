@@ -167,6 +167,7 @@ struct EstablishmentTests {
         #expect(!seen.takeOver && !seen.viaGateway)
         #expect(seen.networkProfile == 1)
         #expect(seen.requestedWidth == 2560 && seen.requestedHeight == 1440 && seen.requestedScale == 2)
+        #expect(seen.requestedRefreshMillihertz == 120_000)
 
         let accept = try #require(rec.snapshot.accept)
         #expect(accept.codec == "h264") // the first offered codec the host can encode
@@ -174,6 +175,7 @@ struct EstablishmentTests {
         #expect(accept.outputs.count == 1)
         #expect(accept.outputs.first.map { ($0.width, $0.height, $0.matrix, $0.range) } ?? (0, 0, 0, 0) == (1920, 1080, 1, 1))
         #expect(accept.outputs.first?.scale == 2) // §6.2: the scale asked for, which the host set
+        #expect(accept.outputs.first?.refreshMillihertz == 120_000) // and the frame rate
         #expect(accept.audio == nil)
         #expect(accept.networkProfile == .lan)
         #expect(accept.encoder == "test" && accept.hostUser == "tester" && accept.hostName == "loopback")
@@ -425,6 +427,31 @@ struct ControlTests {
         #expect(host.observed.diagnosticsReportLength == 512 * 1024) // §7.11
         #expect(rec.snapshot.diagnosticsRequests == 1)
         box.withLock { $0 = nil }
+    }
+
+    @Test func aFrameRateGoesWithoutASizeAndStaysWithAResize() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        // §6.2: a 0x0 entry asks for no size, only the rate.
+        let session = try await connected(host, rec) { $0.display = .init(width: 0, height: 0, refreshMillihertz: 120_000) }
+        #expect(host.observed.requestedWidth == 0 && host.observed.requestedRefreshMillihertz == 120_000)
+        #expect(rec.snapshot.accept?.outputs.first?.refreshMillihertz == 120_000)
+        session.requestResolution(width: 2560, height: 1440, refreshMillihertz: 144_000)
+        #expect(await eventually { rec.snapshot.displays.count == 1 })
+        session.requestResolution(width: 1920, height: 1080) // §7.2: 0 keeps the rate
+        #expect(await eventually { rec.snapshot.displays.count == 2 })
+        #expect(host.observed.lastResolutionRefreshMillihertz == 0)
+        #expect(rec.snapshot.displays.map { $0.first?.refreshMillihertz } == [144_000, 144_000])
+        session.close()
+    }
+
+    @Test func noFrameRateIsTheHostsSixty() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec) { $0.display = .init(width: 2560, height: 1440) }
+        #expect(host.observed.requestedRefreshMillihertz == 0)
+        #expect(rec.snapshot.accept?.outputs.first?.refreshMillihertz == 60_000)
+        session.close()
     }
 
     @Test func commandsAndInputReachTheHost() async throws {
