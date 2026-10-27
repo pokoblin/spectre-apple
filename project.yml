@@ -80,7 +80,7 @@ targets:
         # key the app doesn't check for updates.
         "INFOPLIST_FILE[sdk=macosx*]": App/macOS/Info.plist
         SPARKLE_FEED_URL: https://github.com/pokoblin/spectre-apple/releases/latest/download/appcast.xml
-        SPARKLE_PUBLIC_ED_KEY: ""
+        SPARKLE_PUBLIC_ED_KEY: "C+a4szkANblshcOgVCwmNnIXxkalY2xBS0GI7DLur6Q="
         # Sparkle.framework is embedded in Contents/Frameworks. A target for
         # both platforms gets only iOS's @executable_path/Frameworks, so the
         # Mac app wouldn't launch without this.
