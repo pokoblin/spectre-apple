@@ -23,6 +23,8 @@ public final class RemoteSession: @unchecked Sendable {
         public var color: ColorDescription
         /// The scale the host's desktop runs at (§6.2): 1 from a host that sets none.
         public var scale: Double = 1
+        /// The output's frame rate (§6.2), 0 if the host doesn't say.
+        public var refreshMillihertz: UInt32 = 0
     }
 
     public let mailbox: FrameMailbox
@@ -386,7 +388,8 @@ public final class RemoteSession: @unchecked Sendable {
         refinement.resize(width: Int(output.width), height: Int(output.height))
         onPictureChange?(Picture(size: CGSize(width: Int(output.width), height: Int(output.height)),
                                  color: ColorDescription(output: output, codec: codec),
-                                 scale: output.scale > 0 ? output.scale : 1))
+                                 scale: output.scale > 0 ? output.scale : 1,
+                                 refreshMillihertz: output.refreshMillihertz))
     }
 
     private func received(_ frame: GDPSession.VideoFrame) -> Bool {

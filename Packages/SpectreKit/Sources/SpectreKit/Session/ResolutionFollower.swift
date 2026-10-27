@@ -5,7 +5,9 @@ import Foundation
 /// (docs/resolution.md): what to put in SessionHello (gdp-spec.md §6.2) and
 /// when to send a ResolutionChange (§7.2). In pixels, the host's desktop is
 /// asked to run at the view's scale too, so that it looks as big as a
-/// local app; in points, at none, which a host takes as 100%.
+/// local app; in points, at none, which a host takes as 100%. The frame
+/// rate wanted goes with every request, and a new one is asked for on its
+/// own, at the output's size, when the view isn't followed.
 ///
 /// The host reopens its encoder for every new size, so a size is only asked
 /// for once the view has stopped changing for ``settleDelay``, and never
@@ -35,19 +37,23 @@ public struct ResolutionFollower: Sendable {
         public var description: String { "\(width)×\(height)" }
     }
 
-    /// What is asked for: the output's size, and the desktop scale to go
-    /// with it (§6.2), 0 for none.
+    /// What is asked for: the output's size, the desktop scale to go with
+    /// it (§6.2), 0 for none, and the frame rate, 0 for none.
     public struct Request: Sendable, Equatable, CustomStringConvertible {
         public var size: Size
         public var scale: Double
+        public var refreshMillihertz: UInt32
 
-        public init(size: Size, scale: Double = 0) {
+        public init(size: Size, scale: Double = 0, refreshMillihertz: UInt32 = 0) {
             self.size = size
             self.scale = scale
+            self.refreshMillihertz = refreshMillihertz
         }
 
         public var description: String {
-            scale > 0 ? "\(size) at \(Int((scale * 100).rounded()))%" : size.description
+            var text = scale > 0 ? "\(size) at \(Int((scale * 100).rounded()))%" : size.description
+            if refreshMillihertz > 0 { text += ", \(ResolutionFollower.hertz(refreshMillihertz)) Hz" }
+            return text
         }
     }
 
@@ -63,15 +69,19 @@ public struct ResolutionFollower: Sendable {
 
     public private(set) var isEnabled: Bool
     public private(set) var units: Units
+    /// The frame rate wanted (§6.2), 0 for none: the host's own, 60 Hz.
+    public private(set) var refreshMillihertz: UInt32 = 0
     /// When ``update(at:)`` has something to decide.
     public private(set) var nextDeadline: TimeInterval?
 
     private var viewSize: CGSize = .zero
     private var scale: CGFloat = 1
-    /// The output's size and scale, as the host last reported them.
+    /// The output's size, scale and rate, as the host last reported them.
     private var output: Request?
     /// What was last asked for, in SessionHello or a ResolutionChange.
     private var requested: Request?
+    /// The rate last asked for, also without a size.
+    private var requestedRefresh: UInt32 = 0
 
     public init(isEnabled: Bool, units: Units) {
         self.isEnabled = isEnabled
@@ -95,7 +105,12 @@ public struct ResolutionFollower: Sendable {
     /// What the view asks for now, if following.
     public var target: Request? {
         guard isEnabled, let size = Self.outputSize(viewSize: viewSize, scale: scale, units: units) else { return nil }
-        return Request(size: size, scale: units == .pixels ? Double(scale) : 0)
+        return Request(size: size, scale: units == .pixels ? Double(scale) : 0, refreshMillihertz: refreshMillihertz)
+    }
+
+    /// Whole hertz, as a host sets them; none is the host's 60.
+    public static func hertz(_ millihertz: UInt32) -> UInt32 {
+        millihertz > 0 ? (millihertz + 500) / 1000 : 60
     }
 
     /// The view's size (points) or its scale changed.
@@ -106,16 +121,26 @@ public struct ResolutionFollower: Sendable {
         settle(from: now)
     }
 
-    /// SessionAccept or DisplaysChanged reported the output's size and
-    /// the scale the host's desktop runs at (1 from a host that sets none).
-    public mutating func outputChanged(_ size: Size, scale: Double = 1) {
-        output = Request(size: size, scale: scale)
+    /// SessionAccept or DisplaysChanged reported the output's size, the
+    /// scale the host's desktop runs at (1 from a host that sets none) and
+    /// its frame rate (0 if unknown).
+    public mutating func outputChanged(_ size: Size, scale: Double = 1, refreshMillihertz: UInt32 = 0) {
+        output = Request(size: size, scale: scale, refreshMillihertz: refreshMillihertz)
     }
 
     public mutating func setEnabled(_ on: Bool, at now: TimeInterval) {
         guard on != isEnabled else { return }
         isEnabled = on
-        if on { settle(from: now) } else { nextDeadline = nil }
+        if on { settle(from: now) } else if !refreshPending { nextDeadline = nil }
+    }
+
+    /// A new frame rate wanted (the setting, or the display it is matched
+    /// to). It is asked for once it has settled, like a size: a window
+    /// dragged across displays doesn't ask for each one's.
+    public mutating func setRefresh(_ millihertz: UInt32, at now: TimeInterval) {
+        guard millihertz != refreshMillihertz else { return }
+        refreshMillihertz = millihertz
+        nextDeadline = now + Self.settleDelay
     }
 
     public mutating func setUnits(_ units: Units, at now: TimeInterval) {
@@ -131,6 +156,7 @@ public struct ResolutionFollower: Sendable {
         nextDeadline = nil
         output = nil
         requested = target
+        requestedRefresh = refreshMillihertz
         return requested
     }
 
@@ -139,18 +165,34 @@ public struct ResolutionFollower: Sendable {
     public mutating func update(at now: TimeInterval) -> Request? {
         guard let deadline = nextDeadline, now >= deadline else { return nil }
         nextDeadline = nil
+        guard isEnabled else { return rateChange() }
         guard let target, target != requested else { return nil }
         if let output, Self.matches(target, output) { return nil }
         requested = target
+        requestedRefresh = target.refreshMillihertz
         return target
     }
 
+    /// Not following the view: a new rate, at the size and scale the
+    /// output has, unless it runs at that rate already.
+    private mutating func rateChange() -> Request? {
+        guard refreshPending, var change = output else { return nil }
+        requestedRefresh = refreshMillihertz
+        guard Self.hertz(change.refreshMillihertz) != Self.hertz(refreshMillihertz) else { return nil }
+        change.refreshMillihertz = refreshMillihertz
+        return change
+    }
+
+    private var refreshPending: Bool { refreshMillihertz != requestedRefresh }
+
     /// Whether the output is what the view asks for: its size, at the scale
-    /// asked for (none is 100%, as a host takes it). A host may round the
-    /// scale; what it couldn't set isn't asked for again, being `requested`.
+    /// asked for (none is 100%, as a host takes it) and the rate. A host may
+    /// round or bound them; what it couldn't set isn't asked for again,
+    /// being `requested`.
     private static func matches(_ target: Request, _ output: Request) -> Bool {
         func percent(_ scale: Double) -> Int { Int(((scale > 0 ? scale : 1) * 100).rounded()) }
         return target.size == output.size && percent(target.scale) == percent(output.scale)
+            && (target.refreshMillihertz == 0 || hertz(target.refreshMillihertz) == hertz(output.refreshMillihertz))
     }
 
     private mutating func settle(from now: TimeInterval) {

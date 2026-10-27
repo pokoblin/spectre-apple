@@ -96,6 +96,21 @@ public final class VideoPresenter: NSObject, MTKViewDelegate {
         self.stats = stats
     }
 
+    /// The highest refresh rate of the display the view is on, 0 before it
+    /// is in a window.
+    public var displayRefreshRate: Int {
+        #if os(macOS)
+        view?.window?.screen?.maximumFramesPerSecond ?? 0
+        #else
+        view?.window?.windowScene?.screen.maximumFramesPerSecond ?? 0
+        #endif
+    }
+
+    #if os(macOS)
+    /// The window the view is in, to follow it across displays.
+    public var window: NSWindow? { view?.window }
+    #endif
+
     public func attach(_ view: MTKView) {
         view.device = renderer.device
         view.colorPixelFormat = VideoRenderer.colorPixelFormat

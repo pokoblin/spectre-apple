@@ -7,8 +7,8 @@ typealias OutputSize = ResolutionFollower.Size
 
 private func size(_ w: UInt32, _ h: UInt32) -> OutputSize { OutputSize(width: w, height: h) }
 private func view(_ w: CGFloat, _ h: CGFloat) -> CGSize { CGSize(width: w, height: h) }
-private func req(_ w: UInt32, _ h: UInt32, scale: Double = 0) -> Follower.Request {
-    Follower.Request(size: size(w, h), scale: scale)
+private func req(_ w: UInt32, _ h: UInt32, scale: Double = 0, hz: UInt32 = 0) -> Follower.Request {
+    Follower.Request(size: size(w, h), scale: scale, refreshMillihertz: hz * 1000)
 }
 
 @Suite("Resolution: the size to ask for")
@@ -172,5 +172,85 @@ struct ResolutionFollowerTests {
     @Test mutating func noViewYetMeansNoSize() {
         #expect(f.requestForConnection() == nil)
         #expect(f.update(at: 1) == nil)
+    }
+}
+
+@Suite("Resolution: the frame rate")
+struct ResolutionRefreshTests {
+    var f = Follower(isEnabled: true, units: .points)
+
+    @Test mutating func theRateGoesWithTheSize() {
+        f.setRefresh(120_000, at: 0)
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        #expect(f.requestForConnection() == req(1280, 800, hz: 120))
+        f.outputChanged(size(1280, 800), refreshMillihertz: 120_000)
+        f.viewChanged(view(1024, 768), scale: 2, at: 1)
+        #expect(f.update(at: 2) == req(1024, 768, hz: 120))
+    }
+
+    @Test mutating func aNewRateIsAskedForOnceItSettles() {
+        f.setRefresh(60_000, at: 0)
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        _ = f.requestForConnection()
+        f.outputChanged(size(1280, 800), refreshMillihertz: 60_000)
+        f.setRefresh(120_000, at: 5) // the window moved to a ProMotion display
+        #expect(f.update(at: 5.2) == nil)
+        f.setRefresh(144_000, at: 5.3) // and on to a faster one
+        #expect(f.update(at: 5.3 + Follower.settleDelay) == req(1280, 800, hz: 144))
+    }
+
+    @Test mutating func goingBackToSixtyAsksForSixty() {
+        // §7.2: 0 in a ResolutionChange keeps the rate, so 60 is said.
+        f.setRefresh(120_000, at: 0)
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        _ = f.requestForConnection()
+        f.outputChanged(size(1280, 800), refreshMillihertz: 120_000)
+        f.setRefresh(60_000, at: 1)
+        #expect(f.update(at: 2) == req(1280, 800, hz: 60))
+    }
+
+    @Test mutating func aRateTheHostCappedIsAskedForOnce() {
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        _ = f.requestForConnection()
+        f.outputChanged(size(1280, 800), refreshMillihertz: 60_000)
+        f.setRefresh(144_000, at: 1)
+        #expect(f.update(at: 2) == req(1280, 800, hz: 144))
+        f.outputChanged(size(1280, 800), refreshMillihertz: 60_000) // software encoding: 60 at most
+        f.viewChanged(view(1281, 800), scale: 2, at: 3) // a relayout to the same size
+        #expect(f.update(at: 4) == nil)
+    }
+
+    @Test mutating func aRoundedRateCountsAsTheOneAskedFor() {
+        f.setRefresh(119_880, at: 0)
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        f.outputChanged(size(1280, 800), refreshMillihertz: 120_000)
+        #expect(f.update(at: 1) == nil)
+    }
+
+    @Test mutating func withoutFollowingTheRateGoesAtTheOutputsSize() {
+        f.setEnabled(false, at: 0)
+        f.setRefresh(60_000, at: 0)
+        #expect(f.requestForConnection() == nil) // SessionHello carries the rate alone
+        f.outputChanged(size(1920, 1080), scale: 2, refreshMillihertz: 60_000)
+        f.setRefresh(120_000, at: 1)
+        #expect(f.update(at: 2) == req(1920, 1080, scale: 2, hz: 120))
+        #expect(f.update(at: 3) == nil)
+    }
+
+    @Test mutating func withoutFollowingTheSameRateAsksNothing() {
+        f.setEnabled(false, at: 0)
+        _ = f.requestForConnection()
+        f.outputChanged(size(1920, 1080), refreshMillihertz: 120_000)
+        f.setRefresh(120_000, at: 1) // what the host already runs
+        #expect(f.update(at: 2) == nil)
+    }
+
+    @Test mutating func turningFollowingOffKeepsAPendingRate() {
+        f.viewChanged(view(1280, 800), scale: 2, at: 0)
+        _ = f.requestForConnection()
+        f.outputChanged(size(1280, 800), refreshMillihertz: 60_000)
+        f.setRefresh(120_000, at: 1)
+        f.setEnabled(false, at: 1.1)
+        #expect(f.update(at: 2) == req(1280, 800, scale: 1, hz: 120))
     }
 }
