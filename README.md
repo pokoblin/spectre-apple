@@ -36,6 +36,8 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - Lossless refinement: once part of the screen stops changing, the host sends it again losslessly and it is shown pixel-exact over the video, so text and lines stay crisp. On by default; **More › Lossless Refinement** (on the Mac also **Settings › Video**) turns it off to spare the host the work.
 - PyroWave on a wired network: when the host is on the same wired network at 1 Gbit/s or more, Spectre asks for PyroWave first, an intra-only wavelet codec that looks close to lossless at a few hundred Mbit/s and decodes on the GPU in about a millisecond. Over Wi-Fi, a slower link or another network, the usual codecs are used. It needs a host with PyroWave turned on and a GPU quick enough to encode it: a small integrated GPU may not keep up at high resolutions (an Intel N100 manages about 25 fps at 2560×1496). **More › PyroWave on Wired Networks** (on the Mac also **Settings › Video**) turns it off, and says whether it is in use or why not.
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution. At Retina resolution, a recent ghost host (see [Requirements](#requirements)) also sets its desktop's scale to the Mac's or iPad's, so text and windows look as big as in a local app.
+- 60 frames a second unless **Frame Rate** is set to **Match Display** (**More › Resolution** on the Mac, **More** on iPad, and **Settings › Video**), which asks the host for the display's own rate: 120 Hz on a ProMotion screen. It needs a recent ghost host (see [Requirements](#requirements)), and each extra frame costs bandwidth and work for the host.
+- While a video plays or a game runs on the remote desktop, the Mac's or iPad's display stays awake too, as it would for a local one (needs a recent host as well).
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
 
@@ -62,7 +64,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - A home window of your hosts with the last picture of each, and a window per session, so several can run at once.
 - A toolbar with a **Files** menu, the list of transfers, clipboard sharing, mouse capture and mute, with the round trip and frame rate in its subtitle.
 - A **Session** menu for files, shared folders, mouse capture, clipboard and the key combinations macOS keeps for itself. No new shortcuts, so every key in a session's window reaches the remote desktop.
-- **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): light or dark windows, the language (Spectre's windows change at once), whether sessions open in full screen, defaults for the toolbar in full screen, the clipboard, sound, resolution, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
+- **Settings** (Spectre › Settings…, or Cmd+, outside a session's window): light or dark windows, the language (Spectre's windows change at once), whether sessions open in full screen, defaults for the toolbar in full screen, the clipboard, sound, resolution, frame rate, lossless refinement, PyroWave and gamepads, and the trusted servers. A change there applies to open sessions too.
 
 **On iPad and iPhone**
 
@@ -89,6 +91,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - For file transfer, a recent ghost (upstream `main` since October 2026). Pasting files copied here, and shared folders, also need a wraith built with libfuse3 3.12 or newer (`apt install libfuse3-dev` before building) on a host with `/dev/fuse` and `fusermount3`: the host mounts what Spectre offers. Without it, sending and downloading still work.
 - For PyroWave, a wraith built with libpyrowave (ghost's `packaging/build-pyrowave.sh`, which pins the revision both ends must share) and `pyrowave = true` under `[encode.codecs]` in `/etc/ghost/wraith.toml`.
 - For the host's desktop to follow the Mac's or iPad's scale at Retina resolution, a ghost from 18 October 2026 on (upstream `main`), whose wraith sets the scale on GNOME, KDE Plasma and wlroots desktops. `client_scale = false` under `[display]` in `/etc/ghost/wraith.toml` leaves the scale to the desktop's own settings.
+- For more than 60 frames a second, and for the display staying awake while the remote desktop is, a ghost from 23 October 2026 on (upstream `main`). Its wraith runs the desktop at the rate asked for up to `max_fps` under `[encode]` in `/etc/ghost/wraith.toml` (144 by default), and at 60 at most on the software encoder.
 
 ## Install
 
