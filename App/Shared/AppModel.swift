@@ -56,7 +56,8 @@ final class AppModel {
     func session(_ id: UUID?) -> Session? { sessions.first { $0.id == id } }
     /// A change made in the Mac's Settings, made in every open session too.
     func applyToSessions(_ change: (PlaybackModel) -> Void) { sessions.forEach { change($0.model) } }
-    /// A session opened (the Mac gives it a window).
+    /// A session opened or is asked for (the Mac gives it a window, or
+    /// brings its window forward).
     var onSessionOpened: ((UUID) -> Void)?
     /// Signing in needs the home window (the Mac brings it forward).
     var onShowHome: (() -> Void)?
@@ -197,11 +198,20 @@ final class AppModel {
     /// Passwords typed but not kept in the Keychain, by host: memory only.
     private var sessionPasswords: [SavedHost.ID: String] = [:]
 
+    /// The host's open session, if any (its window may be out of sight).
+    func session(of host: SavedHost) -> Session? { sessions.last { $0.hostID == host.id } }
+
     /// Connect: the login sheet comes up, already signing in if the
     /// password is known (saved, or typed in the host's form this time);
     /// it asks for it otherwise. False if the saved one couldn't be read.
+    /// A host with a session open shows it: signing in again would only
+    /// find that session taken.
     @discardableResult
     func connect(_ host: SavedHost) -> Bool {
+        if let session = session(of: host) {
+            onSessionOpened?(session.id)
+            return true
+        }
         lastSessionEnd = nil
         login.cancel()
         loginHost = host.id

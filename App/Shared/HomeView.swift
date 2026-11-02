@@ -194,13 +194,26 @@ struct HostSidebar: View {
     private func row(_ host: SavedHost) -> some View {
         HostRow(host: host)
             .contextMenu {
-                Button { app.connect(host) } label: { Label("Connect", systemImage: "play.fill") }
+                Button { app.connect(host) } label: { ConnectLabel(isOpen: app.session(of: host) != nil) }
                 Button { edit(host) } label: { Label("Edit", systemImage: "pencil") }
                 if app.hasSavedPassword(host) {
                     Button { app.forgetPassword(host) } label: { Label("Forget Password", systemImage: "key.slash") }
                 }
                 Button(role: .destructive) { app.deleteHost(host) } label: { Label("Delete", systemImage: "trash") }
             }
+    }
+}
+
+/// What Connect does: with a session open, it shows it.
+struct ConnectLabel: View {
+    let isOpen: Bool
+
+    var body: some View {
+        if isOpen {
+            Label("Show Session", systemImage: "macwindow")
+        } else {
+            Label("Connect", systemImage: "play.fill")
+        }
     }
 }
 
@@ -266,7 +279,7 @@ struct HostDetail: View {
                 }
                 VStack(spacing: 12) {
                     Button { app.connect(host) } label: {
-                        Label("Connect", systemImage: "play.fill")
+                        ConnectLabel(isOpen: app.session(of: host) != nil)
                             .font(.title3.weight(.semibold))
                             .frame(minWidth: 200)
                     }
