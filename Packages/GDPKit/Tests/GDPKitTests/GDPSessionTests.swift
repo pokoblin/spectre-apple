@@ -385,6 +385,76 @@ struct VideoTests {
     }
 }
 
+@Suite("Forward error correction (§9.7)")
+struct FECTests {
+    /// A host and a viewer that both have `fec`.
+    func fecSession(_ rec: Recorder) async throws -> (GDPTestHost, GDPSession) {
+        var hc = GDPTestHost.Configuration()
+        hc.capabilities = [GDPSession.Capability.fec]
+        let host = try GDPTestHost(hc)
+        let session = try await connected(host, rec) { $0.capabilities = [GDPSession.Capability.fec] }
+        #expect(rec.snapshot.accept?.capabilities == [GDPSession.Capability.fec])
+        return (host, session)
+    }
+
+    @Test func parityRebuildsLostSlices() async throws {
+        let rec = Recorder()
+        let (host, session) = try await fecSession(rec)
+        defer { withExtendedLifetime(session) {} }
+        // 5 slices each, one block: frame 1 loses 2 and has 2 parity shards.
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(5000), keyframe: false, dropSlices: [1, 3], maxPayload: 1000, parity: 2)
+        host.sendVideoFrame(randomFrame(5000), keyframe: false, maxPayload: 1000)
+        #expect(await eventually { rec.snapshot.frames.map(\.id) == [0, 1, 2] })
+        #expect(await eventually { host.observed.slicesExpected == 15 })
+        let o = host.observed
+        #expect(o.slicesLost == 2) // before recovery: what the host sizes parity from
+        #expect(o.fecRecoveredFrames == 1)
+        #expect(o.lostFrameIDs.isEmpty)
+        #expect(o.paritySent == 2)
+        let link = try #require(session.linkStats())
+        #expect(link.fec && link.fecRecoveredFrames == 1 && link.slicesLost == 2 && link.framesDropped == 0)
+    }
+
+    @Test func moreLossThanParityLosesTheFrame() async throws {
+        let rec = Recorder()
+        let (host, session) = try await fecSession(rec)
+        defer { withExtendedLifetime(session) {} }
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(5000), keyframe: false, dropSlices: [0, 1, 2], maxPayload: 1000, parity: 2)
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000)
+        #expect(await eventually { rec.snapshot.frames.map(\.id) == [0, 2] })
+        #expect(await eventually { host.observed.lostFrameIDs == [1] })
+        #expect(await eventually { host.observed.slicesExpected == 15 })
+        #expect(host.observed.slicesLost == 3)
+        #expect(host.observed.fecRecoveredFrames == 0)
+    }
+
+    @Test func aWholeFrameIgnoresItsParityButCountsItsBytes() async throws {
+        let rec = Recorder()
+        let (host, session) = try await fecSession(rec)
+        defer { withExtendedLifetime(session) {} }
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000, parity: 2)
+        // 5 slices of 17 + 1000 bytes (channel included), 2 parity datagrams of 1 + 19 + 1000.
+        #expect(await eventually { host.observed.bytesReported == 5 * 1017 + 2 * 1020 })
+        #expect(rec.snapshot.frames.map(\.id) == [0])
+        #expect(host.observed.slicesLost == 0 && host.observed.fecRecoveredFrames == 0)
+    }
+
+    @Test func withoutFECSlicesAreStillCounted() async throws {
+        let host = try GDPTestHost()
+        let rec = Recorder()
+        let session = try await connected(host, rec)
+        defer { withExtendedLifetime(session) {} }
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000, parity: 2)
+        host.sendVideoFrame(randomFrame(5000), keyframe: false, dropSlices: [4], maxPayload: 1000)
+        host.sendVideoFrame(randomFrame(5000), keyframe: true, maxPayload: 1000)
+        #expect(await eventually { host.observed.slicesExpected == 15 })
+        #expect(host.observed.slicesLost == 1 && host.observed.paritySent == 0)
+        #expect(session.linkStats()?.fec == false)
+    }
+}
+
 @Suite("Session control and input (§7, §8)")
 struct ControlTests {
     @Test func hostMessagesReachTheHandlers() async throws {

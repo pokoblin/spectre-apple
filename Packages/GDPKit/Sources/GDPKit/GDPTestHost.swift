@@ -84,6 +84,8 @@ public final class GDPTestHost: @unchecked Sendable {
         public var lastDelayMin, lastDelayAvg: Int32
         public var lastDelaySamples, lastTrains, lastTrainDatagrams, lastTrainBytes: UInt32
         public var bytesReported: UInt64
+        /// §7.5 fields 12-14, summed over every StatsReport.
+        public var slicesExpected, slicesLost, fecRecoveredFrames: UInt64
         /// Every frame any StatsReport marked lost (the first 64).
         public var lostFrameIDs: [UInt32]
 
@@ -123,6 +125,8 @@ public final class GDPTestHost: @unchecked Sendable {
         public var viewerCloseReason: String
 
         public var framesSent, nextFrameID: UInt32
+        /// Parity datagrams sent (§9.7).
+        public var paritySent: UInt32
         public var maxDatagramSize: UInt16
 
         /// Microphone datagrams from the viewer under `microphone` (§10.1),
@@ -329,12 +333,13 @@ public final class GDPTestHost: @unchecked Sendable {
         payload.withUnsafeBufferPointer { gdpc_test_host_send_raw_video(handle, $0.baseAddress, $0.count, keyframe) }
     }
 
+    /// With `fec` in effect (§9.7) each block gets `parity` parity shards after the data.
     public func sendVideoFrame(_ data: some Collection<UInt8>, keyframe: Bool, dropSlices: [UInt16] = [],
-                               maxPayload: Int = 0) {
+                               maxPayload: Int = 0, parity: Int = 0) {
         data.withContiguousBytes { buf in
             dropSlices.withUnsafeBufferPointer { drop in
                 gdpc_test_host_send_video_frame(handle, buf.baseAddress, buf.count, keyframe, drop.baseAddress, drop.count,
-                                                maxPayload)
+                                                maxPayload, parity)
             }
         }
     }
@@ -564,7 +569,8 @@ public final class GDPTestHost: @unchecked Sendable {
             lastBytesReceived: o.last_bytes_received, lastDelayMin: o.last_delay_min_us,
             lastDelayAvg: o.last_delay_avg_us, lastDelaySamples: o.last_delay_samples, lastTrains: o.last_trains,
             lastTrainDatagrams: o.last_train_datagrams, lastTrainBytes: o.last_train_bytes,
-            bytesReported: o.bytes_reported, lostFrameIDs: Array(lost.prefix(Int(min(o.lost_frame_count, 64)))),
+            bytesReported: o.bytes_reported, slicesExpected: o.slices_expected, slicesLost: o.slices_lost,
+            fecRecoveredFrames: o.fec_recovered_frames, lostFrameIDs: Array(lost.prefix(Int(min(o.lost_frame_count, 64)))),
             keyframeRequests: o.keyframe_requests, resolutionRequests: o.resolution_requests,
             lastResolution: (o.last_resolution_width, o.last_resolution_height),
             lastResolutionScale: o.last_resolution_scale,
@@ -580,7 +586,7 @@ public final class GDPTestHost: @unchecked Sendable {
             refinePauses: o.refine_pauses, refinePaused: o.refine_paused,
             viewerClosed: o.viewer_closed, viewerCloseCode: o.viewer_close_code,
             viewerCloseReason: s(o.viewer_close_reason),
-            framesSent: o.frames_sent, nextFrameID: o.next_frame_id, maxDatagramSize: o.max_datagram_size,
+            framesSent: o.frames_sent, nextFrameID: o.next_frame_id, paritySent: o.parity_sent, maxDatagramSize: o.max_datagram_size,
             microphonePackets: o.microphone_packets, microphoneBytes: o.microphone_bytes,
             microphoneDropped: o.microphone_dropped,
             filesOffered: o.files_offered, filesSaved: o.files_saved, filesRefused: o.files_refused,

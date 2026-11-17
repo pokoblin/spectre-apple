@@ -406,6 +406,10 @@ typedef struct {
     uint32_t last_window_us;
     uint64_t microphone_sent;
     uint64_t microphone_dropped;       // not established, not negotiated, or refused by the transport
+    bool fec;                          // `fec` in effect (§9.7)
+    uint64_t slices_expected;          // the session so far, as reported (§7.5)
+    uint64_t slices_lost;              // before any recovery
+    uint64_t fec_recovered_frames;     // completed only by recovery from parity
 } gdpc_session_link_stats;
 
 gdpc_session *gdpc_session_create(const gdpc_session_callbacks *callbacks);
@@ -634,6 +638,9 @@ typedef struct {
     uint32_t last_train_datagrams;
     uint32_t last_train_bytes;
     uint64_t bytes_reported;
+    uint64_t slices_expected;        // §7.5 fields 12-14, summed over every report
+    uint64_t slices_lost;
+    uint64_t fec_recovered_frames;
     uint32_t lost_frame_count;
     uint32_t lost_frame_ids[64];     // the first 64 frames ever reported lost
 
@@ -674,6 +681,7 @@ typedef struct {
     char last_clipboard_mime[64];
 
     uint32_t frames_sent;
+    uint32_t parity_sent;            // parity datagrams (§9.7)
     uint32_t next_frame_id;
     uint16_t max_datagram_size;
 
@@ -708,8 +716,9 @@ uint16_t gdpc_test_host_port(const gdpc_test_host *host);
 void gdpc_test_host_cert_sha256(const gdpc_test_host *host, char out[GDPC_SHA256_HEX_LEN + 1]);
 // Sends one coded frame (copied) as video datagrams with the next frame_id.
 // Slices listed in `drop_slices` are not sent. `max_payload` 0: what the path allows.
+// With `fec` in effect each block gets `parity_per_block` parity shards (§9.7).
 void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
-    const uint16_t *drop_slices, size_t drop_count, size_t max_payload);
+    const uint16_t *drop_slices, size_t drop_count, size_t max_payload, size_t parity_per_block);
 // With "refine" in effect (§7.8; otherwise the layer is left out): one
 // frame and its lossless layer, `bgra` as in gdpc_refine_layer. A frame of
 // no bytes is a layer-only frame. gdpc_test_host_send_video_frame wraps

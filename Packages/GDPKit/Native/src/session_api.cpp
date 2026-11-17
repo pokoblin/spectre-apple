@@ -383,6 +383,10 @@ void gdpc_session_get_link_stats(const gdpc_session *session, gdpc_session_link_
 	out->last_window_us = s.video.last_interval_us;
 	out->microphone_sent = s.microphone_sent;
 	out->microphone_dropped = s.microphone_dropped;
+	out->fec = s.fec;
+	out->slices_expected = s.video.slices_expected;
+	out->slices_lost = s.video.slices_lost;
+	out->fec_recovered_frames = s.video.fec_recovered_frames;
 }
 
 // --- Test host ---
@@ -438,9 +442,9 @@ void gdpc_test_host_cert_sha256(const gdpc_test_host *host, char out[GDPC_SHA256
 }
 
 void gdpc_test_host_send_video_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
-	const uint16_t *drop_slices, size_t drop_count, size_t max_payload) {
+	const uint16_t *drop_slices, size_t drop_count, size_t max_payload, size_t parity_per_block) {
 	host->host.send_video_frame(std::vector<uint8_t>(data, data + len), keyframe,
-		std::vector<uint16_t>(drop_slices, drop_slices + drop_count), max_payload);
+		std::vector<uint16_t>(drop_slices, drop_slices + drop_count), max_payload, parity_per_block);
 }
 
 void gdpc_test_host_send_refined_frame(gdpc_test_host *host, const uint8_t *data, size_t len, bool keyframe,
@@ -611,6 +615,9 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->last_train_datagrams = o.last_stats.train_datagrams;
 	out->last_train_bytes = o.last_stats.train_bytes;
 	out->bytes_reported = o.bytes_reported;
+	out->slices_expected = o.slices_expected;
+	out->slices_lost = o.slices_lost;
+	out->fec_recovered_frames = o.fec_recovered_frames;
 	out->lost_frame_count = static_cast<uint32_t>(o.lost_frame_ids.size());
 	for (size_t i = 0; i < std::min<size_t>(o.lost_frame_ids.size(), 64); i++) out->lost_frame_ids[i] = o.lost_frame_ids[i];
 
@@ -675,6 +682,7 @@ void gdpc_test_host_get_observed(const gdpc_test_host *host, gdpc_test_host_obse
 	out->input_before_accept = o.input_before_accept;
 
 	out->frames_sent = o.frames_sent;
+	out->parity_sent = o.parity_sent;
 	out->next_frame_id = o.next_frame_id;
 	out->max_datagram_size = o.max_datagram_size;
 	out->microphone_packets = o.microphone_packets;

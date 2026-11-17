@@ -38,6 +38,10 @@ public:
 		uint32_t last_delay_samples = 0;
 		uint64_t last_bytes = 0;
 		uint32_t last_interval_us = 0;
+		// The session so far, as reported (§7.5 fields 12-14).
+		uint64_t slices_expected = 0;
+		uint64_t slices_lost = 0; // before any recovery
+		uint64_t fec_recovered_frames = 0;
 	};
 
 	static constexpr size_t kMinTrainDatagrams = 16;
@@ -55,6 +59,11 @@ public:
 	// `session_epoch_us` the same clock at SessionAccept (gdp-spec.md §11).
 	void on_datagram(const gdp::VideoDatagramHeader &header, size_t datagram_len, uint64_t arrival_us,
 		uint64_t session_epoch_us);
+	// A parity datagram of this stream (§9.7): only its bytes count (§7.5).
+	void on_parity_datagram(size_t datagram_len) { bytes_ += datagram_len; }
+	// What the reassembler finished with since it was last asked
+	// (gdp::VideoFrameReassembler::take_stats): added to the window.
+	void on_slices_finished(uint64_t expected, uint64_t lost, uint32_t recovered_frames);
 	// A frame finished reassembly.
 	void on_frame_completed(uint32_t frame_id);
 	// A completed frame was thrown away afterwards: it counts as lost.
@@ -107,6 +116,9 @@ private:
 	int32_t delay_min_us_ = 0;
 	uint32_t delay_samples_ = 0;
 	std::vector<Train> trains_;
+	uint64_t slices_expected_ = 0;
+	uint64_t slices_lost_ = 0;
+	uint32_t recovered_frames_ = 0;
 
 	uint32_t decode_us_ = 0;
 	uint32_t present_us_ = 0;

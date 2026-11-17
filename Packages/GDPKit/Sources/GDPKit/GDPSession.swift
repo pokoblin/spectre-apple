@@ -311,6 +311,13 @@ public final class GDPSession: @unchecked Sendable {
         /// `microphone` in effect, or refused by the transport).
         public var microphoneSent: UInt64
         public var microphoneDropped: UInt64
+        /// `fec` is in effect (§9.7).
+        public var fec: Bool
+        /// The session's data slices so far, how many of them never arrived
+        /// (before any recovery), and the frames parity rebuilt (§7.5).
+        public var slicesExpected: UInt64
+        public var slicesLost: UInt64
+        public var fecRecoveredFrames: UInt64
 
         /// Frames lost of the trailing window (up to 64).
         public var recentLosses: Int { lossBitmap.nonzeroBitCount }
@@ -394,6 +401,9 @@ public final class GDPSession: @unchecked Sendable {
         public static let fileShare = "file-share"
         /// Lossless refinement (§7.8): a layer over the video that makes still regions exact.
         public static let refine = "refine"
+        /// Forward error correction (§9.7): parity after each video frame,
+        /// from which lost slices are rebuilt without a keyframe.
+        public static let fec = "fec"
     }
 
     /// How many file streams a host grants at once (§7.12): keep no more
@@ -816,7 +826,9 @@ public final class GDPSession: @unchecked Sendable {
                              windowSpan: s.window_span, delayMinMicroseconds: s.delay_min_us,
                              delayAvgMicroseconds: s.delay_avg_us, delaySamples: s.delay_samples,
                              bytesLastWindow: s.bytes_last_window, lastWindowMicroseconds: s.last_window_us,
-                             microphoneSent: s.microphone_sent, microphoneDropped: s.microphone_dropped)
+                             microphoneSent: s.microphone_sent, microphoneDropped: s.microphone_dropped, fec: s.fec,
+                             slicesExpected: s.slices_expected, slicesLost: s.slices_lost,
+                             fecRecoveredFrames: s.fec_recovered_frames)
         }
     }
 

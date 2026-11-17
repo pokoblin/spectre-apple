@@ -6,6 +6,7 @@
 #include "gdp/clock.hpp"
 #include "gdp/datagram.hpp"
 #include "gdp/error_codes.hpp"
+#include "gdp/fec.hpp"
 #include "gdp/file_list.hpp"
 #include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
@@ -53,6 +54,7 @@ struct TestHost::Impl {
 		bool file_clipboard = false; // `file-clipboard` in effect (with `file` and `clipboard`)
 		bool file_share = false;     // `file-share` in effect (with `file`)
 		bool refine = false;    // `refine` in effect: every payload a container (§9.5)
+		bool fec = false;       // `fec` in effect: parity may follow a frame (§9.7)
 		bool closing = false;
 		uint64_t close_at_us = 0; // a delayed close (after SessionReject)
 		uint64_t close_code = 0;
@@ -116,6 +118,7 @@ struct TestHost::Impl {
 	// Loop thread only.
 	uint64_t epoch_us = 0;
 	uint32_t next_frame_id = 0;
+	std::vector<uint8_t> parity_scratch; // send_video_parity's, reused
 	uint16_t next_audio_seq = 0;
 	uint32_t width = 0;
 	uint32_t height = 0;
@@ -303,6 +306,7 @@ struct TestHost::Impl {
 			if (c == gdp::kCapabilityClipboard) p.clipboard = true;
 			if (c == gdp::kCapabilityFile) p.file = true;
 			if (c == gdp::kCapabilityRefine) p.refine = true;
+			if (c == gdp::kCapabilityFec) p.fec = true;
 			if (c == gdp::kCapabilityFileClipboard) p.file_clipboard = true;
 			if (c == gdp::kCapabilityFileShare) p.file_share = true;
 		}
@@ -414,6 +418,9 @@ struct TestHost::Impl {
 					s.train_bytes = st.trains(st.trains_size() - 1).bytes();
 				}
 				obs.bytes_reported += st.bytes_received();
+				obs.slices_expected += st.slices_expected();
+				obs.slices_lost += st.slices_lost();
+				obs.fec_recovered_frames += st.fec_recovered_frames();
 				for (int i = 0; i < 64; i++) {
 					if (!(st.loss_bitmap() >> i & 1)) continue;
 					uint32_t id = st.highest_frame_id_acked() - static_cast<uint32_t>(i);
@@ -1041,13 +1048,13 @@ struct TestHost::Impl {
 	// With `refine` in effect a payload is wrapped as §9.5 does (an empty
 	// layer unless one is given), unless `raw` says to send it as is.
 	void send_video(const std::vector<uint8_t> &data, bool keyframe, const std::vector<uint16_t> &drop,
-		size_t max_payload, const gdp::RefineLayer *layer = nullptr, bool raw = false) {
+		size_t max_payload, const gdp::RefineLayer *layer = nullptr, bool raw = false, size_t parity_per_block = 0) {
 		if (!viewer) return;
 		if (viewer->refine && !raw) {
 			std::vector<uint8_t> wrapped;
 			gdp::RefineLayer none;
 			if (!gdp::refine_pack_frame(data.data(), data.size(), layer ? *layer : none, 3, &wrapped)) return;
-			return send_video(wrapped, keyframe, drop, max_payload, nullptr, true);
+			return send_video(wrapped, keyframe, drop, max_payload, nullptr, true, parity_per_block);
 		}
 		gdp::VideoDatagramHeader hdr;
 		hdr.stream_id = 0;
@@ -1055,13 +1062,28 @@ struct TestHost::Impl {
 		hdr.flags = keyframe ? gdp::VideoDatagramHeader::kFlagKeyframe : 0;
 		hdr.pts = static_cast<uint32_t>(gdp::monotonic_us() - epoch_us);
 		hdr.host_latency = gdp::VideoDatagramHeader::host_latency_from_us(500);
-		size_t payload = max_payload ? max_payload : gdp::slice_payload_for(viewer->conn->max_datagram_size());
+		size_t path = viewer->conn->max_datagram_size();
+		size_t payload = max_payload ? max_payload
+			: viewer->fec              ? gdp::fec_slice_payload_for(path)
+									   : gdp::slice_payload_for(path);
 		uint16_t idx = 0;
 		gdp::slice_video_frame(hdr, data.data(), data.size(), payload, [&](const uint8_t *dgram, size_t len) {
 			bool dropped = std::find(drop.begin(), drop.end(), idx++) != drop.end();
 			return dropped || viewer->conn->send_datagram(dgram, len);
 		});
+		uint32_t parity = 0;
+		if (viewer->fec && parity_per_block > 0) {
+			gdp::send_video_parity(
+				hdr, data.data(), data.size(), payload,
+				[&](size_t k) { return std::min(parity_per_block, gdp::kFecMaxBlockShards - k); },
+				[&](const uint8_t *dgram, size_t len) {
+					parity++;
+					return viewer->conn->send_datagram(dgram, len);
+				},
+				&parity_scratch);
+		}
 		std::lock_guard lock(mu);
+		obs.parity_sent += parity;
 		obs.frames_sent++;
 		obs.next_frame_id = next_frame_id;
 		obs.max_datagram_size = viewer->conn->max_datagram_size();
@@ -1089,10 +1111,9 @@ bool TestHost::start(const Config &config, std::string *error) {
 }
 
 void TestHost::send_video_frame(std::vector<uint8_t> data, bool keyframe, std::vector<uint16_t> drop_slices,
-	size_t max_payload) {
-	impl_->post([m = impl_.get(), data = std::move(data), keyframe, drop = std::move(drop_slices), max_payload] {
-		m->send_video(data, keyframe, drop, max_payload);
-	});
+	size_t max_payload, size_t parity_per_block) {
+	impl_->post([m = impl_.get(), data = std::move(data), keyframe, drop = std::move(drop_slices), max_payload,
+					 parity_per_block] { m->send_video(data, keyframe, drop, max_payload, nullptr, false, parity_per_block); });
 }
 
 void TestHost::send_refined_frame(std::vector<uint8_t> data, bool keyframe, gdp::RefineLayer layer) {

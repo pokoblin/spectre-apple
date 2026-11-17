@@ -94,6 +94,12 @@ void StreamReceiveStats::on_frame_discarded(uint32_t frame_id) {
 	}
 }
 
+void StreamReceiveStats::on_slices_finished(uint64_t expected, uint64_t lost, uint32_t recovered_frames) {
+	slices_expected_ += expected;
+	slices_lost_ += lost;
+	recovered_frames_ += recovered_frames;
+}
+
 void StreamReceiveStats::record_timing(uint32_t decode_us, uint32_t present_us) {
 	decode_us_ = decode_us;
 	present_us_ = present_us;
@@ -134,12 +140,18 @@ bool StreamReceiveStats::take(uint64_t now_us, gdp::session::StreamStats *out) {
 		ft->set_bytes(t.bytes);
 		ft->set_span_us(t.span_us);
 	}
+	out->set_slices_expected(slices_expected_);
+	out->set_slices_lost(slices_lost_);
+	out->set_fec_recovered_frames(recovered_frames_);
 
 	last_.last_delay_min_us = delay_samples_ ? delay_min_us_ : 0;
 	last_.last_delay_avg_us = avg;
 	last_.last_delay_samples = delay_samples_;
 	last_.last_bytes = bytes_;
 	last_.last_interval_us = interval;
+	last_.slices_expected += slices_expected_;
+	last_.slices_lost += slices_lost_;
+	last_.fec_recovered_frames += recovered_frames_;
 
 	window_start_us_ = now_us;
 	bytes_ = 0;
@@ -147,6 +159,9 @@ bool StreamReceiveStats::take(uint64_t now_us, gdp::session::StreamStats *out) {
 	delay_min_us_ = 0;
 	delay_samples_ = 0;
 	trains_.clear();
+	slices_expected_ = 0;
+	slices_lost_ = 0;
+	recovered_frames_ = 0;
 	return true;
 }
 

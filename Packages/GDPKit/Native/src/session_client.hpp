@@ -11,6 +11,7 @@
 #include "receive_stats.hpp"
 
 #include "gdp/client_connection.hpp"
+#include "gdp/fec.hpp"
 #include "gdp/file_list.hpp"
 #include "gdp/file_transfer.hpp"
 #include "gdp/framing.hpp"
@@ -228,6 +229,7 @@ public:
 		uint64_t frames_dropped = 0; // complete but not delivered (waiting for a keyframe)
 		uint64_t microphone_sent = 0;
 		uint64_t microphone_dropped = 0; // not established, not negotiated, or the transport refused it
+		bool fec = false;                // `fec` in effect (§9.7)
 		StreamReceiveStats::Snapshot video;
 	};
 
@@ -430,6 +432,7 @@ private:
 	bool file_clipboard_ = false;           // `file-clipboard` among them (with `file` and `clipboard`)
 	bool file_share_ = false;               // `file-share` among them (with `file`)
 	bool refine_ = false;                   // `refine` among them
+	bool fec_ = false;                      // `fec` among them: parity on channel 0x04 (§9.7)
 	bool refine_paused_ = false;            // what the user wants, across connections
 	// The latest frame's layer, reused frame to frame.
 	gdp::RefineLayer refine_layer_;
@@ -467,6 +470,9 @@ private:
 	struct StreamState {
 		explicit StreamState(uint8_t id) : stats(id) {}
 		StreamReceiveStats stats;
+		// One per stream, so its slice counts (§7.5 fields 12-14) are this
+		// stream's alone.
+		gdp::VideoFrameReassembler reassembler;
 		// Dropping non-keyframes until a keyframe (§9.3): from the start,
 		// after a gap, and after a frame the decoder rejected.
 		bool awaiting_keyframe = true;
@@ -475,7 +481,6 @@ private:
 	StreamState &stream(uint8_t stream_id);
 	void drop_until_keyframe(StreamState &st);
 
-	gdp::VideoFrameReassembler reassembler_;
 	std::deque<StreamState> streams_; // deque: references stay valid as streams are added
 	// Frames completed before SessionAccept was processed (datagrams can
 	// overtake the control stream): delivered right after it.

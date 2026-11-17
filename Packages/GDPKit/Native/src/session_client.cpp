@@ -331,6 +331,7 @@ bool SessionClient::handle_accept(const gdp::session::SessionAccept &accept) {
 	file_share_ = file_ &&
 		std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFileShare) != capabilities_.end();
 	refine_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityRefine) != capabilities_.end();
+	fec_ = std::find(capabilities_.begin(), capabilities_.end(), gdp::kCapabilityFec) != capabilities_.end();
 	accepted_ = true;
 	// §11: our session clock starts now.
 	session_epoch_us_ = gdp::monotonic_us();
@@ -382,6 +383,19 @@ void SessionClient::handle_datagram(const uint8_t *data, size_t len, uint64_t ar
 		}
 		return;
 	}
+	if (*channel == gdp::DatagramChannel::kVideoParity) {
+		// §9.7: only with `fec` in effect, which also means accepted.
+		if (!fec_) return;
+		gdp::VideoParityHeader h;
+		const uint8_t *payload = nullptr;
+		size_t plen = 0;
+		if (!gdp::VideoParityHeader::decode(data, len, &h, &payload, &plen)) return;
+		StreamState &st = stream(h.stream_id);
+		st.stats.on_parity_datagram(len);
+		gdp::VideoFrameReassembler::Frame frame;
+		if (st.reassembler.push_parity(h, payload, plen, &frame)) handle_video_frame(frame);
+		return;
+	}
 	if (*channel != gdp::DatagramChannel::kVideo) return; // §3.2: drop what we don't use
 
 	gdp::VideoDatagramHeader h;
@@ -391,7 +405,7 @@ void SessionClient::handle_datagram(const uint8_t *data, size_t len, uint64_t ar
 	StreamState &st = stream(h.stream_id);
 	if (accepted_) st.stats.on_datagram(h, len, arrival_us, session_epoch_us_);
 	gdp::VideoFrameReassembler::Frame frame;
-	if (reassembler_.push(h, payload, plen, &frame)) handle_video_frame(frame);
+	if (st.reassembler.push(h, payload, plen, &frame)) handle_video_frame(frame);
 }
 
 void SessionClient::drop_until_keyframe(StreamState &st) {
@@ -494,6 +508,8 @@ void SessionClient::send_stats_report() {
 	uint64_t now = gdp::monotonic_us();
 	for (auto &st : streams_) {
 		gdp::session::StreamStats s;
+		auto fec = st.reassembler.take_stats();
+		st.stats.on_slices_finished(fec.slices_expected, fec.slices_lost, fec.frames_recovered);
 		if (st.stats.take(now, &s)) *report->add_streams() = std::move(s);
 	}
 	send_control(env);
@@ -673,6 +689,7 @@ SessionClient::LinkStats SessionClient::link_stats() const {
 	s.frames_dropped = frames_dropped_;
 	s.microphone_sent = microphone_sent_;
 	s.microphone_dropped = microphone_dropped_;
+	s.fec = fec_;
 	if (!streams_.empty()) s.video = streams_.front().stats.snapshot();
 	return s;
 }

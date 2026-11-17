@@ -714,7 +714,7 @@ final class PlaybackModel {
         }
         lastConfig = config
         var config = config
-        for capability in [GDPSession.Capability.clipboard, GDPSession.Capability.gamepad]
+        for capability in [GDPSession.Capability.clipboard, GDPSession.Capability.gamepad, GDPSession.Capability.fec]
             where !config.capabilities.contains(capability) {
             config.capabilities.append(capability)
         }

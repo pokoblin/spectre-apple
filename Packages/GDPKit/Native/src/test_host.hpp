@@ -159,6 +159,10 @@ public:
 		Stats last_stats;
 		std::vector<uint32_t> lost_frame_ids; // frames any report marked lost, deduplicated
 		uint64_t bytes_reported = 0;
+		// §7.5 fields 12-14, summed over every report.
+		uint64_t slices_expected = 0;
+		uint64_t slices_lost = 0;
+		uint64_t fec_recovered_frames = 0;
 
 		uint32_t keyframe_requests = 0;
 		std::vector<std::pair<uint32_t, uint32_t>> resolution_requests;
@@ -214,6 +218,7 @@ public:
 		uint32_t share_messages = 0;      // FileShare from the viewer (file-share)
 
 		uint32_t frames_sent = 0;
+		uint32_t parity_sent = 0; // parity datagrams (§9.7)
 		uint32_t next_frame_id = 0;
 		uint16_t max_datagram_size = 0;
 	};
@@ -230,8 +235,10 @@ public:
 	// Sends one coded frame as video datagrams (§9), with the next frame_id
 	// and the session clock as pts. Slices whose index is in `drop_slices`
 	// are not sent (simulated loss). `max_payload` 0 = what the path allows.
+	// With `fec` in effect (§9.7), each block gets `parity_per_block`
+	// parity shards after the data, all sent.
 	void send_video_frame(std::vector<uint8_t> data, bool keyframe, std::vector<uint16_t> drop_slices = {},
-		size_t max_payload = 0);
+		size_t max_payload = 0, size_t parity_per_block = 0);
 	// With `refine` in effect (§7.8): one frame and its lossless layer
 	// (layer.tile_pixels in the wire's BGR form). A base of no bytes is a
 	// layer-only frame.
