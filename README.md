@@ -38,6 +38,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - The remote desktop resizes to fit the window or screen, or runs at full Retina resolution. At Retina resolution, a recent ghost host (see [Requirements](#requirements)) also sets its desktop's scale to the Mac's or iPad's, so text and windows look as big as in a local app.
 - 60 frames a second unless **Frame Rate** is set to **Match Display** (**More › Resolution** on the Mac, **More** on iPad, and **Settings › Video**), which asks the host for the display's own rate: 120 Hz on a ProMotion screen. It needs a recent ghost host (see [Requirements](#requirements)), and each extra frame costs bandwidth and work for the host.
 - While a video plays or a game runs on the remote desktop, the Mac's or iPad's display stays awake too, as it would for a local one (needs a recent host as well).
+- Forward error correction: with a recent host (see [Requirements](#requirements)), packets lost on Wi-Fi or over the internet are rebuilt from parity the host sends after each frame, instead of the picture freezing until the next keyframe. The host sends parity only once loss shows (on a LAN, none until then) and sizes it to the loss.
 - Full screen on the Mac hides the toolbar and menu bar until the pointer reaches the top edge.
 - Remote audio with a jitter buffer and a mute button.
 
@@ -92,6 +93,7 @@ It is an independent, third-party client, not part of the ghost project (see [Ac
 - For PyroWave, a wraith built with libpyrowave (ghost's `packaging/build-pyrowave.sh`, which pins the revision both ends must share) and `pyrowave = true` under `[encode.codecs]` in `/etc/ghost/wraith.toml`.
 - For the host's desktop to follow the Mac's or iPad's scale at Retina resolution, a ghost from 18 October 2026 on (upstream `main`), whose wraith sets the scale on GNOME, KDE Plasma and wlroots desktops. `client_scale = false` under `[display]` in `/etc/ghost/wraith.toml` leaves the scale to the desktop's own settings.
 - For more than 60 frames a second, and for the display staying awake while the remote desktop is, a ghost from 23 October 2026 on (upstream `main`). Its wraith runs the desktop at the rate asked for up to `max_fps` under `[encode]` in `/etc/ghost/wraith.toml` (144 by default), and at 60 at most on the software encoder.
+- For forward error correction, a ghost from 2 November 2026 on (upstream `main`, 0.6.68). `fec` under `[network]` in `/etc/ghost/wraith.toml` is `"auto"` by default; `"off"` turns it off.
 
 ## Install
 

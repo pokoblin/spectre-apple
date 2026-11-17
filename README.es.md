@@ -38,6 +38,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - El escritorio remoto se ajusta al tamaño de la ventana o de la pantalla, o funciona a la resolución Retina completa. A resolución Retina, un host de ghost reciente (ver [Requisitos](#requisitos)) también ajusta la escala de su escritorio a la del Mac o del iPad, así que el texto y las ventanas se ven del mismo tamaño que en una app local.
 - 60 fotogramas por segundo, salvo que pongas **Frecuencia de fotogramas** en **Ajustar a la pantalla** (**Más › Resolución** en el Mac, **Más** en el iPad, y **Ajustes › Vídeo**), que pide al host la frecuencia de la propia pantalla: 120 Hz en una pantalla ProMotion. Necesita un host de ghost reciente (ver [Requisitos](#requisitos)), y cada fotograma de más cuesta ancho de banda y trabajo al host.
 - Mientras se reproduce un vídeo o se ejecuta un juego en el escritorio remoto, la pantalla del Mac o del iPad tampoco se apaga, como pasaría con uno local (también necesita un host reciente).
+- Corrección de errores hacia adelante: con un host reciente (ver [Requisitos](#requisitos)), los paquetes perdidos por Wi-Fi o a través de internet se reconstruyen con la paridad que el host envía tras cada fotograma, en lugar de congelarse la imagen hasta el siguiente fotograma clave. El host envía paridad solo cuando aparecen pérdidas (en una LAN, ninguna hasta entonces) y la ajusta a ellas.
 - En el Mac, la pantalla completa oculta la barra de herramientas y la barra de menús hasta que el puntero llega al borde superior.
 - El sonido del escritorio remoto, con un búfer de fluctuación y un botón para silenciarlo.
 
@@ -92,6 +93,7 @@ Es un cliente independiente, de terceros, y no forma parte del proyecto ghost (c
 - Para PyroWave, un wraith compilado con libpyrowave (`packaging/build-pyrowave.sh` de ghost, que fija la revisión que ambos extremos deben compartir) y `pyrowave = true` en `[encode.codecs]` de `/etc/ghost/wraith.toml`.
 - Para que el escritorio del host siga la escala del Mac o del iPad a resolución Retina, un ghost del 18 de octubre de 2026 en adelante (`main` del proyecto original), cuyo wraith ajusta la escala en escritorios GNOME, KDE Plasma y wlroots. `client_scale = false` en `[display]` de `/etc/ghost/wraith.toml` deja la escala a la configuración del propio escritorio.
 - Para más de 60 fotogramas por segundo, y para que la pantalla siga encendida mientras lo está el escritorio remoto, un ghost del 23 de octubre de 2026 en adelante (`main` del proyecto original). Su wraith ejecuta el escritorio a la frecuencia pedida, hasta `max_fps` en `[encode]` de `/etc/ghost/wraith.toml` (144 por defecto), y a 60 como mucho con el codificador por software.
+- Para la corrección de errores hacia adelante, un ghost del 2 de noviembre de 2026 en adelante (`main` del proyecto original, 0.6.68). `fec` en `[network]` de `/etc/ghost/wraith.toml` es `"auto"` por defecto; `"off"` la desactiva.
 
 ## Instalación
 

@@ -38,6 +38,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 - 遠端桌面的大小會跟隨視窗或螢幕，也可以以 Retina 的完整解析度執行。以 Retina 解析度執行時，較新的 ghost 主機（見[執行需求](#執行需求)）還會把桌面縮放設成和 Mac 或 iPad 相同，文字和視窗看起來和本機 App 一樣大。
 - 影格速率為每秒 60 格；把 **影格速率** 設為 **符合顯示器**（Mac 上在 **更多 › 解析度**，iPad 上在 **更多**，也都可以在 **設定 › 畫面** 中更改），就會向主機要求顯示器本身的更新率，ProMotion 螢幕上是 120 Hz。需要較新的 ghost 主機（見[執行需求](#執行需求)），影格越多，頻寬和主機的工作量也越大。
 - 遠端桌面上正在播放影片或執行遊戲時，Mac 或 iPad 的螢幕也會保持喚醒，和本機的情況一樣（同樣需要較新的主機）。
+- 前向錯誤更正：主機較新時（見[執行需求](#執行需求)），在 Wi-Fi 或網際網路上遺失的封包，會用主機在每個影格之後送來的同位資料補回來，畫面不必卡到下一個關鍵影格。主機看到封包遺失後才送同位資料（區域網路上在那之前不送），送多少依遺失率決定。
 - Mac 上全螢幕時會隱藏工具列和選單列，指標移到頂端邊緣時才出現。
 - 遠端桌面的聲音，具備抖動緩衝和靜音按鈕。
 
@@ -92,6 +93,7 @@ ghost 是一套開源的遠端桌面系統：主機端（wraith）透過 GDP 協
 - PyroWave 需要以 libpyrowave 建置的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了兩端必須一致的版本），並在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 中設定 `pyrowave = true`。
 - 要讓主機桌面在 Retina 解析度下跟隨 Mac 或 iPad 的縮放比例，需要 2026 年 10 月 18 日以後的 ghost（上游 `main`），它的 wraith 會在 GNOME、KDE Plasma 和 wlroots 桌面上設定縮放。在 `/etc/ghost/wraith.toml` 的 `[display]` 中設定 `client_scale = false`，縮放就交給桌面自己的設定。
 - 要使用每秒 60 格以上的影格速率，以及讓螢幕隨遠端桌面保持喚醒，需要 2026 年 10 月 23 日以後的 ghost（上游 `main`）。它的 wraith 會以要求的影格速率執行桌面，上限是 `/etc/ghost/wraith.toml` 中 `[encode]` 下的 `max_fps`（預設 144），使用軟體編碼器時最多 60。
+- 前向錯誤更正需要 2026 年 11 月 2 日以後的 ghost（上游 `main`，0.6.68）。`/etc/ghost/wraith.toml` 中 `[network]` 下的 `fec` 預設為 `"auto"`，設為 `"off"` 即可關閉。
 
 ## 安裝
 

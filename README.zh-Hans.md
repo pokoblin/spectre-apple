@@ -38,6 +38,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 - 远程桌面的大小跟随窗口或屏幕，也可以按 Retina 的完整分辨率运行。按 Retina 分辨率运行时，较新的 ghost 主机（见[运行要求](#运行要求)）还会把桌面缩放设成和 Mac 或 iPad 一样，文字和窗口看起来和本机 App 一样大。
 - 帧率为每秒 60 帧；把 **帧率** 设为 **匹配显示器**（Mac 上在 **更多 › 分辨率**，iPad 上在 **更多**，也都可以在 **设置 › 画面** 里改），就会向主机请求显示器本身的刷新率，ProMotion 屏幕上是 120 Hz。需要较新的 ghost 主机（见[运行要求](#运行要求)），帧数越多，带宽和主机的工作量也越大。
 - 远程桌面上在放视频或运行游戏时，Mac 或 iPad 的屏幕也会保持常亮，和本机的情况一样（同样需要较新的主机）。
+- 前向纠错：主机较新时（见[运行要求](#运行要求)），在 Wi-Fi 或互联网上丢掉的数据包，会用主机在每帧之后发来的校验数据补回来，画面不用卡到下一个关键帧。主机看到丢包后才发校验（局域网上在那之前不发），发多少按丢包率定。
 - Mac 上全屏时隐藏工具栏和菜单栏，指针移到顶部边缘时才出现。
 - 远程桌面的声音，带抖动缓冲和静音按钮。
 
@@ -92,6 +93,7 @@ ghost 是一套开源的远程桌面系统：主机端（wraith）通过 GDP 协
 - PyroWave 需要用 libpyrowave 构建的 wraith（ghost 的 `packaging/build-pyrowave.sh`，它固定了两端必须一致的版本），并在 `/etc/ghost/wraith.toml` 的 `[encode.codecs]` 里设置 `pyrowave = true`。
 - 要让主机桌面在 Retina 分辨率下跟随 Mac 或 iPad 的缩放比例，需要 2026 年 10 月 18 日以后的 ghost（上游 `main`），它的 wraith 会在 GNOME、KDE Plasma 和 wlroots 桌面上设置缩放。在 `/etc/ghost/wraith.toml` 的 `[display]` 里设置 `client_scale = false`，缩放就交给桌面自己的设置。
 - 要使用每秒 60 帧以上的帧率，以及让屏幕随远程桌面保持常亮，需要 2026 年 10 月 23 日以后的 ghost（上游 `main`）。它的 wraith 按请求的帧率运行桌面，上限是 `/etc/ghost/wraith.toml` 里 `[encode]` 下的 `max_fps`（默认 144），用软件编码器时最多 60。
+- 前向纠错需要 2026 年 11 月 2 日以后的 ghost（上游 `main`，0.6.68）。`/etc/ghost/wraith.toml` 里 `[network]` 下的 `fec` 默认是 `"auto"`，设成 `"off"` 就关掉。
 
 ## 安装
 
