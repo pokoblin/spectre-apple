@@ -44,11 +44,12 @@ public final class LoopbackHost: @unchecked Sendable {
         config.simulatePointer = true
         // Take the microphone, so loopback shows what the host receives (§10.1),
         // gamepads (§8.5), files (§7.12), and keep a clipboard: what the
-        // viewer copies comes back on the next attach.
+        // viewer copies comes back on the next attach. `fec` (§9.7) slices as
+        // a host with it does; nothing is lost here, so no parity is sent.
         config.capabilities = ["microphone", GDPSession.Capability.gamepad, GDPSession.Capability.clipboard,
                                GDPSession.Capability.file, GDPSession.Capability.fileClipboard,
                                GDPSession.Capability.fileShare,
-                               GDPSession.Capability.refine]
+                               GDPSession.Capability.refine, GDPSession.Capability.fec]
         config.clipboard = clipboard
         config.hostFiles = copiedFiles
         fileDirectory = FileManager.default.temporaryDirectory.appending(path: "Loopback Files", directoryHint: .isDirectory)

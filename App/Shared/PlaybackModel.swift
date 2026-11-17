@@ -1259,6 +1259,12 @@ final class PlaybackModel {
                           link.recentLosses, link.windowSpan)
         text += String(format: "\nfirst-slice delay min %d / avg %d µs (offset unknown), %u reports sent",
                        link.delayMinMicroseconds, link.delayAvgMicroseconds, link.statsReportsSent)
+        if link.fec {
+            // §9.7: the slice loss is the path's, before parity repaired any.
+            let loss = link.slicesExpected > 0 ? Double(link.slicesLost) / Double(link.slicesExpected) * 100 : 0
+            text += String(format: "\nfec: %llu frames rebuilt, slice loss %.2f%% (%llu of %llu)",
+                           link.fecRecoveredFrames, loss, link.slicesLost, link.slicesExpected)
+        }
         text += "\n" + audioOverlay()
         text += "\n" + microphoneOverlay()
         if hasRefinement, let c = remote?.refinement.counters {
