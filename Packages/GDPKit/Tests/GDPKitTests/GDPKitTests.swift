@@ -147,16 +147,33 @@ struct VideoDatagramTests {
         #expect(done.data == frame && done.frameID == 9 && done.keyframe && done.pts == 77)
     }
 
-    @Test func newerFrameDropsIncompleteOlder() {
+    /// §9.3: a few frames stay in progress, so reordering across frames
+    /// loses nothing; completing one gives up every older one.
+    @Test func framesInProgressCompleteInOrder() {
         let reassembler = VideoFrameReassembler()
-        let old = VideoDatagram.slice([UInt8](repeating: 1, count: 3000), header: VideoDatagramHeader(frameID: 1),
-                                      maxPayload: 1000)
-        let new = VideoDatagram.slice([UInt8](repeating: 2, count: 1500), header: VideoDatagramHeader(frameID: 2),
-                                      maxPayload: 1000)
-        #expect(reassembler.push(old[0]) == nil)
-        #expect(reassembler.push(new[0]) == nil)
-        #expect(reassembler.push(old[1]) == nil) // frame 1 was discarded; this restarts it
-        #expect(reassembler.push(new[1]) == nil) // and that discarded frame 2
+        func frame(_ id: UInt32, _ count: Int) -> [[UInt8]] {
+            VideoDatagram.slice([UInt8](repeating: UInt8(id), count: count * 1000), header: VideoDatagramHeader(frameID: id),
+                                maxPayload: 1000)
+        }
+        let f1 = frame(1, 3), f2 = frame(2, 2), f3 = frame(3, 2), f4 = frame(4, 1)
+        #expect(reassembler.push(f1[0]) == nil)
+        #expect(reassembler.push(f2[0]) == nil)
+        #expect(reassembler.push(f1[1]) == nil)
+        #expect(reassembler.push(f1[2])?.frameID == 1) // still in progress after frame 2 began
+        #expect(reassembler.push(f3[0]) == nil)
+        #expect(reassembler.push(f3[1])?.frameID == 3) // and frame 2, older, is given up
+        #expect(reassembler.push(f2[1]) == nil)        // late: ignored
+        #expect(reassembler.push(f4[0])?.frameID == 4)
+    }
+
+    @Test func theOldestFrameInProgressMakesRoom() {
+        let reassembler = VideoFrameReassembler()
+        let frames = (UInt32(1)...4).map {
+            VideoDatagram.slice([UInt8](repeating: 0, count: 2000), header: VideoDatagramHeader(frameID: $0), maxPayload: 1000)
+        }
+        for f in frames { #expect(reassembler.push(f[0]) == nil) } // the reference keeps three: frame 1 goes
+        #expect(reassembler.push(frames[0][1]) == nil)
+        #expect(reassembler.push(frames[1][1])?.frameID == 2)
     }
 }
 

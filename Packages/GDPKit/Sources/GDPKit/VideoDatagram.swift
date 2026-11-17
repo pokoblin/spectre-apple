@@ -80,8 +80,9 @@ public struct VideoFrame: Equatable, Sendable {
     public let data: [UInt8]
 }
 
-/// libgdp's `VideoFrameReassembler` (§9.3): one frame in progress per
-/// stream; a newer frame_id drops an incomplete older one.
+/// libgdp's `VideoFrameReassembler` (§9.3): a few frames in progress per
+/// stream, completed in frame_id order; completing one gives up every
+/// incomplete older one.
 public final class VideoFrameReassembler {
     private let handle: OpaquePointer
 
